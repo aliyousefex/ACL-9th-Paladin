@@ -79,6 +79,8 @@ def main():
              Paragraph("Answer: after comparing like starting-grid bands, home drivers do not show a consistent podium advantage. Their rates are slightly lower in four bands and only marginally higher in grid positions 11-15; this descriptive result does not establish causality.", styles["BodyText"]),
              PageBreak(), Paragraph("3. Mechanical retirements", styles["Heading2"]),
              Paragraph("Results are joined to status and constructor. Only documented component failures count; crashes, driver errors, disqualifications, and regulation decisions are excluded. Rates use race starts as the denominator and require at least 20 starts per constructor-era.", styles["BodyText"]),
+             Paragraph("Included mechanical statuses: " + ", ".join(summary["mechanical_statuses"]) + ".", styles["Small"]),
+             Paragraph("Non-start statuses removed from the denominator: " + ", ".join(summary["non_start_statuses"]) + ".", styles["Small"]),
              figure("mechanical_retirements"), df_table(q3.groupby("era").head(7), ["era", "constructor_name", "mean", "sum", "count"]),
              Paragraph(f"Answer: {q3_leaders.iloc[0].constructor_name} has the highest mechanical-retirement rate in {q3_leaders.iloc[0].era} ({q3_leaders.iloc[0]['mean']:.1%}); {q3_leaders.iloc[1].constructor_name} leads {q3_leaders.iloc[1].era} ({q3_leaders.iloc[1]['mean']:.1%}). These rates use all starts, not only retirements, as the denominator.", styles["BodyText"]),
              Paragraph("Features and leakage control", styles["Heading1"]),

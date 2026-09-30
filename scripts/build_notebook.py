@@ -27,7 +27,7 @@ results = run_analysis(ROOT / 'data' / 'raw', ROOT / 'artifacts')
 print(results['summary'])"""))
 cells.append(nbf.v4.new_markdown_cell("""## 1. Raw audit and cleaning
 
-The raw CSVs are never modified. Literal `\\N` sentinels become missing values on read; dates and qualifying durations receive semantic types. Primary keys and major foreign keys are checked programmatically. Shared-drive duplicates are resolved by keeping a car the driver actually started (`grid > 0`), then the best final classification, then the smallest result ID. This retains pre-race entrant identity and is deterministic."""))
+The raw CSVs are never modified. Literal `\\N` sentinels become missing values on read, while dates and qualifying durations receive proper types. Primary keys and major foreign keys are checked in code. For shared-drive duplicates, we keep the car the driver actually started (`grid > 0`), then the best final classification, then the smallest result ID. The rule is simple and repeatable, ya3ni the result does not depend on row order."""))
 cells.append(nbf.v4.new_code_cell("""display(results['pk_audit'])
 display(results['fk_audit'])
 display(results['summary']['diagnostics'])"""))
@@ -41,11 +41,15 @@ Each answer uses multi-hop joins. Question 1 joins results, races, and circuits 
 cells.append(nbf.v4.new_code_cell("""for key, table in results['answers'].items():
     print('\\n', key)
     display(table.groupby('era').head(10) if 'era' in table else table)
+print('Statuses counted as mechanical:')
+display(results['summary']['mechanical_statuses'])
+print('Statuses excluded because the car did not start:')
+display(results['summary']['non_start_statuses'])
 for name in ['front_row_conversion', 'home_effect', 'mechanical_retirements']:
     display(Image(filename=str(ROOT / f'artifacts/figures/{name}.png')))"""))
 cells.append(nbf.v4.new_markdown_cell("""## 4. Leakage-safe feature engineering and split
 
-Grid, pit-lane indicator, field size, qualifying order/time/missingness, age, season context, and **lagged** driver/constructor form are pre-race features. Standings are shifted to the next race within the same season. Rolling form uses `shift()` before `rolling()`, so the current target cannot leak into its own predictors. Post-race position, points, laps, status, pit stops, and fastest lap never enter the feature matrix."""))
+Grid, pit-lane indicator, field size, qualifying order/time/missingness, age, season context, and **lagged** driver/constructor form are pre-race features. Standings are shifted to the next race within the same season. Rolling form uses `shift()` before `rolling()`, so the current target cannot leak into its own predictors. In short, el race result we are trying to predict never sneaks into its own input row. Post-race position, points, laps, status, pit stops, and fastest lap never enter the feature matrix."""))
 cells.append(nbf.v4.new_code_cell("""from f1podium.pipeline import FEATURES, FEATURE_GROUPS, split_by_time
 display(FEATURE_GROUPS)
 splits = split_by_time(results['modeling_table'])
@@ -66,7 +70,7 @@ cells.append(nbf.v4.new_code_cell("""display(results['ablations'])
 display(Image(filename=str(ROOT / 'artifacts/figures/ablation.png')))"""))
 cells.append(nbf.v4.new_markdown_cell("""## 8. Explainability
 
-Permutation importance and global SHAP summarize reliance across many validation rows. Local SHAP explains one validation prediction. **These associations are not causal effects:** importance means the fitted model relied on a feature, not that changing it would cause a podium."""))
+Permutation importance and global SHAP summarize reliance across many validation rows. Local SHAP explains one validation prediction. **These associations are not causal effects:** importance means the fitted model relied on a feature, mesh proof that changing it would cause a podium."""))
 cells.append(nbf.v4.new_code_cell("""for name in ['permutation_importance', 'shap_global', 'shap_local']:
     display(Image(filename=str(ROOT / f'artifacts/figures/{name}.png')))
 display(results['shap_global'].head(12))

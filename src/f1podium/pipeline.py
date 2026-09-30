@@ -116,6 +116,7 @@ def clean_results(results: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     classification, then the smallest resultId. This is reproducible and preserves
     the pre-race identity of the entrant whenever possible.
     """
+    # We work on a copy because the milestone says the raw tables must stay untouched.
     frame = results.copy()
     frame["_started"] = frame["grid"].fillna(0).gt(0)
     counts = frame.groupby(["raceId", "driverId"]).size().rename("rows").reset_index()
@@ -133,6 +134,8 @@ def _previous_standings(standings: pd.DataFrame, races: pd.DataFrame, entity: st
     columns = ["raceId", entity, "points", "position"]
     s = standings[columns].merge(races[["raceId", "year", "round"]], on="raceId", how="left")
     s = s.sort_values([entity, "year", "round"])
+    # A standings row describes the table after a race. Moving it to the next race
+    # makes it valid at our prediction cutoff. Hena the shift prevents leakage.
     s["next_raceId"] = s.groupby([entity, "year"])["raceId"].shift(-1)
     prefix = "driver" if entity == "driverId" else "constructor"
     return s.dropna(subset=["next_raceId"])[["next_raceId", entity, "points", "position"]].rename(
@@ -154,6 +157,8 @@ def build_modeling_table(tables: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame,
     base["dob"] = pd.to_datetime(base["dob"], errors="coerce")
     base["driver_age"] = (base["date"] - base["dob"]).dt.days / 365.2425
     base["podium"] = base["positionOrder"].le(3).astype(int)
+    # Ergast uses grid 0 for pit-lane and exceptional starts. Keep that fact in its
+    # own flag instead of pretending that zero is better than pole position.
     base["grid_position"] = base["grid"].where(base["grid"].gt(0))
     base["pit_lane_start"] = base["grid"].eq(0).astype(int)
     base["front_row"] = base["grid"].isin([1, 2]).astype(int)
@@ -220,6 +225,7 @@ def model_definitions(random_state: int = 42) -> dict[str, Pipeline]:
 
 def _best_threshold(y: pd.Series, probability: np.ndarray) -> float:
     candidates = np.linspace(0.05, 0.80, 151)
+    # The test set stays completely out of this choice. Bas keda: validation only.
     scores = [f1_score(y, probability >= value, zero_division=0) for value in candidates]
     return float(candidates[int(np.argmax(scores))])
 
@@ -290,7 +296,13 @@ MECHANICAL_TERMS = {
     "Radiator", "Oil pressure", "Water leak", "Fuel pump", "Power Unit", "Turbo", "ERS",
     "Water pressure", "Oil leak", "Fuel pressure", "Wheel bearing", "Throttle", "Steering",
     "Technical", "Electronics", "Battery", "Alternator", "Spark plugs", "Fuel system",
+    "Power loss", "Wheel", "Exhaust", "Undertray", "Wheel nut", "Front wing", "Rear wing",
+    "Fuel leak", "Vibrations", "Drivetrain", "Brake duct", "Cooling system", "Water pump",
 }
+
+# These drivers appeared in the event data but did not actually start the race.
+# Removing them keeps the denominator faithful to "mechanical retirements per start".
+NON_START_STATUSES = {"Withdrew", "Did not start", "Did not qualify", "Did not prequalify", "Excluded"}
 
 NATIONALITY_TO_COUNTRY = {
     "American": "USA", "Argentine": "Argentina", "Australian": "Australia", "Austrian": "Austria",
@@ -304,11 +316,15 @@ NATIONALITY_TO_COUNTRY = {
 
 
 def engineering_answers(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    # Q1 uses the final starting grid. Qualifying position stays separate because a
+    # penalty can move a driver before lights out, w da exactly why it matters.
     q1_source = frame[frame.grid.isin([1, 2])].copy()
     q1_source["era"] = np.where(q1_source.year >= 2014, "2014-2024", "1950-2013")
     q1 = (q1_source.groupby(["era", "circuit_name"]).podium.agg(["mean", "count"]).reset_index()
           .query("count >= 10").sort_values(["era", "mean"], ascending=[True, False]))
 
+    # Grid bands are a simple, explainable control. We compare home and away drivers
+    # from roughly the same part of the grid, mesh raw averages only.
     home = frame.copy()
     home["home_country"] = home.driver_nationality.map(NATIONALITY_TO_COUNTRY)
     home = home[home.home_country.notna() & home.grid_position.notna()].copy()
@@ -319,6 +335,7 @@ def engineering_answers(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) ->
     status = tables["status"].set_index("statusId")["status"]
     q3_source = frame[frame.year.between(2014, 2024)].copy()
     q3_source["status_text"] = q3_source.statusId.map(status)
+    q3_source = q3_source[~q3_source.status_text.isin(NON_START_STATUSES)].copy()
     q3_source["mechanical"] = q3_source.status_text.isin(MECHANICAL_TERMS)
     q3_source["era"] = np.where(q3_source.year <= 2021, "2014-2021", "2022-2024")
     q3 = q3_source.groupby(["era", "constructor_name"]).mechanical.agg(["mean", "sum", "count"]).reset_index()
@@ -412,7 +429,13 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     demos = {"model": best_name,
              "complete_record": predict_podium(complete, trained[best_name], thresholds[best_name]),
              "partial_record": predict_podium(partial, trained[best_name], thresholds[best_name])}
-    summary = {"diagnostics": diagnostics, "thresholds": thresholds, "inference_demos": demos}
+    summary = {
+        "diagnostics": diagnostics,
+        "thresholds": thresholds,
+        "inference_demos": demos,
+        "mechanical_statuses": sorted(MECHANICAL_TERMS),
+        "non_start_statuses": sorted(NON_START_STATUSES),
+    }
     (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return {"tables": tables, "modeling_table": frame, "pk_audit": pk, "fk_audit": fk,
             "answers": answers, "models": trained, "metrics": metrics, "thresholds": thresholds,

@@ -5,9 +5,11 @@ import pandas as pd
 
 from f1podium.pipeline import (
     FEATURES,
+    NON_START_STATUSES,
     _time_to_seconds,
     build_modeling_table,
     clean_results,
+    engineering_answers,
     load_raw_tables,
     split_by_time,
 )
@@ -73,4 +75,39 @@ def test_randomized_duplicate_cleaning_is_deterministic_and_unique():
         clean_a.sort_values("resultId").reset_index(drop=True),
         clean_b.sort_values("resultId").reset_index(drop=True),
     )
+
+
+def test_mechanical_rate_denominator_contains_race_starts_only():
+    tables = load_raw_tables("data/raw")
+    frame, _ = build_modeling_table(tables)
+    answers = engineering_answers(frame, tables)
+    status = tables["status"].set_index("statusId")["status"]
+    modern = frame[frame.year.between(2014, 2024)].copy()
+    modern["status_text"] = modern.statusId.map(status)
+    valid = modern[~modern.status_text.isin(NON_START_STATUSES)].copy()
+    valid["era"] = np.where(valid.year <= 2021, "2014-2021", "2022-2024")
+    expected = (valid.groupby(["era", "constructor_name"]).size().rename("expected_count")
+                .reset_index().query("expected_count >= 20"))
+    reported = answers["mechanical_retirements"][["era", "constructor_name", "count"]]
+    check = reported.merge(expected, on=["era", "constructor_name"], validate="one_to_one")
+
+    assert len(check) == len(reported) == len(expected)
+    assert (check["count"] == check["expected_count"]).all()
+    assert not modern.loc[modern.status_text.isin(NON_START_STATUSES), "status_text"].empty
+
+
+def test_current_race_result_cannot_change_its_own_features():
+    tables = load_raw_tables("data/raw")
+    original, _ = build_modeling_table(tables)
+    latest_race = int(original.loc[original.date.eq(original.date.max()), "raceId"].max())
+
+    changed_tables = {name: table.copy() for name, table in tables.items()}
+    current = changed_tables["results"].raceId.eq(latest_race)
+    changed_tables["results"].loc[current, "positionOrder"] = 99
+    changed, _ = build_modeling_table(changed_tables)
+
+    left = original[original.raceId.eq(latest_race)].sort_values("driverId").reset_index(drop=True)
+    right = changed[changed.raceId.eq(latest_race)].sort_values("driverId").reset_index(drop=True)
+    pd.testing.assert_frame_equal(left[FEATURES], right[FEATURES])
+    assert not left.podium.equals(right.podium)
 
