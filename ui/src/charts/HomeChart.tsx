@@ -11,25 +11,25 @@ export function HomeChart() {
 
   return (
     <div className="w-full">
-      <p className="mb-2 font-mono text-[12px]">
+      <p className="mb-2 text-[1rem]">
         <span className="text-steel">Away</span>
-        <span className="mx-2 text-quiet">/</span>
-        <span className="text-signal">Home</span>
+        <span className="mx-2 text-line">/</span>
+        <span className="text-ink">Home</span>
       </p>
       <div className="h-56 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#d5cec2" vertical={false} />
+          <CartesianGrid stroke="#2c3138" vertical={false} />
           <XAxis
             dataKey="band"
-            tick={{ fill: "#17191c", fontSize: 11, fontFamily: "IBM Plex Mono, monospace" }}
-            axisLine={{ stroke: "#17191c" }}
+            tick={{ fill: "#c5cad1", fontSize: 12, fontFamily: "Barlow Condensed, sans-serif" }}
+            axisLine={{ stroke: "#2c3138" }}
             tickLine={false}
           />
           <YAxis
             domain={[0, 0.6]}
             tickFormatter={(value: number) => pct(value, 0)}
-            tick={{ fill: "#17191c", fontSize: 11, fontFamily: "IBM Plex Mono, monospace" }}
+            tick={{ fill: "#c5cad1", fontSize: 12, fontFamily: "Barlow Condensed, sans-serif" }}
             axisLine={false}
             tickLine={false}
             width={40}
@@ -37,15 +37,16 @@ export function HomeChart() {
           <Tooltip
             formatter={(value) => pct(Number(value), 1)}
             contentStyle={{
-              background: "#f3f0e8",
-              border: "1px solid #17191c",
+              background: "#07080a",
+              border: "1px solid #2c3138",
               borderRadius: 0,
-              fontFamily: "IBM Plex Mono, monospace",
-              fontSize: 12,
+              color: "#f4f4f2",
+              fontFamily: "Barlow Condensed, sans-serif",
+              fontSize: 14,
             }}
           />
-          <Line type="monotone" dataKey="Away" stroke="#1e3a5f" strokeWidth={1.75} dot={{ r: 3, fill: "#1e3a5f" }} />
-          <Line type="monotone" dataKey="Home" stroke="#9f1d14" strokeWidth={1.75} dot={{ r: 3, fill: "#9f1d14" }} />
+          <Line type="monotone" dataKey="Away" stroke="#c5cad1" strokeWidth={1.75} dot={{ r: 3, fill: "#c5cad1" }} activeDot={{ r: 5, fill: "#f4f4f2" }} />
+          <Line type="monotone" dataKey="Home" stroke="#e10600" strokeWidth={1.75} dot={{ r: 3, fill: "#e10600" }} activeDot={{ r: 5, fill: "#e10600" }} />
         </LineChart>
       </ResponsiveContainer>
       </div>

@@ -18,12 +18,39 @@ cells.append(nbf.v4.new_markdown_cell("""# Milestone 1: Formula 1 Podium Predict
 This run-all notebook predicts whether each driver finishes on the podium using only information known after qualifying and before the race. The primary metric is **PR-AUC** because podiums are rare; ROC-AUC is secondary. Threshold-dependent F1, precision, and recall are also reported. The chronological split is train through 2019, validation in 2020-2021, and unseen test in 2022-2024."""))
 cells.append(nbf.v4.new_code_cell("""from pathlib import Path
 import sys
+
 ROOT = Path.cwd().resolve()
-if ROOT.name == 'notebooks': ROOT = ROOT.parent
-sys.path.insert(0, str(ROOT / 'src'))
+if ROOT.name == 'notebooks':
+    ROOT = ROOT.parent
+
+def _add_package(root: Path) -> None:
+    local = root / 'src'
+    if (local / 'f1podium' / 'pipeline.py').exists():
+        sys.path.insert(0, str(local))
+        return
+    kaggle = Path('/kaggle/input')
+    if not kaggle.exists():
+        return
+    for match in kaggle.rglob('pipeline.py'):
+        if match.parent.name == 'f1podium':
+            sys.path.insert(0, str(match.parent.parent))
+            return
+
+def _data_dir(root: Path) -> Path:
+    local = root / 'data' / 'raw'
+    if (local / 'results.csv').exists():
+        return local
+    matches = sorted(Path('/kaggle/input').rglob('results.csv'))
+    if not matches:
+        raise FileNotFoundError('results.csv was not found in data/raw or /kaggle/input')
+    return matches[0].parent
+
+_add_package(ROOT)
+DATA = _data_dir(ROOT)
+OUT = ROOT / 'artifacts'
 from IPython.display import display, Image
 from f1podium.pipeline import run_analysis
-results = run_analysis(ROOT / 'data' / 'raw', ROOT / 'artifacts')
+results = run_analysis(DATA, OUT)
 print(results['summary'])"""))
 cells.append(nbf.v4.new_markdown_cell("""## 1. Raw audit and cleaning
 

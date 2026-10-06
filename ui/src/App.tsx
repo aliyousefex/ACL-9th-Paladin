@@ -24,8 +24,8 @@ export default function App() {
       </a>
       <Tower active={active} />
       <MobileNav active={active} />
-      <main className="px-5 py-8 md:ml-56 md:px-12 md:py-12">
-        <div className="mx-auto max-w-3xl">
+      <main className="px-5 py-8 md:ml-72 md:px-12 md:py-12">
+        <div className="mx-auto max-w-5xl">
           <Decision />
           <Book />
           <Findings />

@@ -12,10 +12,10 @@ export function Choice({
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className={`cursor-pointer border px-2.5 py-1 font-mono text-[12px] ${
+      className={`cursor-pointer border px-3 py-1.5 text-[0.95rem] ${
         pressed
-          ? "border-ink bg-ink text-paper"
-          : "border-line bg-paper text-ink hover:border-steel"
+          ? "border-signal bg-signal text-ink"
+          : "border-line bg-transparent text-steel hover:border-ink hover:text-ink"
       }`}
     >
       {children}
