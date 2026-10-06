@@ -4,7 +4,7 @@ ACL-903 Milestone 1 is a reproducible relational-data and machine-learning pipel
 
 The prediction is made **after qualifying and before the race starts**. Every model feature must be available at that cutoff.
 
-If you are joining the team and wondering where to start, begin hena, then open `src/f1podium/pipeline.py`. The notebook is easier to read, but the pipeline contains the rules everyone shares.
+Start with this README, then open `src/f1podium/pipeline.py`. The notebook presents the work, bas the pipeline contains the shared implementation.
 
 ## Project contract
 
@@ -49,7 +49,7 @@ flowchart TD
 
 The implementation lives in `src/f1podium/pipeline.py`. The notebook calls the same implementation rather than maintaining a second copy of the analysis.
 
-In simple terms: momken run the analysis from the notebook or from the command line, but both routes must reach the same pipeline code and the same results.
+The analysis can run from the notebook or the command line. Both routes use the same pipeline code and produce the same results.
 
 ## Core repository contents
 
@@ -82,11 +82,11 @@ ACL-9th-Paladin/
 `-- README.md                         This orientation document
 ```
 
-Generated `artifacts/`, temporary files, the optional UI/design workspace, deployment metadata, and personal evaluation notes are intentionally excluded from Git.
+Generated `artifacts/`, temporary files, the optional UI/design workspace, deployment metadata, and personal evaluation notes are excluded from Git.
 
 ## How the core files differ
 
-The project deliberately separates implementation, verification, presentation, and document generation. The same analysis should not be independently rewritten in multiple places.
+Implementation, verification, presentation, and document generation are kept separate. The analysis is implemented once in the pipeline.
 
 ```text
                          +----------------------+
@@ -202,7 +202,7 @@ This script reads the generated CSV tables, figures, and summary information fro
 | `run_analysis.py` | Start button | Runs the pipeline directly |
 | `build_report.py` | Publisher | Turns generated results into the final report |
 
-The main design principle is that `pipeline.py` is the single analytical source of truth. The tests verify it, the notebook demonstrates it, and the report communicates its results.
+`pipeline.py` is the analytical source of truth. The tests verify it, the notebook demonstrates it, and the report communicates its results. Keda the calculations stay consistent in every deliverable.
 
 ## Milestone requirements covered
 
@@ -347,7 +347,7 @@ Rebuild the analytical report after regenerating artifacts:
 .\.venv\Scripts\python.exe scripts\build_report.py
 ```
 
-The dependency order is important:
+Build order:
 
 ```text
 run_analysis.py or executed notebook
@@ -358,7 +358,7 @@ run_analysis.py or executed notebook
 
 ## Kaggle notebook
 
-The repository notebook is also the Kaggle submission notebook. We intentionally do not keep a second analytical notebook, because two copies momken drift and show different numbers.
+The repository notebook is also the Kaggle submission notebook. Keeping one notebook prevents local and Kaggle versions from drifting apart.
 
 The only difference is where inputs come from:
 
@@ -389,7 +389,7 @@ To publish on Kaggle:
 6. Confirm that every code cell completes and that tables and figures appear.
 7. Save a version with outputs, then make the notebook accessible using the visibility required for submission.
 
-The first notebook cell automatically searches `/kaggle/input` for `results.csv` and either an unpacked `f1podium/pipeline.py` or the ZIP bundle. Hena Kaggle-specific work is limited to path discovery; the analysis itself stays identical.
+The first notebook cell searches `/kaggle/input` for `results.csv` and either an unpacked `f1podium/pipeline.py` or the ZIP bundle. Hena only path discovery changes; the analysis remains identical.
 
 ## Automated tests
 
@@ -440,14 +440,14 @@ Exact scores, thresholds, plots, and sample sizes are stored in the executed not
 
 The checklist annotations use these initials:
 
-| Initial | Team member | Color in the checklist |
-| --- | --- | --- |
-| Y | Yahia | Blue |
-| R | Rana | Red |
-| A | Ali | Black |
-| A* | Aya | Green |
+| Initial | Team member |
+| --- | --- |
+| Y | Yahia |
+| R | Rana |
+| A | Ali |
+| A* | Aya |
 
-Ownership means that person should understand, maintain, present, and defend the assigned work. Everyone should still understand the complete pipeline because evaluation questions may be directed to any team member.
+Ownership means that person should understand, maintain, present, and defend the assigned work. Kol wahed still needs a basic understanding of the complete pipeline because evaluation questions may be directed to any team member.
 
 ### Yahia (Y): EDA, analytical questions, and feature evidence
 
@@ -490,13 +490,6 @@ Yahia should be able to explain:
 - Which statuses and denominators define a mechanical retirement.
 - How qualifying coverage motivated the missingness flag and retention of grid features.
 - Why descriptive results and feature importance are associations rather than causal effects.
-
-Expected handoff:
-
-- Provide Ali with clearly documented cleaning/EDA observations.
-- Provide Aya with evidence motivating preprocessing and feature design.
-- Provide Rana with the descriptive evidence used to interpret model behavior.
-- Confirm that every analytical answer appears as a table, plot, and explicit markdown conclusion.
 
 ### Rana (R): predictive models, evaluation, ablation, and XAI
 
@@ -554,13 +547,6 @@ Rana should be able to explain:
 - Why local SHAP satisfies the official local-XAI requirement without LIME.
 - Why XAI results must not be presented as causal effects.
 
-Expected handoff:
-
-- Receive the locked features and splits from Aya.
-- Receive domain interpretations from Yahia.
-- Confirm with Ali that no post-race column enters the model.
-- Return final metrics, figures, selected thresholds, ablations, and explanations for the notebook and report.
-
 ### Ali (A): cleaning, relational integrity, and integration
 
 Ali primarily owns data cleaning, auditing, modeling grain, and final integration. Ali also shares feature-selection responsibility with Aya because cleaning decisions determine which candidate features are valid and available.
@@ -610,13 +596,6 @@ Ali should be able to explain:
 - How the complete pipeline flows from raw CSVs to artifacts, notebook, and report.
 - Which files are generated, ignored, or intended for submission.
 
-Expected handoff:
-
-- Give Yahia an audited, cleaned, unique driver-race table.
-- Agree with Aya on semantic transformations and pre-race availability.
-- Audit Rana's final feature matrix for leakage before accepting model results.
-- Run the full tests, execute the notebook, rebuild the report, and verify submission links.
-
 ### Aya (A*): preprocessing, feature engineering, and splitting
 
 Aya primarily owns the transformation from the cleaned table into a leakage-safe model-ready dataset. Feature selection is shared with Ali and supported by Yahia's EDA.
@@ -662,13 +641,6 @@ Aya should be able to explain:
 - Why the split is chronological rather than random.
 - Why training has more qualifying missingness and a lower podium rate than later splits.
 
-Expected handoff:
-
-- Receive the cleaned driver-race grain from Ali.
-- Use Yahia's EDA to justify missingness and feature choices.
-- Deliver a locked feature list and chronological split to Rana.
-- Confirm that inference uses the same training-fitted preprocessing pipeline.
-
 ### Shared ownership and review
 
 Some outputs require more than one owner:
@@ -687,16 +659,6 @@ Some outputs require more than one owner:
 | Executed notebook | Ali | All members |
 | Analytical report | Ali | All members |
 | Final submission links | Ali | One second reviewer before submission |
-
-### Recommended Git workflow
-
-- Create focused branches such as `yahia-eda`, `rana-modeling`, `ali-cleaning`, and `aya-features`.
-- Keep commits limited to one responsibility whenever possible.
-- Pull the latest shared branch before editing generated notebook/report outputs.
-- Avoid editing the same generated notebook or PDF in parallel; update source scripts first, then let one person regenerate them.
-- Run `python -m pytest` before requesting review.
-- Never commit `artifacts/`, caches, local environments, UI files, temporary renders, or personal study notes.
-- Do not commit directly to the shared branch until another team member has reviewed the relevant outputs.
 
 ## Submission outputs
 
