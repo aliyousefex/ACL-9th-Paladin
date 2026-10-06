@@ -7,9 +7,8 @@ Milestone 1 for ACL-903 builds a complete relational-data and machine-learning p
 - A run-all notebook: `notebooks/milestone_1_f1_podium_prediction.ipynb`
 - Reusable implementation: `src/f1podium/pipeline.py`
 - Immutable copies of all 14 Kaggle/Ergast CSV tables in `data/raw/`
-- The supplied brief and F1 introduction in `course-materials/milestone-1/`
 - Automated tests in `tests/`
-- A generated analytical report in `reports/`
+- The analytical report in `reports/milestone_1_analytical_report.pdf`
 
 The pipeline audits keys and relationships, converts sentinels and semantic types, resolves early shared-drive duplicates, answers the three data-engineering questions, constructs leakage-safe rolling form and prior-standings features, compares two statistical models with a shallow neural network, runs preprocessing and feature-group ablations, produces permutation and SHAP explanations, and demonstrates inference with complete and partial records.
 
@@ -21,12 +20,13 @@ Python 3.11 or 3.12 is recommended.
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 $env:PYTHONPATH = "src"
+.\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\python.exe scripts\build_notebook.py
 .\.venv\Scripts\python.exe -m jupyter nbconvert --to notebook --execute notebooks\milestone_1_f1_podium_prediction.ipynb --output milestone_1_f1_podium_prediction.ipynb --ExecutePreprocessor.timeout=1200
-.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe scripts\build_report.py
 ```
 
-The notebook regenerates `artifacts/`, which is intentionally ignored because it contains reproducible tables and figures. Raw course resources and dataset CSVs are not ignored.
+The notebook imports `src/f1podium/pipeline.py` and writes `artifacts/`. The report command reads those artifacts and writes `reports/milestone_1_analytical_report.pdf`. `artifacts/` stays out of git because the notebook recreates the tables and figures. The 14 CSV files in `data/raw/` stay as downloaded.
 
 ## Data decisions
 
@@ -45,13 +45,12 @@ The final run covers 26,668 unique driver-race rows after resolving 85 duplicate
 ## Repository map
 
 ```text
-course-materials/milestone-1/  Original, unmodified PDFs
 data/raw/                      Original Kaggle/Ergast CSV tables
 notebooks/                     Run-all milestone notebook
-reports/                       Submission-ready analytical PDF
-scripts/                       Reproducible notebook/report runners
+reports/                       Analytical PDF
+scripts/                       Notebook, analysis, and report runners
 src/f1podium/                  Data, modeling, evaluation, and XAI code
-tests/                         Integrity, edge-case, and leakage tests
+tests/                         Grain, split, and leakage checks
 ```
 
 ## Known limitations
