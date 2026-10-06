@@ -10,6 +10,10 @@ venv/
 artifacts/
 tmp/
 
+# Frontend
+ui/node_modules/
+ui/dist/
+
 # Editor and operating-system files
 .vscode/
 .idea/

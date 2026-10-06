@@ -1,0 +1,1051 @@
+{
+  "diagnostics": {
+    "raw_result_rows": 26759,
+    "duplicate_driver_race_groups": 85,
+    "clean_rows": 26668,
+    "unique_grain": true,
+    "year_min": 1950,
+    "year_max": 2024
+  },
+  "podiumRate": 0.12730613469326535,
+  "pitLaneShare": 0.06130943452827359,
+  "qualifyingMissing": 0.6064946752662367,
+  "audit": {
+    "tables": 11,
+    "rows": 100621,
+    "nullKeys": 0,
+    "duplicateKeys": 0,
+    "foreignKeys": 9,
+    "orphans": 0,
+    "checked": 177403
+  },
+  "tableCounts": [
+    {
+      "table": "circuits",
+      "rows": 77
+    },
+    {
+      "table": "constructors",
+      "rows": 212
+    },
+    {
+      "table": "constructor_results",
+      "rows": 12625
+    },
+    {
+      "table": "constructor_standings",
+      "rows": 13391
+    },
+    {
+      "table": "drivers",
+      "rows": 861
+    },
+    {
+      "table": "driver_standings",
+      "rows": 34863
+    },
+    {
+      "table": "races",
+      "rows": 1125
+    },
+    {
+      "table": "results",
+      "rows": 26759
+    },
+    {
+      "table": "qualifying",
+      "rows": 10494
+    },
+    {
+      "table": "seasons",
+      "rows": 75
+    },
+    {
+      "table": "status",
+      "rows": 139
+    }
+  ],
+  "splits": [
+    {
+      "name": "Training",
+      "seasons": "1950-2019",
+      "rows": 24529,
+      "races": 1018,
+      "startersPerRace": 24.095284872298624,
+      "podiumRate": 0.1253210485547719,
+      "qualifyingMissing": 0.6593420033429818
+    },
+    {
+      "name": "Validation",
+      "seasons": "2020-2021",
+      "rows": 780,
+      "races": 39,
+      "startersPerRace": 20.0,
+      "podiumRate": 0.15,
+      "qualifyingMissing": 0.001282051282051282
+    },
+    {
+      "name": "Test",
+      "seasons": "2022-2024",
+      "rows": 1359,
+      "races": 68,
+      "startersPerRace": 19.985294117647058,
+      "podiumRate": 0.15011037527593818,
+      "qualifyingMissing": 0.0
+    }
+  ],
+  "coverage": [
+    {
+      "year": 1950,
+      "coverage": 0.0
+    },
+    {
+      "year": 1951,
+      "coverage": 0.0
+    },
+    {
+      "year": 1952,
+      "coverage": 0.0
+    },
+    {
+      "year": 1953,
+      "coverage": 0.0
+    },
+    {
+      "year": 1954,
+      "coverage": 0.0
+    },
+    {
+      "year": 1955,
+      "coverage": 0.0
+    },
+    {
+      "year": 1956,
+      "coverage": 0.0
+    },
+    {
+      "year": 1957,
+      "coverage": 0.0
+    },
+    {
+      "year": 1958,
+      "coverage": 0.0
+    },
+    {
+      "year": 1959,
+      "coverage": 0.0
+    },
+    {
+      "year": 1960,
+      "coverage": 0.0
+    },
+    {
+      "year": 1961,
+      "coverage": 0.0
+    },
+    {
+      "year": 1962,
+      "coverage": 0.0
+    },
+    {
+      "year": 1963,
+      "coverage": 0.0
+    },
+    {
+      "year": 1964,
+      "coverage": 0.0
+    },
+    {
+      "year": 1965,
+      "coverage": 0.0
+    },
+    {
+      "year": 1966,
+      "coverage": 0.0
+    },
+    {
+      "year": 1967,
+      "coverage": 0.0
+    },
+    {
+      "year": 1968,
+      "coverage": 0.0
+    },
+    {
+      "year": 1969,
+      "coverage": 0.0
+    },
+    {
+      "year": 1970,
+      "coverage": 0.0
+    },
+    {
+      "year": 1971,
+      "coverage": 0.0
+    },
+    {
+      "year": 1972,
+      "coverage": 0.0
+    },
+    {
+      "year": 1973,
+      "coverage": 0.0
+    },
+    {
+      "year": 1974,
+      "coverage": 0.0
+    },
+    {
+      "year": 1975,
+      "coverage": 0.0
+    },
+    {
+      "year": 1976,
+      "coverage": 0.0
+    },
+    {
+      "year": 1977,
+      "coverage": 0.0
+    },
+    {
+      "year": 1978,
+      "coverage": 0.0
+    },
+    {
+      "year": 1979,
+      "coverage": 0.0
+    },
+    {
+      "year": 1980,
+      "coverage": 0.0
+    },
+    {
+      "year": 1981,
+      "coverage": 0.0
+    },
+    {
+      "year": 1982,
+      "coverage": 0.0
+    },
+    {
+      "year": 1983,
+      "coverage": 0.0
+    },
+    {
+      "year": 1984,
+      "coverage": 0.0
+    },
+    {
+      "year": 1985,
+      "coverage": 0.0
+    },
+    {
+      "year": 1986,
+      "coverage": 0.0
+    },
+    {
+      "year": 1987,
+      "coverage": 0.0
+    },
+    {
+      "year": 1988,
+      "coverage": 0.0
+    },
+    {
+      "year": 1989,
+      "coverage": 0.0
+    },
+    {
+      "year": 1990,
+      "coverage": 0.0
+    },
+    {
+      "year": 1991,
+      "coverage": 0.0
+    },
+    {
+      "year": 1992,
+      "coverage": 0.0
+    },
+    {
+      "year": 1993,
+      "coverage": 0.0
+    },
+    {
+      "year": 1994,
+      "coverage": 0.8828828829
+    },
+    {
+      "year": 1995,
+      "coverage": 1.0
+    },
+    {
+      "year": 1996,
+      "coverage": 0.4352941176
+    },
+    {
+      "year": 1997,
+      "coverage": 0.585106383
+    },
+    {
+      "year": 1998,
+      "coverage": 0.4383954155
+    },
+    {
+      "year": 1999,
+      "coverage": 0.1846590909
+    },
+    {
+      "year": 2000,
+      "coverage": 0.235924933
+    },
+    {
+      "year": 2001,
+      "coverage": 0.0588235294
+    },
+    {
+      "year": 2002,
+      "coverage": 0.1160220994
+    },
+    {
+      "year": 2003,
+      "coverage": 1.0
+    },
+    {
+      "year": 2004,
+      "coverage": 1.0
+    },
+    {
+      "year": 2005,
+      "coverage": 1.0
+    },
+    {
+      "year": 2006,
+      "coverage": 1.0
+    },
+    {
+      "year": 2007,
+      "coverage": 1.0
+    },
+    {
+      "year": 2008,
+      "coverage": 1.0
+    },
+    {
+      "year": 2009,
+      "coverage": 1.0
+    },
+    {
+      "year": 2010,
+      "coverage": 1.0
+    },
+    {
+      "year": 2011,
+      "coverage": 0.9912280702
+    },
+    {
+      "year": 2012,
+      "coverage": 0.9916666667
+    },
+    {
+      "year": 2013,
+      "coverage": 1.0
+    },
+    {
+      "year": 2014,
+      "coverage": 0.9950859951
+    },
+    {
+      "year": 2015,
+      "coverage": 0.9894179894
+    },
+    {
+      "year": 2016,
+      "coverage": 0.9891774892
+    },
+    {
+      "year": 2017,
+      "coverage": 0.995
+    },
+    {
+      "year": 2018,
+      "coverage": 1.0
+    },
+    {
+      "year": 2019,
+      "coverage": 0.9952380952
+    },
+    {
+      "year": 2020,
+      "coverage": 1.0
+    },
+    {
+      "year": 2021,
+      "coverage": 0.9977272727
+    },
+    {
+      "year": 2022,
+      "coverage": 1.0
+    },
+    {
+      "year": 2023,
+      "coverage": 1.0
+    },
+    {
+      "year": 2024,
+      "coverage": 1.0
+    }
+  ],
+  "frontRow": {
+    "leaders": [
+      {
+        "era": "1950-2013",
+        "circuit": "Circuit de Nevers Magny-Cours",
+        "rate": 0.8055555555555556,
+        "starts": 36
+      },
+      {
+        "era": "1950-2013",
+        "circuit": "Istanbul Park",
+        "rate": 0.7857142857142857,
+        "starts": 14
+      },
+      {
+        "era": "1950-2013",
+        "circuit": "Dijon-Prenois",
+        "rate": 0.75,
+        "starts": 12
+      },
+      {
+        "era": "1950-2013",
+        "circuit": "Circuit Bremgarten",
+        "rate": 0.7,
+        "starts": 10
+      },
+      {
+        "era": "1950-2013",
+        "circuit": "Sepang International Circuit",
+        "rate": 0.7,
+        "starts": 30
+      },
+      {
+        "era": "2014-2024",
+        "circuit": "Suzuka Circuit",
+        "rate": 0.8888888888888888,
+        "starts": 18
+      },
+      {
+        "era": "2014-2024",
+        "circuit": "Yas Marina Circuit",
+        "rate": 0.8636363636363636,
+        "starts": 22
+      },
+      {
+        "era": "2014-2024",
+        "circuit": "Circuit de Monaco",
+        "rate": 0.85,
+        "starts": 20
+      },
+      {
+        "era": "2014-2024",
+        "circuit": "Circuit de Barcelona-Catalunya",
+        "rate": 0.8181818181818182,
+        "starts": 22
+      },
+      {
+        "era": "2014-2024",
+        "circuit": "Circuit de Spa-Francorchamps",
+        "rate": 0.8181818181818182,
+        "starts": 22
+      }
+    ],
+    "overall": [
+      {
+        "era": "1950-2013",
+        "rate": 0.5600894354387926,
+        "count": 1789
+      },
+      {
+        "era": "2014-2024",
+        "rate": 0.7599118942731278,
+        "count": 454
+      }
+    ],
+    "allStarters": [
+      {
+        "era": "1950-2013",
+        "rate": 0.12299246892296525,
+        "count": 22042
+      },
+      {
+        "era": "2014-2024",
+        "rate": 0.14785992217898833,
+        "count": 4626
+      }
+    ],
+    "median": [
+      {
+        "era": "1950-2013",
+        "rate": 0.567629179331307,
+        "circuits": 44
+      },
+      {
+        "era": "2014-2024",
+        "rate": 0.7777777777777778,
+        "circuits": 19
+      }
+    ],
+    "low": [
+      {
+        "era": "1950-2013",
+        "circuit": "Detroit Street Circuit",
+        "rate": 0.2857142857142857,
+        "starts": 14
+      },
+      {
+        "era": "2014-2024",
+        "circuit": "Hungaroring",
+        "rate": 0.5909090909090909,
+        "starts": 22
+      }
+    ],
+    "high": [
+      {
+        "era": "1950-2013",
+        "circuit": "Circuit de Nevers Magny-Cours",
+        "rate": 0.8055555555555556,
+        "starts": 36
+      },
+      {
+        "era": "2014-2024",
+        "circuit": "Suzuka Circuit",
+        "rate": 0.8888888888888888,
+        "starts": 18
+      }
+    ]
+  },
+  "home": [
+    {
+      "band": "1-3",
+      "awayRate": 0.5565359477124183,
+      "awayStarts": 3060,
+      "homeRate": 0.5492424242424242,
+      "homeStarts": 264,
+      "gap": -0.007293523469994123
+    },
+    {
+      "band": "4-6",
+      "awayRate": 0.263262599469496,
+      "awayStarts": 3016,
+      "homeRate": 0.2461538461538461,
+      "homeStarts": 260,
+      "gap": -0.01710875331564987
+    },
+    {
+      "band": "7-10",
+      "awayRate": 0.0954887218045112,
+      "awayStarts": 3990,
+      "homeRate": 0.0878552971576227,
+      "homeStarts": 387,
+      "gap": -0.007633424646888501
+    },
+    {
+      "band": "11-15",
+      "awayRate": 0.0308128927630245,
+      "awayStarts": 4933,
+      "homeRate": 0.0341151385927505,
+      "homeStarts": 469,
+      "gap": 0.0033022458297259985
+    },
+    {
+      "band": "16+",
+      "awayRate": 0.007531865585168,
+      "awayStarts": 6904,
+      "homeRate": 0.0074786324786324,
+      "homeStarts": 936,
+      "gap": -5.3233106535600407e-05
+    }
+  ],
+  "mechanical": {
+    "eras": [
+      {
+        "era": "2014-2021",
+        "failures": 329,
+        "starts": 3257,
+        "rate": 0.10101320233343568,
+        "median": 0.0967741935483871,
+        "teams": 19
+      },
+      {
+        "era": "2022-2024",
+        "failures": 83,
+        "starts": 1354,
+        "rate": 0.061299852289512555,
+        "median": 0.0522417153996101,
+        "teams": 12
+      }
+    ],
+    "rows": [
+      {
+        "era": "2014-2021",
+        "constructor": "Caterham",
+        "rate": 0.2352941176470588,
+        "failures": 8,
+        "starts": 34
+      },
+      {
+        "era": "2014-2021",
+        "constructor": "Lotus F1",
+        "rate": 0.2,
+        "failures": 15,
+        "starts": 75
+      },
+      {
+        "era": "2014-2021",
+        "constructor": "Toro Rosso",
+        "rate": 0.1652892561983471,
+        "failures": 40,
+        "starts": 242
+      },
+      {
+        "era": "2014-2021",
+        "constructor": "Mercedes",
+        "rate": 0.04375,
+        "failures": 14,
+        "starts": 320
+      },
+      {
+        "era": "2014-2021",
+        "constructor": "Aston Martin",
+        "rate": 0.0227272727272727,
+        "failures": 1,
+        "starts": 44
+      },
+      {
+        "era": "2014-2021",
+        "constructor": "Alfa Romeo",
+        "rate": 0.0416666666666666,
+        "failures": 5,
+        "starts": 120
+      },
+      {
+        "era": "2022-2024",
+        "constructor": "Alfa Romeo",
+        "rate": 0.125,
+        "failures": 11,
+        "starts": 88
+      },
+      {
+        "era": "2022-2024",
+        "constructor": "Alpine F1 Team",
+        "rate": 0.1102941176470588,
+        "failures": 15,
+        "starts": 136
+      },
+      {
+        "era": "2022-2024",
+        "constructor": "AlphaTauri",
+        "rate": 0.0795454545454545,
+        "failures": 7,
+        "starts": 88
+      },
+      {
+        "era": "2022-2024",
+        "constructor": "Red Bull",
+        "rate": 0.0367647058823529,
+        "failures": 5,
+        "starts": 136
+      },
+      {
+        "era": "2022-2024",
+        "constructor": "McLaren",
+        "rate": 0.0367647058823529,
+        "failures": 5,
+        "starts": 136
+      },
+      {
+        "era": "2022-2024",
+        "constructor": "Sauber",
+        "rate": 0.0208333333333333,
+        "failures": 1,
+        "starts": 48
+      }
+    ],
+    "nonStarts": [
+      "Did not prequalify",
+      "Did not qualify",
+      "Did not start",
+      "Excluded",
+      "Withdrew"
+    ],
+    "statusCount": 46
+  },
+  "groups": [
+    {
+      "id": "grid",
+      "name": "Grid",
+      "inputs": [
+        "Grid position",
+        "Pit-lane start",
+        "Front row",
+        "Field size"
+      ],
+      "why": "The final grid is set before the lights."
+    },
+    {
+      "id": "qualifying",
+      "name": "Qualifying",
+      "inputs": [
+        "Qualifying position",
+        "Best session time",
+        "Missingness flag"
+      ],
+      "why": "Qualifying is already finished. The flag marks seasons where it was not recorded."
+    },
+    {
+      "id": "form",
+      "name": "Form",
+      "inputs": [
+        "Driver podium rate, previous 5",
+        "Constructor podium rate, previous 5",
+        "Starts already done"
+      ],
+      "why": "The current race is shifted out before the window is computed."
+    },
+    {
+      "id": "standings",
+      "name": "Standings",
+      "inputs": [
+        "Driver points",
+        "Driver rank",
+        "Constructor points",
+        "Constructor rank"
+      ],
+      "why": "Taken from the previous race in the same season."
+    },
+    {
+      "id": "context",
+      "name": "Context",
+      "inputs": [
+        "Age",
+        "Round",
+        "Year"
+      ],
+      "why": "Known on the morning of the race."
+    }
+  ],
+  "excluded": [
+    "Finishing position",
+    "Points scored today",
+    "Laps completed",
+    "Status and retirement reason",
+    "Pit stops",
+    "Fastest lap"
+  ],
+  "preprocessing": [
+    {
+      "preprocessing": "median + scaling",
+      "validation_ROC-AUC": 0.9258485774,
+      "validation_PR-AUC": 0.7275874178
+    },
+    {
+      "preprocessing": "median, no scaling",
+      "validation_ROC-AUC": 0.9243918475,
+      "validation_PR-AUC": 0.7240747156
+    },
+    {
+      "preprocessing": "zero + scaling",
+      "validation_ROC-AUC": 0.9268154336,
+      "validation_PR-AUC": 0.7245038188
+    }
+  ],
+  "metrics": [
+    {
+      "model": "Logistic regression",
+      "split": "train",
+      "threshold": 0.655,
+      "ROC-AUC": 0.9062452665,
+      "PR-AUC": 0.5610438528,
+      "F1": 0.5800148405,
+      "Precision": 0.467877095,
+      "Recall": 0.7628497072
+    },
+    {
+      "model": "Logistic regression",
+      "split": "validation",
+      "threshold": 0.655,
+      "ROC-AUC": 0.9258485774,
+      "PR-AUC": 0.7275874178,
+      "F1": 0.703125,
+      "Precision": 0.6474820144,
+      "Recall": 0.7692307692
+    },
+    {
+      "model": "Logistic regression",
+      "split": "test",
+      "threshold": 0.655,
+      "ROC-AUC": 0.9350479586,
+      "PR-AUC": 0.7025748126,
+      "F1": 0.6679104478,
+      "Precision": 0.5391566265,
+      "Recall": 0.8774509804
+    },
+    {
+      "model": "Random forest",
+      "split": "train",
+      "threshold": 0.64,
+      "ROC-AUC": 0.9882269512,
+      "PR-AUC": 0.9192170915,
+      "F1": 0.8288726683,
+      "Precision": 0.8265933355,
+      "Recall": 0.8311646064
+    },
+    {
+      "model": "Random forest",
+      "split": "validation",
+      "threshold": 0.64,
+      "ROC-AUC": 0.9240695621,
+      "PR-AUC": 0.7021071292,
+      "F1": 0.7090909091,
+      "Precision": 0.7572815534,
+      "Recall": 0.6666666667
+    },
+    {
+      "model": "Random forest",
+      "split": "test",
+      "threshold": 0.64,
+      "ROC-AUC": 0.9328834564,
+      "PR-AUC": 0.6894056882,
+      "F1": 0.6598984772,
+      "Precision": 0.6842105263,
+      "Recall": 0.637254902
+    },
+    {
+      "model": "Shallow neural network",
+      "split": "train",
+      "threshold": 0.24,
+      "ROC-AUC": 0.9120966445,
+      "PR-AUC": 0.5854170621,
+      "F1": 0.5775557451,
+      "Precision": 0.4617182934,
+      "Recall": 0.7709824333
+    },
+    {
+      "model": "Shallow neural network",
+      "split": "validation",
+      "threshold": 0.24,
+      "ROC-AUC": 0.9281819237,
+      "PR-AUC": 0.7384570397,
+      "F1": 0.7125506073,
+      "Precision": 0.6769230769,
+      "Recall": 0.7521367521
+    },
+    {
+      "model": "Shallow neural network",
+      "split": "test",
+      "threshold": 0.24,
+      "ROC-AUC": 0.9379127409,
+      "PR-AUC": 0.7162145036,
+      "F1": 0.6693548387,
+      "Precision": 0.5684931507,
+      "Recall": 0.8137254902
+    }
+  ],
+  "ablation": [
+    {
+      "variant": "all features",
+      "features": 17,
+      "validation_PR-AUC": 0.7275874178,
+      "validation_ROC-AUC": 0.9258485774,
+      "PR-AUC_change": 0.0
+    },
+    {
+      "variant": "without grid",
+      "features": 13,
+      "validation_PR-AUC": 0.7017507712,
+      "validation_ROC-AUC": 0.9205373142,
+      "PR-AUC_change": -0.0258366466
+    },
+    {
+      "variant": "without qualifying",
+      "features": 14,
+      "validation_PR-AUC": 0.7222838364,
+      "validation_ROC-AUC": 0.9241855848,
+      "PR-AUC_change": -0.0053035814
+    },
+    {
+      "variant": "without form",
+      "features": 14,
+      "validation_PR-AUC": 0.7196985051,
+      "validation_ROC-AUC": 0.9232445115,
+      "PR-AUC_change": -0.0078889127
+    },
+    {
+      "variant": "without standings",
+      "features": 13,
+      "validation_PR-AUC": 0.7122149989,
+      "validation_ROC-AUC": 0.9236054711,
+      "PR-AUC_change": -0.0153724189
+    },
+    {
+      "variant": "without context",
+      "features": 14,
+      "validation_PR-AUC": 0.7232456099,
+      "validation_ROC-AUC": 0.9245723273,
+      "PR-AUC_change": -0.0043418078
+    }
+  ],
+  "permutation": [
+    {
+      "feature": "grid_position",
+      "importance": 0.1072644852740214
+    },
+    {
+      "feature": "driver_points_before",
+      "importance": 0.0210257668913228
+    },
+    {
+      "feature": "qualifying_position",
+      "importance": 0.0162321991172068
+    },
+    {
+      "feature": "constructor_points_before",
+      "importance": 0.0141686295062224
+    },
+    {
+      "feature": "front_row",
+      "importance": 0.0118659390368081
+    },
+    {
+      "feature": "round",
+      "importance": 0.0092334620964847
+    },
+    {
+      "feature": "driver_rank_before",
+      "importance": 0.0079744480304317
+    },
+    {
+      "feature": "constructor_rank_before",
+      "importance": 0.0031918123654876
+    },
+    {
+      "feature": "qualifying_time_seconds",
+      "importance": -0.0057459472602763
+    },
+    {
+      "feature": "driver_podium_rate_5",
+      "importance": -0.0072076300276243
+    },
+    {
+      "feature": "driver_races_before",
+      "importance": -0.0117533472783404
+    }
+  ],
+  "shapGlobal": [
+    {
+      "feature": "grid_position",
+      "value": 0.1277013671472751
+    },
+    {
+      "feature": "constructor_podium_rate_5",
+      "value": 0.0578985902176037
+    },
+    {
+      "feature": "driver_podium_rate_5",
+      "value": 0.0503377224196982
+    },
+    {
+      "feature": "year",
+      "value": 0.0436202278376144
+    },
+    {
+      "feature": "driver_rank_before",
+      "value": 0.0426291564389054
+    },
+    {
+      "feature": "front_row",
+      "value": 0.0341642093811708
+    },
+    {
+      "feature": "constructor_rank_before",
+      "value": 0.0283801303055691
+    },
+    {
+      "feature": "qualifying_position",
+      "value": 0.020543783986093
+    }
+  ],
+  "russell": {
+    "driver": "George Russell",
+    "constructor": "Williams",
+    "race": "Dutch Grand Prix",
+    "year": 2021,
+    "round": 13,
+    "grid": 11.0,
+    "rank": 15.0,
+    "podiumRate": 0.2,
+    "podium": 0,
+    "shap": [
+      {
+        "feature": "grid_position",
+        "value": -0.1289130165344025,
+        "observed": 11.0
+      },
+      {
+        "feature": "driver_rank_before",
+        "value": -0.0572822100455304,
+        "observed": 15.0
+      },
+      {
+        "feature": "driver_podium_rate_5",
+        "value": 0.0548407831651723,
+        "observed": 0.2
+      },
+      {
+        "feature": "year",
+        "value": -0.0465818044265067,
+        "observed": 2021.0
+      },
+      {
+        "feature": "constructor_podium_rate_5",
+        "value": -0.0426298402713838,
+        "observed": 0.1
+      },
+      {
+        "feature": "round",
+        "value": -0.0299998282294647,
+        "observed": 13.0
+      }
+    ]
+  },
+  "hamilton": {
+    "driver": "Lewis Hamilton",
+    "constructor": "Mercedes",
+    "race": "Saudi Arabian Grand Prix",
+    "year": 2022,
+    "round": 2,
+    "grid": 15.0,
+    "qualifying": 16.0,
+    "field": 20.0,
+    "driverForm": 1.0,
+    "constructorForm": 0.7,
+    "driverRank": 3.0,
+    "driverPoints": 15.0,
+    "constructorRank": 2.0,
+    "constructorPoints": 27.0,
+    "podium": 0,
+    "probability": 0.08661545099344505,
+    "threshold": 0.24,
+    "predicted": false
+  },
+  "partial": {
+    "grid": 3,
+    "field": 20,
+    "year": 2024,
+    "round": 5,
+    "probability": 0.03189925681062999,
+    "threshold": 0.24,
+    "predicted": false
+  },
+  "selectedModel": "Shallow neural network"
+}
