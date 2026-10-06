@@ -13,6 +13,7 @@ tmp/
 # Frontend
 ui/node_modules/
 ui/dist/
+.vercel/
 
 # Editor and operating-system files
 .vscode/
