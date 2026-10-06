@@ -39,7 +39,7 @@ export function Limits() {
         The network is the model the validation score selects, and the test seasons still
         place it slightly first. The forest's training score does not travel.
       </Prose>
-      <p className="font-mono text-[12px] text-quiet">
+      <p className="text-steel">
         Paladin. Numbers on this page are exported from the analysis artifacts, the same run
         as the written report.
       </p>

@@ -54,17 +54,17 @@ export function Classification() {
         {rows.map((row, index) => {
           const value = score(row, metric);
           return (
-            <li key={row.model} className="grid grid-cols-[1.5rem_1fr_auto] items-baseline gap-3 border-b border-line py-3">
-              <span className="font-mono text-[13px] text-steel">{index + 1}</span>
+            <li key={row.model} className="grid grid-cols-[1.75rem_1fr_auto] items-center gap-4 border-b border-line py-4">
+              <span className="text-steel">{index + 1}</span>
               <span>
-                <span className="block font-medium">{row.model}</span>
-                <span className="mt-2 block h-1.5 bg-line">
-                  <span className="block h-1.5 bg-steel" style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }} />
+                <span className="block text-[1.15rem] font-medium">{row.model}</span>
+                <span className="mt-2 block h-2 bg-line">
+                  <span className="block h-2 bg-steel" style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }} />
                 </span>
               </span>
-              <span className="text-right font-mono text-[13px]">
-                <span className="block">{num(value)}</span>
-                <span className="block text-quiet">{index === 0 ? "leader" : `gap ${num(leader - value)}`}</span>
+              <span className="text-right">
+                <span className="figure block text-[2.4rem]">{num(value)}</span>
+                <span className="mt-1 block text-steel">{index === 0 ? "leader" : `gap ${num(leader - value)}`}</span>
               </span>
             </li>
           );
@@ -114,11 +114,23 @@ export function Classification() {
           </Choice>
         ))}
       </div>
-      <p className="font-mono text-[13px]">
-        {ablation.variant}: PR-AUC {num(ablation["validation_PR-AUC"])}, change{" "}
-        {`${ablation["PR-AUC_change"] >= 0 ? "+" : ""}${num(ablation["PR-AUC_change"])}`}. ROC-AUC
-        stays at {num(ablation["validation_ROC-AUC"])}.
-      </p>
+      <dl className="grid gap-6 border-y border-line py-5 sm:grid-cols-3">
+        <div>
+          <dt className="text-steel">{ablation.variant}</dt>
+          <dd className="figure mt-2 text-[2.6rem]">{num(ablation["validation_PR-AUC"])}</dd>
+          <dd className="mt-2 text-steel">validation PR-AUC</dd>
+        </div>
+        <div>
+          <dt className="text-steel">Change</dt>
+          <dd className="figure mt-2 text-[2.6rem]">
+            {`${ablation["PR-AUC_change"] >= 0 ? "+" : ""}${num(ablation["PR-AUC_change"])}`}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-steel">ROC-AUC</dt>
+          <dd className="figure mt-2 text-[2.6rem]">{num(ablation["validation_ROC-AUC"])}</dd>
+        </div>
+      </dl>
       <Prose>
         Dropping the grid costs the most. Dropping qualifying, once the grid is present,
         costs about {num(Math.abs(changeOf("without qualifying")))}. The published grid
@@ -139,12 +151,10 @@ export function Classification() {
         <BarList
           title="Permutation, change in PR-AUC"
           rows={site.permutation.map((row) => ({ label: featureLabel(row.feature), value: row.importance }))}
-          signed
         />
         <BarList
           title="Mean absolute SHAP"
           rows={site.shapGlobal.map((row) => ({ label: featureLabel(row.feature), value: row.value }))}
-          signed={false}
         />
       </div>
       <Prose>
@@ -182,22 +192,20 @@ function changeRow(variant: string) {
 function BarList({
   title,
   rows,
-  signed,
 }: {
   title: string;
   rows: { label: string; value: number }[];
-  signed: boolean;
 }) {
   const max = Math.max(...rows.map((row) => Math.abs(row.value)), 0.001);
   return (
     <div>
-      <p className="font-mono text-[12px] text-steel">{title}</p>
-      <ul className="mt-3 space-y-2">
+      <p className="text-[1.05rem] text-steel">{title}</p>
+      <ul className="mt-4 space-y-3">
         {rows.map((row) => (
           <li key={row.label}>
-            <div className="flex justify-between gap-3 font-mono text-[12px]">
+            <div className="flex items-baseline justify-between gap-4">
               <span>{row.label}</span>
-              <span>{signed ? row.value.toFixed(3) : row.value.toFixed(3)}</span>
+              <span className="figure text-[1.45rem]">{row.value.toFixed(3)}</span>
             </div>
             <span className="mt-1 block h-1.5 bg-line">
               <span

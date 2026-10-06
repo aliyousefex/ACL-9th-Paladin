@@ -15,7 +15,7 @@ export function Decision() {
   const rows = site.diagnostics.clean_rows;
 
   return (
-    <section id="decision" className="scroll-mt-24 md:scroll-mt-10">
+    <section id="decision" className="scroll-mt-24">
       <div className="flex items-start justify-end">
         <p className="bg-signal px-2 py-1 text-[0.95rem] text-ink">Pre-race</p>
       </div>
@@ -59,23 +59,22 @@ export function Decision() {
         </div>
       </div>
 
-      <div className="mt-8 flex flex-wrap items-end justify-between gap-6 border-t border-line pt-4">
+      <div className="mt-10 grid gap-8 border-t border-line pt-6 sm:grid-cols-2">
         <p>
-          <span className="font-display text-[2.4rem] leading-none font-semibold tracking-[-0.03em]">
-            {integer(rows)}
-          </span>
-          <span className="ml-3 text-steel">clean rows</span>
+          <span className="figure block text-[4.4rem]">{integer(rows)}</span>
+          <span className="mt-3 block text-[1.05rem] text-steel">clean rows</span>
         </p>
-        <p className="text-steel">{pct(site.podiumRate)} podiums</p>
+        <p>
+          <span className="figure block text-[4.4rem]">{pct(site.podiumRate)}</span>
+          <span className="mt-3 block text-[1.05rem] text-steel">podiums</span>
+        </p>
       </div>
 
       <div className="mt-10 max-w-[68ch] space-y-4 text-[1.05rem] leading-[1.55]">
         <p>
           The cleaned table has {integer(site.diagnostics.clean_rows)} driver-race rows, and{" "}
           {pct(site.podiumRate)} of them are podiums. A ranking that ignores the features would
-          score a <Term label="PR-AUC">Precision-recall area. It asks how well the model finds the rare podium rows. A model that ignores the features scores about the podium rate itself.</Term> near {num(site.podiumRate)} on the full table{test
-            ? `, and near ${num(test.podiumRate)} on the 2022-2024 seasons`
-            : ""}. That is
+          score a <Term label="PR-AUC">Precision-recall area. It asks how well the model finds the rare podium rows. A model that ignores the features scores about the podium rate itself.</Term> near {num(site.podiumRate)} on the full table{test ? `, and near ${num(test.podiumRate)} on the 2022-2024 seasons` : ""}. That is
           simply the share of positive rows. <Term label="ROC-AUC">How often the model ranks a podium driver above a non-podium driver. A coin flip sits near 0.500. It can look strong even when the rare class is hard.</Term> asks something else: if we pick one driver
           who podiumed and one who did not, how often does the model rank the podium driver
           higher? A coin-flip ranking sits near 0.500. We treat PR-AUC as the main score.

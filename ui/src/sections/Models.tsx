@@ -24,7 +24,6 @@ export function Models() {
     ...model,
     score: score(model.name),
   }));
-  const best = Math.max(...validation.map((model) => model.score));
 
   return (
     <Section id="models" title="Three models, one set of rows">
@@ -50,9 +49,7 @@ export function Models() {
               }`}
             >
               {model.name}
-              <span className="mt-1 block font-display text-[1.4rem] leading-none tracking-[-0.03em]">
-                {num(model.score)}
-              </span>
+              <span className="figure mt-2 block text-[2.35rem]">{num(model.score)}</span>
             </button>
           );
         })}
@@ -65,11 +62,15 @@ export function Models() {
           >
             <h3 className="text-[1.5rem]">{model.name}</h3>
             <p className="mt-2 text-steel">{model.body}</p>
-            <p className="mt-3 text-[1.02rem]">
-              Validation cutoff {num(cutoff(model.name))}
-              <span className="mx-3 text-line">/</span>
-              PR-AUC {num(model.score)}
-              <span className="ml-3 inline-block h-1 align-middle bg-signal" style={{ width: `${(model.score / best) * 72}px` }} />
+            <p className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-3">
+              <span>
+                <span className="block text-steel">Validation cutoff</span>
+                <span className="figure mt-1 block text-[2.2rem]">{num(cutoff(model.name))}</span>
+              </span>
+              <span>
+                <span className="block text-steel">PR-AUC</span>
+                <span className="figure mt-1 block text-[2.2rem]">{num(model.score)}</span>
+              </span>
             </p>
           </article>
         ))}

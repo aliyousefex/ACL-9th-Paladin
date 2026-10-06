@@ -22,7 +22,7 @@ export function Cases() {
         <p className="mt-1 font-mono text-[13px] text-quiet">
           {hamilton.race}, {hamilton.year}, round {hamilton.round}
         </p>
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-[13px] sm:grid-cols-3">
+        <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
           <Fact label="Grid" value={String(hamilton.grid)} />
           <Fact label="Qualifying" value={String(hamilton.qualifying)} />
           <Fact label="Field" value={String(hamilton.field)} />
@@ -33,7 +33,7 @@ export function Cases() {
         <p className="mt-4">
           His previous five starts in this table were all podiums. Mercedes sat{" "}
           {ordinal(hamilton.constructorRank)} in the constructors' table. The network scores{" "}
-          <span className="font-mono">{num(hamilton.probability)}</span>, below {num(hamilton.threshold)},
+          <span className="figure text-[1.7rem]">{num(hamilton.probability)}</span>, below {num(hamilton.threshold)},
           so the predicted label is not a podium. The result was not a podium. Recent form did
           not overcome 15th on the grid, in the race or in the model.
         </p>
@@ -45,7 +45,7 @@ export function Cases() {
           Grid {partial.grid}, not a pit-lane start, not a front-row flag, field of {partial.field},
           season {partial.year}, round {partial.round}. Every other feature is missing and is
           replaced with the training median. The network returns{" "}
-          <span className="font-mono">{num(partial.probability)}</span>, also below the cutoff.
+          <span className="figure text-[1.7rem]">{num(partial.probability)}</span>, also below the cutoff.
           This row has no true result.
         </p>
         <p className="mt-3">
@@ -68,10 +68,10 @@ export function Cases() {
         </p>
         <ul className="mt-4 space-y-2">
           {russell.shap.map((row) => (
-            <li key={row.feature} className="font-mono text-[12.5px]">
-              <span className="flex justify-between gap-3">
+            <li key={row.feature} className="border-b border-line py-2">
+              <span className="flex items-baseline justify-between gap-4">
                 <span>{featureLabel(row.feature)}</span>
-                <span className={row.value < 0 ? "text-signal" : "text-steel"}>
+                <span className={`figure text-[1.55rem] ${row.value < 0 ? "text-signal" : "text-ink"}`}>
                   {`${row.value > 0 ? "+" : ""}${row.value.toFixed(3)}`}
                 </span>
               </span>
@@ -97,8 +97,8 @@ export function Cases() {
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-quiet">{label}</dt>
-      <dd>{value}</dd>
+      <dt className="text-steel">{label}</dt>
+      <dd className="figure mt-1 text-[2.2rem]">{value}</dd>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MobileNav, Tower } from "./components/Tower";
+import { Nav } from "./components/Tower";
 import { SECTIONS } from "./lib/sections";
 import { Book } from "./sections/Book";
 import { Build } from "./sections/Build";
@@ -22,10 +22,9 @@ export default function App() {
       >
         Skip to the decision
       </a>
-      <Tower active={active} />
-      <MobileNav active={active} />
-      <main className="px-5 py-8 md:ml-72 md:px-12 md:py-12">
-        <div className="mx-auto max-w-5xl">
+      <Nav active={active} />
+      <main className="px-5 pt-24 pb-16 md:px-8">
+        <div className="mx-auto max-w-6xl">
           <Decision />
           <Book />
           <Findings />

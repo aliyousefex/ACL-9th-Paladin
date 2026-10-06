@@ -22,11 +22,11 @@ export function Features() {
         them on the score we care about. Zero-filling is slightly higher on ROC-AUC. We follow
         PR-AUC, and we do not treat this gap as the main lever.
       </Prose>
-      <ul className="space-y-1 font-mono text-[13px]">
+      <ul>
         {site.preprocessing.map((row) => (
-          <li key={row.preprocessing} className="flex justify-between gap-4 border-b border-line py-1.5">
+          <li key={row.preprocessing} className="flex items-baseline justify-between gap-4 border-b border-line py-3">
             <span>{row.preprocessing}</span>
-            <span>PR-AUC {row["validation_PR-AUC"].toFixed(3)}</span>
+            <span className="figure text-[2rem]">{row["validation_PR-AUC"].toFixed(3)}</span>
           </li>
         ))}
       </ul>
@@ -49,7 +49,7 @@ function FeatureGroup({ group }: { group: (typeof site.groups)[number] }) {
     <details ref={ref} className="border-b border-line py-3">
       <summary className="cursor-pointer font-medium">{group.name}</summary>
       <p className="mt-2 text-quiet">{group.why}</p>
-      <ul className="mt-2 space-y-1 font-mono text-[13px]">
+      <ul className="mt-3 space-y-1.5 text-[1.05rem]">
         {group.inputs.map((input) => (
           <li key={input}>{input}</li>
         ))}

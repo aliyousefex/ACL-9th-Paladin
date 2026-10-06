@@ -18,21 +18,19 @@ export function Book() {
         driver, constructor, and status. A race points at a real circuit.
       </Prose>
       <div className="max-w-full overflow-x-auto">
-        <table className="w-full border-collapse text-left font-mono text-[12.5px]">
-          <caption className="mb-2 text-left font-sans text-[0.95rem] text-ink">
-            Audited tables and how many rows each primary key covers.
-          </caption>
+        <table className="sheet">
+          <caption>Audited tables and how many rows each primary key covers.</caption>
           <thead>
-            <tr className="border-b border-ink">
-              <th className="py-2 pr-4 font-medium">Table</th>
-              <th className="py-2 text-right font-medium">Rows</th>
+            <tr>
+              <th>Table</th>
+              <th className="num">Rows</th>
             </tr>
           </thead>
           <tbody>
             {site.tableCounts.map((row) => (
-              <tr key={row.table} className="border-b border-line">
-                <td className="py-1.5 pr-4">{row.table}</td>
-                <td className="py-1.5 text-right">{integer(row.rows)}</td>
+              <tr key={row.table}>
+                <td>{row.table}</td>
+                <td className="num">{integer(row.rows)}</td>
               </tr>
             ))}
           </tbody>

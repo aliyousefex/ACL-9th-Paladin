@@ -45,29 +45,27 @@ export function Build() {
         ))}
       </ol>
       <div className="max-w-full overflow-x-auto">
-        <table className="w-full border-collapse text-left font-mono text-[12.5px]">
-          <caption className="mb-2 text-left font-sans text-[0.95rem]">
-            The time split. Starters per race is modelling rows divided by races.
-          </caption>
+        <table className="sheet">
+          <caption>The time split. Starters per race is modelling rows divided by races.</caption>
           <thead>
-            <tr className="border-b border-ink">
-              <th className="py-2 pr-3 font-medium">Split</th>
-              <th className="py-2 pr-3 font-medium">Seasons</th>
-              <th className="py-2 pr-3 text-right font-medium">Rows</th>
-              <th className="py-2 pr-3 text-right font-medium">Races</th>
-              <th className="py-2 pr-3 text-right font-medium">Podiums</th>
-              <th className="py-2 text-right font-medium">Qualifying missing</th>
+            <tr>
+              <th>Split</th>
+              <th>Seasons</th>
+              <th className="num">Rows</th>
+              <th className="num">Races</th>
+              <th className="num">Podiums</th>
+              <th className="num">Qualifying missing</th>
             </tr>
           </thead>
           <tbody>
             {site.splits.map((row) => (
-              <tr key={row.name} className="border-b border-line">
-                <td className="py-1.5 pr-3">{row.name}</td>
-                <td className="py-1.5 pr-3">{row.seasons}</td>
-                <td className="py-1.5 pr-3 text-right">{integer(row.rows)}</td>
-                <td className="py-1.5 pr-3 text-right">{integer(row.races)}</td>
-                <td className="py-1.5 pr-3 text-right">{pct(row.podiumRate)}</td>
-                <td className="py-1.5 text-right">{pct(row.qualifyingMissing)}</td>
+              <tr key={row.name}>
+                <td>{row.name}</td>
+                <td>{row.seasons}</td>
+                <td className="num">{integer(row.rows)}</td>
+                <td className="num">{integer(row.races)}</td>
+                <td className="num">{pct(row.podiumRate)}</td>
+                <td className="num">{pct(row.qualifyingMissing)}</td>
               </tr>
             ))}
           </tbody>

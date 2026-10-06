@@ -33,9 +33,10 @@ export function Findings() {
         The line is not a smooth rise.
       </Prose>
       <CoverageChart year={year} />
-      <label className="block font-mono text-[13px]">
-        <span className="text-steel">{year}</span>
-        <span className="ml-3 text-ink">{point ? pct(point.coverage) : ""} covered</span>
+      <label className="block">
+        <span className="figure text-[2.4rem]">{year}</span>
+        <span className="figure ml-4 text-[2.4rem]">{point ? pct(point.coverage) : ""}</span>
+        <span className="ml-3 text-steel">covered</span>
         <input
           className="mt-2"
           type="range"
@@ -62,25 +63,25 @@ export function Findings() {
         2014 and {modernMedian.circuits} from 2014 on.
       </Prose>
       <div className="max-w-full overflow-x-auto">
-        <table className="w-full border-collapse text-left font-mono text-[12.5px]">
-          <caption className="mb-2 text-left font-sans text-[0.95rem]">
+        <table className="sheet">
+          <caption>
             Highest front-row podium rates in each era. The rate is podiums divided by front-row starts.
           </caption>
           <thead>
-            <tr className="border-b border-ink">
-              <th className="py-2 pr-3 font-medium">Era</th>
-              <th className="py-2 pr-3 font-medium">Circuit</th>
-              <th className="py-2 pr-3 text-right font-medium">Rate</th>
-              <th className="py-2 text-right font-medium">Starts</th>
+            <tr>
+              <th>Era</th>
+              <th>Circuit</th>
+              <th className="num">Rate</th>
+              <th className="num">Starts</th>
             </tr>
           </thead>
           <tbody>
             {site.frontRow.leaders.map((row) => (
-              <tr key={`${row.era}-${row.circuit}`} className="border-b border-line">
-                <td className="py-1.5 pr-3">{row.era}</td>
-                <td className="py-1.5 pr-3">{row.circuit}</td>
-                <td className="py-1.5 pr-3 text-right">{pct(row.rate)}</td>
-                <td className="py-1.5 text-right">{integer(row.starts)}</td>
+              <tr key={`${row.era}-${row.circuit}`}>
+                <td>{row.era}</td>
+                <td>{row.circuit}</td>
+                <td className="num">{pct(row.rate)}</td>
+                <td className="num">{integer(row.starts)}</td>
               </tr>
             ))}
           </tbody>
@@ -111,11 +112,27 @@ export function Findings() {
           </Choice>
         ))}
       </div>
-      <p className="font-mono text-[13px] leading-relaxed">
-        Grid {selected.band}. Away {pct(selected.awayRate)} on {integer(selected.awayStarts)} starts.
-        Home {pct(selected.homeRate)} on {integer(selected.homeStarts)} starts. Gap{" "}
-        {points(selected.gap)} percentage points.
-      </p>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-line py-5 sm:grid-cols-4">
+        <div>
+          <dt className="text-steel">Grid</dt>
+          <dd className="figure mt-2 text-[2.6rem]">{selected.band}</dd>
+        </div>
+        <div>
+          <dt className="text-steel">Away</dt>
+          <dd className="figure mt-2 text-[2.6rem]">{pct(selected.awayRate)}</dd>
+          <dd className="mt-2 text-steel">{integer(selected.awayStarts)} starts</dd>
+        </div>
+        <div>
+          <dt className="text-steel">Home</dt>
+          <dd className="figure mt-2 text-[2.6rem]">{pct(selected.homeRate)}</dd>
+          <dd className="mt-2 text-steel">{integer(selected.homeStarts)} starts</dd>
+        </div>
+        <div>
+          <dt className="text-steel">Gap</dt>
+          <dd className="figure mt-2 text-[2.6rem]">{points(selected.gap)}</dd>
+          <dd className="mt-2 text-steel">percentage points</dd>
+        </div>
+      </dl>
       <Prose>
         Away drivers fall from about {pct(site.home[0].awayRate)} at the front of the grid to{" "}
         {pct(site.home[4].awayRate)} from 16th back. Home drivers track that ladder. Four of the
@@ -144,27 +161,25 @@ export function Findings() {
         rates makes an era look less reliable than it is.
       </Prose>
       <div className="max-w-full overflow-x-auto">
-        <table className="w-full border-collapse text-left font-mono text-[12.5px]">
-          <caption className="mb-2 text-left font-sans text-[0.95rem]">
-            High and low mechanical-retirement rates, plus a few large teams for scale.
-          </caption>
+        <table className="sheet">
+          <caption>High and low mechanical-retirement rates, plus a few large teams for scale.</caption>
           <thead>
-            <tr className="border-b border-ink">
-              <th className="py-2 pr-3 font-medium">Era</th>
-              <th className="py-2 pr-3 font-medium">Constructor</th>
-              <th className="py-2 pr-3 text-right font-medium">Rate</th>
-              <th className="py-2 pr-3 text-right font-medium">Failures</th>
-              <th className="py-2 text-right font-medium">Starts</th>
+            <tr>
+              <th>Era</th>
+              <th>Constructor</th>
+              <th className="num">Rate</th>
+              <th className="num">Failures</th>
+              <th className="num">Starts</th>
             </tr>
           </thead>
           <tbody>
             {site.mechanical.rows.map((row) => (
-              <tr key={`${row.era}-${row.constructor}`} className="border-b border-line">
-                <td className="py-1.5 pr-3">{row.era}</td>
-                <td className="py-1.5 pr-3">{row.constructor}</td>
-                <td className="py-1.5 pr-3 text-right">{pct(row.rate)}</td>
-                <td className="py-1.5 pr-3 text-right">{integer(row.failures)}</td>
-                <td className="py-1.5 text-right">{integer(row.starts)}</td>
+              <tr key={`${row.era}-${row.constructor}`}>
+                <td>{row.era}</td>
+                <td>{row.constructor}</td>
+                <td className="num">{pct(row.rate)}</td>
+                <td className="num">{integer(row.failures)}</td>
+                <td className="num">{integer(row.starts)}</td>
               </tr>
             ))}
           </tbody>
