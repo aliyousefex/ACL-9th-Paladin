@@ -1,7 +1,8 @@
-"""Build the milestone analytical report from verified pipeline outputs.
+"""Turn the verified pipeline outputs into the milestone report.
 
-Numbers in the prose are computed from artifacts/ at build time. The model
-metrics themselves are not recalculated here.
+Numbers in the prose come from ``artifacts/`` at build time. Ana kont keeping
+model training out of this file on purpose: this script publishes the evidence;
+it does not quietly create a second version of the analysis.
 """
 
 from __future__ import annotations
@@ -304,6 +305,7 @@ def load():
     ablation = pd.read_csv(ART / "ablation_results.csv")
     pk = pd.read_csv(ART / "primary_key_audit.csv")
     fk = pd.read_csv(ART / "foreign_key_audit.csv")
+    cleaning = pd.read_csv(ART / "cleaning_eda.csv")
     shap = pd.read_csv(FIG / "shap_global.csv")
     local = pd.read_csv(FIG / "shap_local.csv")
     perm = pd.read_csv(FIG / "permutation_importance.csv")
@@ -318,6 +320,7 @@ def load():
         "ablation": ablation,
         "pk": pk,
         "fk": fk,
+        "cleaning": cleaning,
         "shap": shap,
         "local": local,
         "perm": perm,
@@ -360,7 +363,7 @@ def main():
     story.append(Spacer(1, 4))
     story.append(HRFlowable(width="100%", thickness=1, color=NAVY, spaceAfter=8))
 
-    # ----- 1 -----
+    # Start with the decision we are making, not with library or table details.
     h1(story, "1. The question we are trying to answer")
     story.append(P(
         "This report asks a narrow question. After qualifying, and before the race starts, "
@@ -390,7 +393,7 @@ def main():
         "whether they rank the rare podium rows above the rest."
     , "Takeaway"))
 
-    # ----- 2 -----
+    # Before trusting any result, show why the joins and final grain are safe.
     h1(story, "2. What we checked before trusting the joins")
     story.append(P(
         "The raw files are the 14 Kaggle/Ergast tables, and we do not edit them. The literal "
@@ -451,6 +454,35 @@ def main():
         "treat the numeric grid position as missing in those rows, so the model cannot learn "
         "that 0 is the front of the field."
     ))
+    raw_eda = data["cleaning"].iloc[0]
+    clean_eda = data["cleaning"].iloc[1]
+    add_figure(
+        story,
+        "cleaning_before_after",
+        "Programmatic EDA before and after duplicate cleaning. The left panel compares total rows with unique "
+        "driver-race pairs; the right panel checks whether row selection materially changes key rates.",
+        width=CONTENT_W * 0.96,
+    )
+    cleaning_rows = [
+        [r.stage, integer(r.rows), integer(r.unique_driver_races), integer(r.duplicate_rows),
+         pct(r.podium_rate), pct(r.pit_lane_share), pct(r.missing_finish_share), num(r.median_grid, 1)]
+        for r in data["cleaning"].itertuples(index=False)
+    ]
+    add_table(
+        story,
+        ["Stage", "Rows", "Unique pairs", "Duplicate rows", "Podiums", "Grid 0", "Missing finish", "Median grid"],
+        cleaning_rows,
+        [1.25 * inch, .62 * inch, .78 * inch, .82 * inch, .62 * inch, .58 * inch, .82 * inch, .72 * inch],
+        "Before-and-after cleaning diagnostics computed from the raw results and cleaned modeling table.",
+        numeric_from=1,
+    )
+    story.append(P(
+        f"Cleaning removes {integer(int(raw_eda.rows - clean_eda.rows))} extra shared-drive rows. "
+        f"Duplicate participation falls from {integer(int(raw_eda.duplicate_rows))} rows to zero, while "
+        f"the podium rate moves only from {pct(raw_eda.podium_rate)} to {pct(clean_eda.podium_rate)} and "
+        f"the median non-zero grid remains {num(clean_eda.median_grid, 1)}. The cleaning therefore fixes "
+        "the prediction grain without materially reshaping the label or starting-position distribution."
+    ))
     story.append(P(
         "<b>Takeaway.</b> The joins we rely on later are supported by the key audit, and "
         "the modelling grain is one driver in one race. The cleaning choices are recorded "
@@ -458,7 +490,7 @@ def main():
         "Takeaway",
     ))
 
-    # ----- 3 -----
+    # Hena the missingness plot explains why qualifying needs special treatment.
     h1(story, "3. Qualifying coverage is not stable across history")
     story.append(P(
         "Qualifying position is an obvious pre-race feature, but it is not recorded for "
@@ -503,7 +535,7 @@ def main():
         "Takeaway",
     ))
 
-    # ----- 4 -----
+    # These are the three required descriptive questions from the brief.
     h1(story, "4. Three questions about the races, before any model")
     story.append(P(
         "The prediction model comes later. These three questions use the joined tables "
@@ -531,7 +563,7 @@ def main():
     )
 
     def top_circuits(era: str, n: int = 5):
-        # Keep the pipeline order: rate first, and the original tie order after that.
+        # Keep the pipeline order hena: rate first, then its original stable tie order.
         part = q1[q1.era == era].head(n)
         rows = []
         for r in part.itertuples(index=False):
@@ -778,7 +810,7 @@ def main():
         "Takeaway",
     ))
 
-    # ----- 5 -----
+    # Now move from descriptive work to the actual model-ready row.
     h1(story, "5. What the model is allowed to see")
     story.append(P(
         "The descriptive results above already point at the grid. The modelling step has "
@@ -859,7 +891,7 @@ def main():
         "Takeaway",
     ))
 
-    # ----- 6 -----
+    # Compare preprocessing choices before comparing model families.
     h1(story, "6. Imputation and scaling barely move the validation score")
     story.append(P(
         "Missing qualifying and missing early-season standings have to be filled inside "
@@ -898,7 +930,7 @@ def main():
         "Takeaway",
     ))
 
-    # ----- 7 -----
+    # Same rows and features for every model, otherwise the comparison is not fair.
     h1(story, "7. Three models, and why the scores are not interchangeable")
     story.append(P(
         "We fit three classifiers on the same training rows and the same 17 features. "
@@ -1010,7 +1042,7 @@ def main():
         "Takeaway",
     ))
 
-    # ----- 8 -----
+    # Ablation asks what each feature group adds after retraining.
     h1(story, "8. Removing the grid hurts more than removing anything else")
     story.append(P(
         "An ablation retrains logistic regression after deleting one feature group, then "
@@ -1079,7 +1111,7 @@ def main():
         "Takeaway",
     ))
 
-    # ----- 9 -----
+    # Explain the forest globally and locally, with no causal claims.
     h1(story, "9. What the forest relies on, and where the two explanations disagree")
     story.append(P(
         "The explanations in this section are for the random forest, not for the neural "
@@ -1208,7 +1240,7 @@ def main():
         "Takeaway",
     ))
 
-    # ----- 10 -----
+    # Show that the fitted pipeline also works on real and incomplete records.
     h1(story, "10. Two predictions from the selected network")
     demo = summary["inference_demos"]
     story.append(P(
@@ -1252,7 +1284,7 @@ def main():
         "Takeaway",
     ))
 
-    # ----- 11 -----
+    # Be direct about what this project cannot claim; momken this is asked orally.
     h1(story, "11. What we do not want the results to be taken to say")
     story.append(P(
         "Qualifying coverage is a property of this snapshot. We described it, and we kept "
@@ -1285,7 +1317,7 @@ def main():
         "about the next race."
     ))
 
-    # ----- 12 -----
+    # End by bringing the cleaning, modeling, and evidence back into one answer.
     h1(story, "12. What the evidence supports")
     story.append(P(
         "The tables join, and after 85 shared-drive groups are resolved we have one row "

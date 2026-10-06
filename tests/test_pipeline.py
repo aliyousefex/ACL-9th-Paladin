@@ -1,3 +1,9 @@
+"""Checks for the quiet data mistakes we do not want to discover in evaluation.
+
+The tests read like small examples on purpose. Ana kont avoiding clever test
+helpers hena so any team member can see the setup, action, and expected result.
+"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -9,13 +15,19 @@ from f1podium.pipeline import (
     _time_to_seconds,
     build_modeling_table,
     clean_results,
+    cleaning_eda,
     engineering_answers,
     load_raw_tables,
     split_by_time,
 )
 
+# These tests focus on mistakes that can make the final scores look believable
+# while the data is actually wrong. Momken a plot still looks nice after leakage,
+# so we check the grain and timing rules directly.
+
 
 def test_duration_parser_handles_valid_and_missing_values():
+    """Normal lap strings become seconds; messy values stay honestly missing."""
     assert _time_to_seconds("1:23.456") == 83.456
     assert _time_to_seconds("59.1") == 59.1
     assert np.isnan(_time_to_seconds(np.nan))
@@ -23,6 +35,7 @@ def test_duration_parser_handles_valid_and_missing_values():
 
 
 def test_duplicate_rule_prefers_a_started_car_then_best_finish():
+    """A shared drive keeps the car that started, not the tempting best result."""
     rows = pd.DataFrame([
         {"raceId": 1, "driverId": 7, "resultId": 1, "grid": 0, "positionOrder": 1},
         {"raceId": 1, "driverId": 7, "resultId": 2, "grid": 4, "positionOrder": 8},
@@ -36,6 +49,7 @@ def test_duplicate_rule_prefers_a_started_car_then_best_finish():
 
 
 def test_real_modeling_table_grain_features_and_splits():
+    """The real dataset must keep one prediction row and the agreed year cuts."""
     frame, diagnostics = build_modeling_table(load_raw_tables("data/raw"))
     assert diagnostics["unique_grain"]
     assert not frame.duplicated(["raceId", "driverId"]).any()
@@ -48,6 +62,7 @@ def test_real_modeling_table_grain_features_and_splits():
 
 
 def test_form_features_cannot_see_current_target():
+    """Hena we make sure a driver's current podium never enters current form."""
     frame, _ = build_modeling_table(load_raw_tables("data/raw"))
     first = frame.sort_values(["date", "raceId"]).groupby("driverId").head(1)
     assert first.driver_podium_rate_5.isna().all()
@@ -59,6 +74,7 @@ def test_form_features_cannot_see_current_target():
 
 
 def test_randomized_duplicate_cleaning_is_deterministic_and_unique():
+    """Row order momken change; the retained shared-drive row must not."""
     rng = np.random.default_rng(903)
     size = 20_000
     rows = pd.DataFrame({
@@ -78,6 +94,7 @@ def test_randomized_duplicate_cleaning_is_deterministic_and_unique():
 
 
 def test_mechanical_rate_denominator_contains_race_starts_only():
+    """Mechanical rates use actual starters, mesh drivers who never started."""
     tables = load_raw_tables("data/raw")
     frame, _ = build_modeling_table(tables)
     answers = engineering_answers(frame, tables)
@@ -97,6 +114,7 @@ def test_mechanical_rate_denominator_contains_race_starts_only():
 
 
 def test_current_race_result_cannot_change_its_own_features():
+    """Changing today's result may change the label, but never today's inputs."""
     tables = load_raw_tables("data/raw")
     original, _ = build_modeling_table(tables)
     latest_race = int(original.loc[original.date.eq(original.date.max()), "raceId"].max())
@@ -110,4 +128,19 @@ def test_current_race_result_cannot_change_its_own_features():
     right = changed[changed.raceId.eq(latest_race)].sort_values("driverId").reset_index(drop=True)
     pd.testing.assert_frame_equal(left[FEATURES], right[FEATURES])
     assert not left.podium.equals(right.podium)
+
+
+def test_cleaning_eda_quantifies_grain_change_without_duplicates():
+    """Cleaning fixes duplicate grain without quietly moving the podium rate."""
+    tables = load_raw_tables("data/raw")
+    frame, _ = build_modeling_table(tables)
+    comparison = cleaning_eda(tables["results"], frame).set_index("stage")
+
+    raw = comparison.loc["Raw results"]
+    clean = comparison.loc["Cleaned modeling table"]
+    assert raw.rows > raw.unique_driver_races
+    assert raw.duplicate_rows > 0
+    assert clean.rows == clean.unique_driver_races
+    assert clean.duplicate_rows == 0
+    assert abs(raw.podium_rate - clean.podium_rate) < 0.001
 

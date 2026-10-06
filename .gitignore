@@ -10,10 +10,18 @@ venv/
 artifacts/
 tmp/
 
-# Frontend
-ui/node_modules/
-ui/dist/
+# Local presentation website and design workspace
+# These support the optional visual walkthrough, not the graded data/ML submission.
+ui/
+.impeccable/
+PRODUCT.md
+vercel.json
 .vercel/
+scripts/export_ui_data.py
+
+# Personal evaluation study material
+reports/milestone_1_evaluation_qa.pdf
+scripts/build_evaluation_qa.py
 
 # Editor and operating-system files
 .vscode/

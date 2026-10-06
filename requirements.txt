@@ -1,12 +1,19 @@
+# Core tables, features, and models.
 pandas>=2.2,<4
 numpy>=2.0,<3
 scikit-learn>=1.5,<2
+
+# Figures and explainability.
 matplotlib>=3.9,<4
 seaborn>=0.13,<1
 shap>=0.49,<1
+
+# The notebook is a real run-all deliverable, so momken rebuild it from scratch.
 nbformat>=5.10,<6
 nbclient>=0.10,<1
 jupyter>=1.1,<2
+
+# Report generation and automated checks.
 reportlab>=4.2,<5
 pytest>=8,<10
 

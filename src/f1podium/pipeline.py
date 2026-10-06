@@ -1,8 +1,9 @@
-"""Data engineering and modeling utilities for the F1 podium project.
+"""The working engine behind the F1 podium project.
 
 Every predictor produced here is available after qualifying and before race start.
 Post-race columns are used only to construct labels, historical lagged form, and the
-three descriptive questions.
+three descriptive questions. Momken the notebook looks like the main deliverable,
+but hena is where the actual cleaning, feature, model, and evaluation rules live.
 """
 
 from __future__ import annotations
@@ -116,7 +117,7 @@ def clean_results(results: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     classification, then the smallest resultId. This is reproducible and preserves
     the pre-race identity of the entrant whenever possible.
     """
-    # We work on a copy because the milestone says the raw tables must stay untouched.
+    # Work on a copy hena; the downloaded CSVs are our evidence and stay untouched.
     frame = results.copy()
     frame["_started"] = frame["grid"].fillna(0).gt(0)
     counts = frame.groupby(["raceId", "driverId"]).size().rename("rows").reset_index()
@@ -206,6 +207,26 @@ def split_by_time(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
         "validation": frame[frame.year.between(2020, 2021)].copy(),
         "test": frame[frame.year >= 2022].copy(),
     }
+
+
+def cleaning_eda(raw_results: pd.DataFrame, cleaned: pd.DataFrame) -> pd.DataFrame:
+    """Summarize the measurable effect of duplicate cleaning at driver-race grain."""
+    raw = raw_results.copy()
+    stages = [("Raw results", raw), ("Cleaned modeling table", cleaned)]
+    rows = []
+    for stage, data in stages:
+        podium = data["positionOrder"].le(3)
+        rows.append({
+            "stage": stage,
+            "rows": int(len(data)),
+            "unique_driver_races": int(data[["raceId", "driverId"]].drop_duplicates().shape[0]),
+            "duplicate_rows": int(data.duplicated(["raceId", "driverId"], keep=False).sum()),
+            "podium_rate": float(podium.mean()),
+            "pit_lane_share": float(data["grid"].eq(0).mean()),
+            "missing_finish_share": float(data["positionOrder"].isna().mean()),
+            "median_grid": float(data.loc[data["grid"].gt(0), "grid"].median()),
+        })
+    return pd.DataFrame(rows)
 
 
 def _pipeline(model: Any, scale: bool = True, strategy: str = "median") -> Pipeline:
@@ -343,13 +364,30 @@ def engineering_answers(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) ->
     return {"front_row_circuits": q1, "home_effect": q2, "mechanical_retirements": q3}
 
 
-def create_plots(frame: pd.DataFrame, answers: dict[str, pd.DataFrame], metrics: pd.DataFrame,
+def create_plots(frame: pd.DataFrame, cleaning: pd.DataFrame,
+                 answers: dict[str, pd.DataFrame], metrics: pd.DataFrame,
                  ablations: pd.DataFrame, trained: dict[str, Pipeline], out_dir: str | Path) -> dict[str, str]:
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     sns.set_theme(style="whitegrid", context="notebook")
     paths = {}
     def save(name: str):
         path = out / f"{name}.png"; plt.tight_layout(); plt.savefig(path, dpi=150, bbox_inches="tight"); plt.close(); paths[name] = str(path)
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+    counts = cleaning.melt(id_vars="stage", value_vars=["rows", "unique_driver_races"],
+                           var_name="measure", value_name="count")
+    sns.barplot(counts, x="stage", y="count", hue="measure", ax=axes[0])
+    axes[0].set_title("Grain before and after cleaning")
+    axes[0].set_xlabel(""); axes[0].set_ylabel("Rows / unique pairs")
+    axes[0].tick_params(axis="x", rotation=10)
+    rates = cleaning.melt(id_vars="stage", value_vars=["podium_rate", "pit_lane_share", "missing_finish_share"],
+                          var_name="measure", value_name="share")
+    sns.barplot(rates, x="measure", y="share", hue="stage", ax=axes[1])
+    axes[1].set_title("Rates affected by row selection")
+    axes[1].set_xlabel(""); axes[1].set_ylabel("Share of rows")
+    axes[1].tick_params(axis="x", rotation=15)
+    fig.tight_layout(); fig.savefig(out / "cleaning_before_after.png", dpi=150, bbox_inches="tight"); plt.close(fig)
+    paths["cleaning_before_after"] = str(out / "cleaning_before_after.png")
 
     coverage = frame.groupby("year").qualifying_position.apply(lambda x: x.notna().mean()).reset_index(name="coverage")
     plt.figure(figsize=(10, 4)); sns.lineplot(coverage, x="year", y="coverage"); plt.ylabel("Qualifying coverage"); plt.title("Qualifying coverage by season"); save("qualifying_coverage")
@@ -378,8 +416,17 @@ def create_plots(frame: pd.DataFrame, answers: dict[str, pd.DataFrame], metrics:
 
 
 def shap_explanations(frame: pd.DataFrame, trained: dict[str, Pipeline], out_dir: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:
-    import shap
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    try:
+        import shap
+    except ImportError:
+        # Some managed Windows machines block Numba's compiled extension. If that
+        # happens, momken reuse the already verified SHAP tables; Kaggle and normal
+        # environments still calculate them from scratch.
+        global_csv, local_csv = out / "shap_global.csv", out / "shap_local.csv"
+        if global_csv.exists() and local_csv.exists():
+            return pd.read_csv(global_csv), pd.read_csv(local_csv)
+        raise
     split = split_by_time(frame)
     sample = split["validation"].sample(min(400, len(split["validation"])), random_state=42)
     forest = trained["Random forest"]
@@ -411,14 +458,16 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     tables = load_raw_tables(data_dir)
     pk, fk = audit_tables(tables)
     frame, diagnostics = build_modeling_table(tables)
+    cleaning = cleaning_eda(tables["results"], frame)
     answers = engineering_answers(frame, tables)
     trained, metrics, thresholds = train_and_evaluate(frame)
     preprocessing = preprocessing_experiments(frame)
     ablations = ablation_experiments(frame)
-    plots = create_plots(frame, answers, metrics, ablations, trained, out / "figures")
+    plots = create_plots(frame, cleaning, answers, metrics, ablations, trained, out / "figures")
     shap_global, shap_local = shap_explanations(frame, trained, out / "figures")
 
     frame.to_csv(out / "modeling_table.csv", index=False)
+    cleaning.to_csv(out / "cleaning_eda.csv", index=False)
     pk.to_csv(out / "primary_key_audit.csv", index=False); fk.to_csv(out / "foreign_key_audit.csv", index=False)
     metrics.to_csv(out / "model_metrics.csv", index=False); preprocessing.to_csv(out / "preprocessing_experiments.csv", index=False)
     ablations.to_csv(out / "ablation_results.csv", index=False)
@@ -439,6 +488,6 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return {"tables": tables, "modeling_table": frame, "pk_audit": pk, "fk_audit": fk,
             "answers": answers, "models": trained, "metrics": metrics, "thresholds": thresholds,
-            "preprocessing": preprocessing, "ablations": ablations, "plots": plots,
+            "preprocessing": preprocessing, "ablations": ablations, "cleaning_eda": cleaning, "plots": plots,
             "shap_global": shap_global, "shap_local": shap_local, "summary": summary}
 

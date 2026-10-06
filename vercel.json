@@ -1,6 +1,0 @@
-{
-  "framework": "vite",
-  "installCommand": "npm install --prefix ui",
-  "buildCommand": "npm run build --prefix ui",
-  "outputDirectory": "ui/dist"
-}
