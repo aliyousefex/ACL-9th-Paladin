@@ -1,10 +1,10 @@
 # Formula 1 Podium Prediction Companion
 
-ACL-903 Milestone 1 is a reproducible relational-data and machine-learning pipeline that predicts whether a Formula 1 driver will finish in the top three.
+This project predicts whether a Formula 1 driver will finish in the top three for ACL-903 Milestone 1.
 
 The prediction is made **after qualifying and before the race starts**. Every model feature must be available at that cutoff.
 
-Start with this README, then open `src/f1podium/pipeline.py`. The notebook presents the work, bas the pipeline contains the shared implementation.
+Start with the executed notebook. It has the full analysis and the code in visible cells. The same logic is kept in `src/f1podium/pipeline.py` so we can test and maintain it normally.
 
 ## Project contract
 
@@ -47,7 +47,7 @@ flowchart TD
     N --> P[Analytical PDF report]
 ```
 
-The implementation lives in `src/f1podium/pipeline.py`. The notebook calls the same implementation rather than maintaining a second copy of the analysis.
+The submission notebook is self-contained and does not import `src/f1podium/pipeline.py`. `scripts/build_notebook.py` embeds the repository implementation into ordered notebook cells, so the reusable module and submitted notebook can be regenerated together.
 
 The analysis can run from the notebook or the command line. Both routes use the same pipeline code and produce the same results.
 
@@ -63,7 +63,7 @@ ACL-9th-Paladin/
 |   `-- milestone_1_f1_podium_prediction.ipynb
 |                                      Executed, run-all submission notebook
 |-- kaggle/
-|   `-- f1podium_src.zip               Small source attachment for Kaggle
+|   `-- f1podium_src.zip               Legacy optional source bundle
 |-- reports/
 |   `-- milestone_1_analytical_report.pdf
 |                                      Final structured analytical report
@@ -78,7 +78,7 @@ ACL-9th-Paladin/
 |-- tests/
 |   `-- test_pipeline.py              Grain, cleaning, split, and leakage tests
 |-- pyproject.toml                    Python package and pytest configuration
-|-- requirements.txt                  Complete reproducible environment
+|-- requirements.txt                  Python dependency ranges
 `-- README.md                         This orientation document
 ```
 
@@ -131,7 +131,7 @@ Implementation, verification, presentation, and document generation are kept sep
 
 If a feature calculation, cleaning rule, model, metric, or experiment changes, the change normally belongs in `pipeline.py`.
 
-### `tests/test_pipeline.py`: the automated quality inspector
+### `tests/test_pipeline.py`: checks for the important data rules
 
 The test file does not perform the final analysis and does not replace `pipeline.py`. It imports pipeline functions, gives them controlled inputs, and verifies that their outputs satisfy important guarantees.
 
@@ -152,11 +152,11 @@ A typical test follows this pattern:
 Arrange an input -> call a pipeline function -> assert the expected result
 ```
 
-Tests are evidence that the implementation behaves as intended. They are not evidence that every modeling decision is optimal; those decisions still require EDA, experiments, and written justification.
+The tests check that the implementation follows the intended rules. They do not prove every modeling choice is best, fa EDA and experiments are still needed.
 
 ### `notebooks/milestone_1_f1_podium_prediction.ipynb`: the executable presentation
 
-The notebook imports and executes `pipeline.py`, then presents the resulting tables, figures, and conclusions in the order expected by the evaluator.
+The notebook contains and executes the full implementation, then presents the resulting tables, figures, and conclusions in the order expected by the evaluator. It does not require the repository package on Kaggle.
 
 It contains:
 
@@ -168,16 +168,16 @@ It contains:
 - Ablation and XAI results.
 - Inference demonstrations and limitations.
 
-The notebook is the project's interactive evidence book. It should not maintain a separate copy of the pipeline logic, because duplicated implementations could silently disagree.
+The notebook shows the work and its outputs. We rebuild it from the pipeline source so the two copies do not drift, 3ashan a small difference can change the results without being obvious.
 
 ### `scripts/build_notebook.py`: the notebook blueprint
 
-This script programmatically defines the notebook's section order, markdown, code cells, conclusions, tables, and displayed figures. Running it recreates the `.ipynb` file in a reviewable and repeatable way.
+This script defines the notebook sections, Markdown, code cells, tables, and figures. Running it recreates the `.ipynb` file instead of editing generated cells by hand.
 
 ```text
 build_notebook.py
         -> creates the notebook
-        -> the notebook imports pipeline.py
+        -> the notebook defines the complete pipeline in visible cells
         -> executing the notebook regenerates artifacts
 ```
 
@@ -189,26 +189,26 @@ This is the smallest runner. It calls the complete pipeline directly without ope
 
 ### `scripts/build_report.py`: the PDF publisher
 
-This script reads the generated CSV tables, figures, and summary information from `artifacts/` and turns them into the formal analytical PDF. It is responsible for report prose, tables, figures, captions, and layout; the underlying analytical calculations remain in `pipeline.py`.
+This script reads the saved tables and figures from `artifacts/` and builds the analytical PDF. Report text and layout live here, while calculations stay in `pipeline.py`.
 
-### Quick analogy
+### What each file is for
 
-| File | Analogy | Responsibility |
+| File | Role | What it does |
 | --- | --- | --- |
-| `pipeline.py` | Engine | Performs the data engineering and machine learning |
-| `test_pipeline.py` | Mechanic and inspector | Checks that critical behavior is correct |
-| Jupyter notebook | Presentation and laboratory record | Runs the engine and explains the evidence |
-| `build_notebook.py` | Notebook blueprint | Recreates the notebook structure and narrative |
-| `run_analysis.py` | Start button | Runs the pipeline directly |
-| `build_report.py` | Publisher | Turns generated results into the final report |
+| `pipeline.py` | Analysis code | Performs the data engineering and machine learning |
+| `test_pipeline.py` | Tests | Checks the important data and leakage rules |
+| Jupyter notebook | Submission | Runs the analysis and explains the evidence |
+| `build_notebook.py` | Notebook builder | Recreates the notebook structure and narrative |
+| `run_analysis.py` | Runner | Runs the pipeline directly |
+| `build_report.py` | Report builder | Turns saved results into the final report |
 
-`pipeline.py` is the analytical source of truth. The tests verify it, the notebook demonstrates it, and the report communicates its results. Keda the calculations stay consistent in every deliverable.
+`pipeline.py` is the maintainable repository source. The notebook builder embeds that implementation into the self-contained submission notebook, the tests verify the reusable module, and the report communicates the results.
 
 ## Milestone requirements covered
 
 ### 1. EDA, cleaning, and auditing
 
-- Programmatic EDA before and after duplicate cleaning.
+- EDA tables and plots before and after duplicate cleaning.
 - Visual comparison of raw and cleaned grain and distributions.
 - Literal `\N` sentinel conversion.
 - Semantic typing for dates and qualifying durations.
@@ -279,8 +279,8 @@ Every model reports ROC-AUC, PR-AUC, F1, precision, and recall. Each model's cla
 - Feature-group ablation removes and retrains without grid, qualifying, form, standings, or context.
 - Permutation importance explains global validation-score reliance.
 - Global SHAP summarizes average feature contribution magnitude.
-- Local SHAP explains one validation prediction.
-- Explanations are explicitly described as model reliance, **not causal effects**.
+- Local LIME explains one validation prediction with a model-agnostic surrogate; local SHAP provides a supplementary cross-check.
+- The explanations show model reliance, **not causal effects**.
 
 ### 7. Inference and deliverables
 
@@ -358,38 +358,25 @@ run_analysis.py or executed notebook
 
 ## Kaggle notebook
 
-The repository notebook is also the Kaggle submission notebook. Keeping one notebook prevents local and Kaggle versions from drifting apart.
+The repository notebook is the Kaggle submission notebook too. Wa7ed notebook is easier to check and avoids local and Kaggle copies drifting apart.
 
 The only difference is where inputs come from:
 
 | Environment | Raw data | Pipeline source | Generated artifacts |
 | --- | --- | --- | --- |
 | Local repository | `data/raw/` | `src/f1podium/` | `artifacts/` |
-| Kaggle | Attached dataset under `/kaggle/input/` | Attached `f1podium_src.zip` | `/kaggle/working/artifacts/` |
-
-Prepare the small source attachment:
-
-```powershell
-.\.venv\Scripts\python.exe scripts\build_kaggle_bundle.py
-```
-
-This creates:
-
-```text
-kaggle/f1podium_src.zip
-```
+| Kaggle | Attached dataset under `/kaggle/input/` | Code embedded in notebook | `/kaggle/working/artifacts/` |
 
 To publish on Kaggle:
 
 1. Create or open a Kaggle notebook.
 2. Import `notebooks/milestone_1_f1_podium_prediction.ipynb`.
 3. Attach the public Formula 1 World Championship dataset containing the 14 CSV tables.
-4. Upload or attach `kaggle/f1podium_src.zip` as a private Kaggle dataset/input.
-5. Choose **Run All**.
-6. Confirm that every code cell completes and that tables and figures appear.
-7. Save a version with outputs, then make the notebook accessible using the visibility required for submission.
+4. Choose **Run All**.
+5. Confirm that every code cell completes and that tables and figures appear.
+6. Save a version with outputs, then make the notebook accessible using the visibility required for submission.
 
-The first notebook cell searches `/kaggle/input` for `results.csv` and either an unpacked `f1podium/pipeline.py` or the ZIP bundle. Hena only path discovery changes; the analysis remains identical.
+The first notebook cell searches `/kaggle/input` for `results.csv`. All analysis code is already contained in the notebook.
 
 ## Automated tests
 
@@ -436,28 +423,19 @@ Exact scores, thresholds, plots, and sample sizes are stored in the executed not
 - Do not commit `artifacts/`, temporary renders, local environments, the optional UI/design workspace, or personal study notes.
 - Never select models, hyperparameters, or thresholds using the test set.
 
-## Team ownership
+## Who worked on what
 
-The checklist annotations use these initials:
+Kol wahed focused on a different part, bas everyone should still understand the full pipeline because the evaluator can ask anyone.
 
-| Initial | Team member |
-| --- | --- |
-| Y | Yahia |
-| R | Rana |
-| A | Ali |
-| A* | Aya |
+### Yahia: EDA, analytical questions, and feature evidence
 
-Ownership means that person should understand, maintain, present, and defend the assigned work. Kol wahed still needs a basic understanding of the complete pipeline because evaluation questions may be directed to any team member.
+Yahia worked mainly on the exploratory and descriptive analysis.
 
-### Yahia (Y): EDA, analytical questions, and feature evidence
-
-Yahia primarily owns the exploratory and descriptive analysis.
-
-Checklist scope:
+Main tasks:
 
 - Initial exploratory data analysis.
 - Data-analysis plots.
-- The three data-engineering questions, shared with Rana where joins or interpretation overlap.
+- The three data-engineering questions and their interpretation.
 - Plots and written notebook conclusions for the three questions.
 - Exploratory evidence supporting feature selection.
 - Plots showing feature effects.
@@ -482,7 +460,7 @@ Main code locations:
 - `artifacts/figures/home_effect.png`
 - `artifacts/figures/mechanical_retirements.png`
 
-Yahia should be able to explain:
+Key points for Yahia:
 
 - What changed before and after cleaning and why the distribution remained stable.
 - Why final grid, not qualifying position, defines a front-row start.
@@ -491,11 +469,11 @@ Yahia should be able to explain:
 - How qualifying coverage motivated the missingness flag and retention of grid features.
 - Why descriptive results and feature importance are associations rather than causal effects.
 
-### Rana (R): predictive models, evaluation, ablation, and XAI
+### Rana: predictive models, evaluation, ablation, and XAI
 
-Rana primarily owns modeling and explainability. The marked checklist also indicates shared responsibility with Yahia for the three analytical questions, especially where those findings support model interpretation.
+Rana worked mainly on modeling and explainability, plus the analytical results used when interpreting the models.
 
-Checklist scope:
+Main tasks:
 
 - Logistic-regression baseline.
 - Random-forest model.
@@ -508,7 +486,7 @@ Checklist scope:
 - Feature-group ablation.
 - Global permutation importance.
 - Global SHAP.
-- Local SHAP explanation.
+- Local LIME explanation, with local SHAP as a supplementary cross-check.
 - XAI plots and interpretation in the report.
 
 Main code locations:
@@ -532,9 +510,10 @@ Main code locations:
 - `artifacts/figures/model_comparison.png`
 - `artifacts/figures/permutation_importance.*`
 - `artifacts/figures/shap_global.*`
+- `artifacts/figures/lime_local.*`
 - `artifacts/figures/shap_local.*`
 
-Rana should be able to explain:
+Key points for Rana:
 
 - Why logistic regression is the baseline.
 - How a random forest and a two-hidden-layer MLP work.
@@ -544,14 +523,14 @@ Rana should be able to explain:
 - Why the random forest shows overfitting.
 - Why test data cannot be used for model, hyperparameter, or threshold selection.
 - Why permutation importance and SHAP can disagree.
-- Why local SHAP satisfies the official local-XAI requirement without LIME.
+- How local LIME explains one prediction and why local SHAP is kept as a cross-check.
 - Why XAI results must not be presented as causal effects.
 
-### Ali (A): cleaning, relational integrity, and integration
+### Ali: cleaning, relational integrity, and integration
 
-Ali primarily owns data cleaning, auditing, modeling grain, and final integration. Ali also shares feature-selection responsibility with Aya because cleaning decisions determine which candidate features are valid and available.
+Ali worked mainly on data cleaning, auditing, modeling grain, integration, and the data-availability side of feature selection.
 
-Checklist scope:
+Main tasks:
 
 - Raw-table loading and immutability.
 - Sentinel handling and semantic typing.
@@ -584,7 +563,7 @@ Main code locations:
 - `scripts/build_notebook.py`
 - `scripts/build_report.py`
 
-Ali should be able to explain:
+Key points for Ali:
 
 - The purpose and grain of every important raw table.
 - How `\N` becomes a missing value and how dates/durations receive semantic types.
@@ -596,11 +575,11 @@ Ali should be able to explain:
 - How the complete pipeline flows from raw CSVs to artifacts, notebook, and report.
 - Which files are generated, ignored, or intended for submission.
 
-### Aya (A*): preprocessing, feature engineering, and splitting
+### Aya: preprocessing, feature engineering, and splitting
 
-Aya primarily owns the transformation from the cleaned table into a leakage-safe model-ready dataset. Feature selection is shared with Ali and supported by Yahia's EDA.
+Aya worked mainly on turning the cleaned table into a leakage-safe model-ready dataset, with feature choices supported by the cleaning work and EDA.
 
-Checklist scope:
+Main tasks:
 
 - Data preprocessing.
 - Feature engineering.
@@ -627,7 +606,7 @@ Main code locations:
 - `artifacts/preprocessing_experiments.csv`
 - `artifacts/modeling_table.csv`
 
-Aya should be able to explain:
+Key points for Aya:
 
 - All 17 features and their five groups.
 - Why every feature is available after qualifying and before race start.
@@ -640,25 +619,6 @@ Aya should be able to explain:
 - The three preprocessing variants and their validation results.
 - Why the split is chronological rather than random.
 - Why training has more qualifying missingness and a lower podium rate than later splits.
-
-### Shared ownership and review
-
-Some outputs require more than one owner:
-
-| Output | Primary owner | Required reviewers |
-| --- | --- | --- |
-| Cleaning and key audits | Ali | Yahia |
-| Before/after EDA | Yahia | Ali |
-| Three data-engineering answers | Yahia | Rana and Ali |
-| Feature list and cutoff validity | Aya | Ali and Yahia |
-| Preprocessing experiments | Aya | Rana |
-| Chronological split | Aya | Ali and Rana |
-| Model comparison | Rana | Aya |
-| Feature-group ablation | Rana | Yahia and Aya |
-| Global and local XAI | Rana | Yahia |
-| Executed notebook | Ali | All members |
-| Analytical report | Ali | All members |
-| Final submission links | Ali | One second reviewer before submission |
 
 ## Submission outputs
 

@@ -1,198 +1,228 @@
-"""Generate the submission notebook from small, reviewable source cells.
-
-The notebook is an output, not a second implementation. Hena we keep its story
-and comments readable while ``pipeline.py`` remains the analytical source of truth.
-"""
+"""Build the fully self-contained Kaggle submission notebook."""
 
 from pathlib import Path
 import nbformat as nbf
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "notebooks" / "milestone_1_f1_podium_prediction.ipynb"
+PIPELINE = ROOT / "src" / "f1podium" / "pipeline.py"
 
 nb = nbf.v4.new_notebook()
 nb["metadata"] = {
     "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
     "language_info": {"name": "python", "version": "3.12"},
+    "kaggle": {"accelerator": "none", "dataSources": []},
 }
-
 cells = []
-cells.append(nbf.v4.new_markdown_cell("""# Milestone 1: Formula 1 Podium Prediction Companion
 
-This run-all notebook predicts whether each driver finishes on the podium using only information known after qualifying and before the race. The primary metric is **PR-AUC** because podiums are rare; ROC-AUC is secondary. Threshold-dependent F1, precision, and recall are also reported. The chronological split is train through 2019, validation in 2020-2021, and unseen test in 2022-2024."""))
-cells.append(nbf.v4.new_code_cell("""from pathlib import Path
-import sys
-import zipfile
+def md(text: str) -> None:
+    """Append a stripped Markdown cell."""
+    cells.append(nbf.v4.new_markdown_cell(text.strip()))
 
-# The evaluator momken run this locally or on Kaggle, so we support both layouts.
+def code(text: str) -> None:
+    """Append a stripped code cell."""
+    cells.append(nbf.v4.new_code_cell(text.strip()))
+
+def source_section(source: str, start: str, end: str | None = None) -> str:
+    """Copy one section of pipeline.py into a notebook cell."""
+    begin = source.index(start)
+    finish = source.index(end, begin) if end else len(source)
+    return source[begin:finish].rstrip()
+
+source = PIPELINE.read_text(encoding="utf-8")
+implementation_sections = [
+    ("## 1. Imports, analytical contract, and relational schema",
+     "The constants define the features, primary keys, and foreign-key relationships used throughout the analysis.",
+     source_section(source, "from __future__ import annotations", "def load_raw_tables")),
+    ("## 2. Loading, auditing, cleaning, and feature engineering",
+     "Literal `\\N` values become missing values. Dates and qualifying durations receive semantic types. Shared-drive duplicates are resolved deterministically before leakage-safe historical features are constructed.",
+     source_section(source, "def load_raw_tables", "def split_by_time")),
+    ("## 3. EDA, chronological splitting, preprocessing, and models",
+     "Training covers 1950-2019, validation 2020-2021, and test 2022-2024. Preprocessing is fitted on training rows only, and all three models use identical rows and features.",
+     source_section(source, "def split_by_time", "MECHANICAL_TERMS =")),
+    ("## 4. Data-engineering questions",
+     "These functions answer the three required multi-hop relational questions and document the status and nationality mappings used by them.",
+     source_section(source, "MECHANICAL_TERMS =", "def create_plots")),
+    ("## 5. Visual evidence and explainability",
+     "The figures cover cleaning, missingness, all analytical questions, model comparison, ablation, permutation importance, global SHAP, local LIME, and a local SHAP cross-check.",
+     source_section(source, "def create_plots", "def predict_podium")),
+    ("## 6. Inference and end-to-end execution",
+     "The inference function accepts complete and partial records. The runner rebuilds every table, experiment, metric, explanation, and figure used below.",
+     source_section(source, "def predict_podium")),
+]
+
+md("""
+# Milestone 1: Formula 1 Podium Prediction Companion
+
+This is the complete, self-contained Kaggle submission notebook. Every function used for loading, auditing, cleaning, joining, feature engineering, modeling, evaluation, experimentation, explainability, plotting, and inference appears in visible cells below. The notebook does **not** import project code from `pipeline.py`.
+
+The prediction cutoff is after qualifying and before the race starts. The unit of analysis is one driver entering one race, and the binary target is `positionOrder <= 3`. PR-AUC is primary because podiums are rare; ROC-AUC is secondary. F1, precision, and recall are calculated at thresholds selected from validation data only.
+""")
+
+md("""
+## 0. Kaggle setup
+
+Attach the public **Formula 1 World Championship (1950-2024)** Kaggle dataset containing the 14 CSV files, then choose **Run All**. No source ZIP or repository module is needed. The raw CSV files are read only and never modified.
+""")
+code("""
+from pathlib import Path
+
 ROOT = Path.cwd().resolve()
-if ROOT.name == 'notebooks':
+if ROOT.name == "notebooks":
     ROOT = ROOT.parent
 
-def _add_package(root: Path) -> None:
-    local = root / 'src'
-    if (local / 'f1podium' / 'pipeline.py').exists():
-        sys.path.insert(0, str(local))
-        return
-    kaggle = Path('/kaggle/input')
-    if not kaggle.exists():
-        return
-    for match in kaggle.rglob('pipeline.py'):
-        if match.parent.name == 'f1podium':
-            sys.path.insert(0, str(match.parent.parent))
-            return
-    # Momken attach the tiny ZIP produced by build_kaggle_bundle.py instead of
-    # publishing the whole repository as a Kaggle dataset.
-    for archive in kaggle.rglob('f1podium_src.zip'):
-        target = Path('/kaggle/working/f1podium_source')
-        target.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(archive) as bundle:
-            bundle.extractall(target)
-        if (target / 'f1podium' / 'pipeline.py').exists():
-            sys.path.insert(0, str(target))
-            return
-    raise FileNotFoundError(
-        'Could not find f1podium/pipeline.py. Attach f1podium_src.zip '
-        'or a Kaggle dataset containing the f1podium package.'
-    )
-
-def _data_dir(root: Path) -> Path:
-    local = root / 'data' / 'raw'
-    if (local / 'results.csv').exists():
+def locate_data() -> Path:
+    '''Find the raw CSV directory locally or in Kaggle's attached inputs.'''
+    # Use the repository data locally. On Kaggle, find the folder containing
+    # results.csv instead of relying on the generated dataset path.
+    local = ROOT / "data" / "raw"
+    if (local / "results.csv").exists():
         return local
-    matches = sorted(Path('/kaggle/input').rglob('results.csv'))
+    kaggle_root = Path("/kaggle/input")
+    matches = sorted(kaggle_root.rglob("results.csv")) if kaggle_root.exists() else []
     if not matches:
-        raise FileNotFoundError('results.csv was not found in data/raw or /kaggle/input')
+        raise FileNotFoundError("Attach the Formula 1 dataset containing results.csv.")
     return matches[0].parent
 
-_add_package(ROOT)
-DATA = _data_dir(ROOT)
-OUT = ROOT / 'artifacts'
-from IPython.display import display, Image
-from f1podium.pipeline import run_analysis
-# One call rebuilds the evidence used below; no hidden manual notebook steps.
+DATA = locate_data()
+OUT = Path("/kaggle/working/artifacts") if Path("/kaggle/working").exists() else ROOT / "artifacts"
+OUT.mkdir(parents=True, exist_ok=True)
+print(f"Raw data: {DATA}")
+print(f"Generated artifacts: {OUT}")
+""")
+
+for heading, explanation, implementation in implementation_sections:
+    md(f"{heading}\n\n{explanation}")
+    code(implementation)
+
+md("""
+## 7. Run the complete pipeline
+
+This call rebuilds all evidence from the attached raw data. There are no hidden manual cells and no imported project implementation.
+""")
+code("""
+from IPython.display import Image, display
+
 results = run_analysis(DATA, OUT)
-print(results['summary'])"""))
-cells.append(nbf.v4.new_markdown_cell("""## Kaggle setup
+display(results["summary"])
+""")
 
-This is the same notebook used in the repository; there is no separate Kaggle analysis. On Kaggle, attach two inputs before choosing **Run All**:
+md("""
+## 8. Audit, cleaning, and before/after EDA
 
-1. The public Formula 1 World Championship dataset containing the 14 CSV tables.
-2. The small `f1podium_src.zip` bundle generated by `python scripts/build_kaggle_bundle.py`.
+The audit checks key uniqueness, null keys, and orphan references. The cleaning comparison quantifies the modeling grain, duplicate participation, target rate, pit-lane share, missing finishing classifications, and median grid before and after shared-drive resolution.
+""")
+code("""
+display(results["pk_audit"])
+display(results["fk_audit"])
+display(results["summary"]["diagnostics"])
+display(results["cleaning_eda"])
+display(Image(filename=str(OUT / "figures" / "cleaning_before_after.png")))
+display(Image(filename=str(OUT / "figures" / "qualifying_coverage.png")))
+""")
+md("""
+Cleaning reaches exactly one row per `(raceId, driverId)` without materially changing the target or starting-position distributions. Qualifying coverage is sparse in older seasons, so we retain an explicit missingness flag and use final grid as the historically broader pre-race signal rather than discarding early history.
+""")
 
-Kaggle mounts attached data under `/kaggle/input` and gives the notebook a writable `/kaggle/working` directory. The setup cell above finds `results.csv`, extracts the source bundle when needed, imports the shared pipeline, and writes generated artifacts under `/kaggle/working/artifacts`. Locally it uses `data/raw`, `src/f1podium`, and the repository `artifacts` directory instead.
+md("## 9. Answers to the three data-engineering questions")
+code("""
+for key, table in results["answers"].items():
+    print(f"\\n{key}")
+    display(table.groupby("era").head(10) if "era" in table else table)
 
-The calculations, features, models, metrics, plots, and conclusions are identical in both environments. Hena only the path discovery changes."""))
-cells.append(nbf.v4.new_markdown_cell("""## 1. Raw audit and cleaning
+print("Statuses counted as mechanical:")
+display(results["summary"]["mechanical_statuses"])
+print("Statuses excluded as non-starts:")
+display(results["summary"]["non_start_statuses"])
 
-The raw CSVs are never modified. Literal `\\N` sentinels become missing values on read, while dates and qualifying durations receive proper types. Primary keys and major foreign keys are checked in code. For shared-drive duplicates, we keep the car the driver actually started (`grid > 0`), then the best final classification, then the smallest result ID. The rule is simple and repeatable, ya3ni the result does not depend on row order."""))
-cells.append(nbf.v4.new_code_cell("""display(results['pk_audit'])
-display(results['fk_audit'])
-display(results['summary']['diagnostics'])"""))
-cells.append(nbf.v4.new_markdown_cell("""### Audit conclusion
+for figure in ["front_row_conversion", "home_effect", "mechanical_retirements"]:
+    display(Image(filename=str(OUT / "figures" / f"{figure}.png")))
+""")
+md("""
+**Front-row conversion.** Rankings are separated at the 2014 hybrid-era boundary and require at least ten front-row starts per circuit-era. Final grid positions 1-2 define the front row because penalties can make qualifying order differ from the actual start.
 
-All audited primary keys are non-null and unique, and all checked foreign keys have zero orphans. The raw `results` table contains 26,759 rows but only 26,668 unique driver-race pairs. The deterministic shared-drive rule resolves 85 duplicate groups and produces 26,668 modeling rows with exactly one row per `(raceId, driverId)`. The raw files remain unchanged because every transformation operates on a copy."""))
-cells.append(nbf.v4.new_markdown_cell("""## 2. EDA before and after cleaning
+**Home-country effect.** Home and away rates are compared inside the same grid bands. This controls the dominant starting-position pattern transparently, but the result remains descriptive rather than causal.
 
-The comparison below measures the cleaning step rather than relying on manual inspection. The raw result count is compared with the number of unique `(raceId, driverId)` pairs, duplicate participation, podium rate, pit-lane share, missing finishing classification, and median non-zero grid. Cleaning removes only the extra shared-drive rows; it does not materially change the target or grid distributions. After cleaning, row count equals the number of unique driver-race pairs and duplicate participation falls to zero.
+**Mechanical retirements.** Rates use recorded race starters as the denominator and documented component-status labels as the numerator, with at least twenty starts per constructor-era. Ambiguous status coding remains a limitation.
+""")
 
-Qualifying coverage changes sharply over history, so we preserve an explicit missingness flag and use grid position as the historically available anchor instead of dropping older seasons."""))
-cells.append(nbf.v4.new_code_cell("""display(results['cleaning_eda'])
-display(Image(filename=str(ROOT / 'artifacts/figures/cleaning_before_after.png')))
-display(Image(filename=str(ROOT / 'artifacts/figures/qualifying_coverage.png')))"""))
-cells.append(nbf.v4.new_markdown_cell("""### EDA conclusion
-
-Cleaning removes 91 extra shared-drive rows and reduces duplicate participation from 176 rows to zero. The podium rate remains 12.7%, the pit-lane share remains 6.1%, and the median non-zero grid remains 12, so the rule repairs the grain without materially reshaping the target or starting-position distribution.
-
-Qualifying coverage is a separate historical missingness problem: it is effectively absent in early seasons and close to complete in modern seasons. We therefore keep the full 1950-2024 history, add `qualifying_missing`, and retain grid position as the feature with broader historical coverage instead of deleting older races."""))
-cells.append(nbf.v4.new_markdown_cell("""## 3. Data-engineering questions
-
-Each answer uses multi-hop joins. Question 1 joins results, races, and circuits and uses **grid**, not qualifying order, to define a front-row start; qualifying position remains separate. Question 2 joins drivers and circuits, maps nationality to country, and stratifies by grid band to control starting position. Question 3 joins results, status, and constructors; only documented component-failure statuses count as mechanical."""))
-cells.append(nbf.v4.new_code_cell("""# Display the computed tables before interpreting their figures.
-for key, table in results['answers'].items():
-    print('\\n', key)
-    display(table.groupby('era').head(10) if 'era' in table else table)
-print('Statuses counted as mechanical:')
-display(results['summary']['mechanical_statuses'])
-print('Statuses excluded because the car did not start:')
-display(results['summary']['non_start_statuses'])
-for name in ['front_row_conversion', 'home_effect', 'mechanical_retirements']:
-    display(Image(filename=str(ROOT / f'artifacts/figures/{name}.png')))"""))
-cells.append(nbf.v4.new_markdown_cell("""### Answers to the three data-engineering questions
-
-1. **Front-row conversion.** Before 2014, Magny-Cours has the highest result among circuits meeting the minimum-sample rule: 80.6% of 36 front-row starts became podiums. From 2014 onward, Suzuka leads at 88.9% of 18 starts, followed by Yas Marina at 86.4% of 22. The ranking therefore changes across the hybrid-era boundary. This uses the final starting **grid**, not qualifying position, because penalties can move a driver before the race.
-
-2. **Home-country effect after controlling for grid.** There is no consistent home advantage. Home drivers have slightly lower podium rates in grid bands 1-3, 4-6, and 7-10; they are only slightly higher in 11-15, and the 16+ rates are essentially identical. Starting position dominates the pattern, while the remaining home/away gaps are small and inconsistent in direction. The nationality-to-country mapping is approximate, so this is an association rather than a causal estimate.
-
-3. **Mechanical retirements.** Among constructors with at least 20 starts in an era, Caterham is highest in 2014-2021 at 23.5% of 34 starts, followed by Lotus F1 at 20.0% of 75. In 2022-2024, Alfa Romeo is highest at 12.5% of 88 starts, followed by Alpine at 11.0% of 136. Only component-failure statuses enter the numerator; crashes, driver causes, regulatory decisions, and non-starts are excluded."""))
-cells.append(nbf.v4.new_markdown_cell("""## 4. Leakage-safe feature engineering and split
-
-Grid, pit-lane indicator, field size, qualifying order/time/missingness, age, season context, and **lagged** driver/constructor form are pre-race features. Standings are shifted to the next race within the same season. Rolling form uses `shift()` before `rolling()`, so the current target cannot leak into its own predictors. In short, el race result we are trying to predict never sneaks into its own input row. Post-race position, points, laps, status, pit stops, and fastest lap never enter the feature matrix."""))
-cells.append(nbf.v4.new_code_cell("""from f1podium.pipeline import FEATURES, FEATURE_GROUPS, split_by_time
+md("## 10. Leakage-safe features and chronological split")
+code("""
 display(FEATURE_GROUPS)
-splits = split_by_time(results['modeling_table'])
-display({name: (len(part), int(part.year.min()), int(part.year.max()), float(part.podium.mean())) for name, part in splits.items()})"""))
-cells.append(nbf.v4.new_markdown_cell("""### Feature and split conclusion
+splits = split_by_time(results["modeling_table"])
+split_summary = pd.DataFrame([
+    {"split": name, "years": f"{int(part.year.min())}-{int(part.year.max())}",
+     "rows": len(part), "races": part.raceId.nunique(),
+     "podium_rate": part.podium.mean(),
+     "qualifying_missing": part.qualifying_missing.mean()}
+    for name, part in splits.items()
+])
+display(split_summary)
+""")
+md("""
+Every selected feature is known after qualifying and before the start. Driver form shifts before rolling, constructor outcomes are aggregated by race before shifting, and standings attach only to the following race. Current-race position, points, status, laps, pit stops, and fastest-lap information never enter `FEATURES`. The chronological split prevents future seasons from training predictions about earlier seasons.
+""")
 
-The 17 inputs are valid at the prediction cutoff because they describe the grid, qualifying, past form, prior championship standings, or pre-race context. Current-race finishing position, points, laps, status, pit stops, and fastest lap are excluded. The split is chronological rather than random: training ends in 2019, validation covers 2020-2021, and 2022-2024 is held back for one final test. This prevents future seasons from teaching the model about earlier races and makes evaluation reflect deployment on later seasons."""))
-cells.append(nbf.v4.new_markdown_cell("""## 5. Preprocessing experiments
+md("## 11. Preprocessing experiments")
+code('display(results["preprocessing"])')
+md("""
+Median imputation with scaling, median imputation without scaling, and zero imputation with scaling are compared on validation only. The retained preprocessing is learned entirely from training rows; the test seasons do not influence this choice.
+""")
 
-Median imputation plus scaling is compared with median without scaling and zero imputation plus scaling. These are full-pipeline validation experiments; the test set remains untouched."""))
-cells.append(nbf.v4.new_code_cell("""# Compare complete preprocessing pipelines on validation only.
-display(results['preprocessing'])"""))
-cells.append(nbf.v4.new_markdown_cell("""### Preprocessing conclusion
+md("## 12. Model comparison: train, validation, and unseen test")
+code("""
+display(results["metrics"])
+display(Image(filename=str(OUT / "figures" / "model_comparison.png")))
+validation_ranking = (results["metrics"].query("split == 'validation'")
+                      .sort_values("PR-AUC", ascending=False))
+print("Validation-only model selection ranking:")
+display(validation_ranking)
+""")
+md("""
+Logistic regression is the statistical baseline, random forest captures nonlinear interactions, and the two-hidden-layer MLP is the shallow neural network. PR-AUC is the selection metric because the positive class is uncommon. Model-specific thresholds maximize validation F1 and are frozen before test scoring. Training-to-validation differences, especially for the forest, reveal overfitting and historical distribution shift.
+""")
 
-Median imputation with scaling is retained because its validation PR-AUC is 0.728, compared with 0.724 without scaling and 0.725 with zero imputation plus scaling. The maximum gap is only about 0.004, so preprocessing choice is not the main source of predictive performance. Median imputation is also less extreme than replacing an unknown value with zero, while scaling keeps logistic-regression and neural-network inputs on comparable ranges. All imputation and scaling parameters are learned from training rows only."""))
-cells.append(nbf.v4.new_markdown_cell("""## 6. Comparable models and evaluation
+md("## 13. Feature-group ablation")
+code("""
+display(results["ablations"])
+display(Image(filename=str(OUT / "figures" / "ablation.png")))
+""")
+md("""
+Each experiment removes one complete feature group and retrains the logistic baseline. The change from full-model validation PR-AUC measures the group's incremental predictive contribution after training and complements the earlier exploratory motivation.
+""")
 
-Logistic regression is the interpretable baseline, random forest captures nonlinear interactions, and a two-hidden-layer MLP is the required shallow neural network. All use identical rows and features. Hyperparameters and F1 thresholds are fixed using train/validation data only; the final test set is evaluated once."""))
-cells.append(nbf.v4.new_code_cell("""display(results['metrics'])
-display(Image(filename=str(ROOT / 'artifacts/figures/model_comparison.png')))"""))
-cells.append(nbf.v4.new_markdown_cell("""### Model-selection conclusion
+md("## 14. Global and local explainability")
+code("""
+for figure in ["permutation_importance", "shap_global", "lime_local", "shap_local"]:
+    display(Image(filename=str(OUT / "figures" / f"{figure}.png")))
+display(results["shap_global"].head(12))
+display(results["lime_local"].head(12))
+display(results["shap_local"].head(12))
+""")
+md("""
+Permutation importance measures the validation PR-AUC change after shuffling one feature, and global SHAP summarizes average contribution magnitude. Local LIME explains one fixed validation prediction with 5,000 perturbations around that row and a distance-weighted ridge surrogate; its weighted R² reports local fidelity. Positive LIME weights push the surrogate toward a podium and negative weights push it away. Local SHAP is retained as a supplementary cross-check. Correlated predictors can divide importance differently across methods. These values describe fitted-model reliance and are **not causal effects**.
+""")
 
-The shallow neural network is selected using validation PR-AUC: 0.738 versus 0.728 for logistic regression and 0.702 for the random forest. On the untouched 2022-2024 test set it remains slightly first at 0.716 PR-AUC, compared with 0.703 and 0.689. Test ROC-AUC is close for all three models (approximately 0.933-0.938), showing that PR-AUC is the more discriminating metric for this rare positive class.
+md("## 15. Complete and partially missing inference")
+code('display(results["summary"]["inference_demos"])')
+md("""
+The complete example follows the normal inference path. The partial example demonstrates that missing inputs are handled by the imputer fitted on training seasons, without consulting validation or test data. Its output demonstrates software robustness rather than a historical base rate.
+""")
 
-The forest is the clearest overfitting warning: PR-AUC falls from 0.919 on training to 0.702 on validation and 0.689 on test. Thresholds are chosen by validation F1 and frozen before test scoring, so the test set does not influence model or cutoff selection."""))
-cells.append(nbf.v4.new_markdown_cell("""## 7. Feature-group ablation
+md("""
+## 16. Limitations
 
-One group is removed at a time from the logistic baseline. The change in validation PR-AUC measures predictive contribution after training and complements the earlier EDA motivation."""))
-cells.append(nbf.v4.new_code_cell("""display(results['ablations'])
-display(Image(filename=str(ROOT / 'artifacts/figures/ablation.png')))"""))
-cells.append(nbf.v4.new_markdown_cell("""### Ablation conclusion
-
-Grid is the most valuable feature group: removing it lowers validation PR-AUC by 0.026. Removing standings costs 0.015, form costs 0.008, qualifying costs 0.005, and context costs 0.004. Every group contributes some validation signal, but grid position carries the clearest unique information. The small qualifying drop is reasonable because the published grid already contains much of qualifying order plus penalties."""))
-cells.append(nbf.v4.new_markdown_cell("""## 8. Explainability
-
-Permutation importance and global SHAP summarize reliance across many validation rows. Local SHAP explains one validation prediction. **These associations are not causal effects:** importance means the fitted model relied on a feature, mesh proof that changing it would cause a podium."""))
-cells.append(nbf.v4.new_code_cell("""# Explain the random forest globally, then explain one fixed validation row locally.
-for name in ['permutation_importance', 'shap_global', 'shap_local']:
-    display(Image(filename=str(ROOT / f'artifacts/figures/{name}.png')))
-display(results['shap_global'].head(12))
-display(results['shap_local'].head(12))"""))
-cells.append(nbf.v4.new_markdown_cell("""### XAI conclusion
-
-Permutation importance and global SHAP agree that grid position is the dominant feature. Permutation importance records a 0.094 mean PR-AUC loss when grid position is shuffled; global SHAP gives it the largest mean absolute contribution at 0.128. SHAP ranks recent constructor and driver form next, whereas permutation assigns them less unique value, suggesting that form overlaps with information already carried by grid and standings.
-
-For the selected Russell validation row, grid position 11 supplies the largest negative SHAP contribution (-0.129). A recent driver podium rate of 0.2 pushes positively (+0.055), but not enough to offset the grid, championship rank, season, and constructor-form contributions. These values explain the fitted forest's behavior; they do **not** prove that changing any feature would cause a podium."""))
-cells.append(nbf.v4.new_markdown_cell("""## 9. Inference demonstrations
-
-The reusable function accepts a complete record or a partial record. Missing fields use the training-fitted imputer; the returned threshold is the validation-selected threshold for the chosen model."""))
-cells.append(nbf.v4.new_code_cell("""# Demonstrate both the normal path and the supported missing-data path.
-display(results['summary']['inference_demos'])"""))
-cells.append(nbf.v4.new_markdown_cell("""### Inference conclusion
-
-The selected shallow network accepts both a complete pre-race row and a partially missing row. For missing inputs, it uses medians learned from the training period rather than information from validation or test. The returned probability is converted to a podium/non-podium label using the network's validation-selected threshold of 0.240. The partial example demonstrates software robustness, not a historically observed driver profile, so its probability should not be interpreted as a grid-position base rate."""))
-cells.append(nbf.v4.new_markdown_cell("""## 10. Limitations
-
-- Historical qualifying coverage is sparse, especially before the modern qualifying tables.
-- Constructor IDs do not bridge team renames; history intentionally resets at identity changes.
-- Nationality-to-country mapping is necessarily incomplete and does not represent multiple citizenships.
-- Status classification is a documented rules-based grouping and may miss ambiguous rare failures.
-- Era changes and the small 2020-2021 validation window create distribution shift.
-- Predictions are associations from historical data, not causal claims or guarantees."""))
+- Qualifying coverage is sparse and era-dependent in older seasons.
+- Regulations, field size, reliability, and competitive structure change over time.
+- Constructor identifiers do not necessarily bridge team renames.
+- The nationality-to-country mapping is incomplete and cannot represent multiple nationalities.
+- Mechanical status classification is rules-based and can miss ambiguous causes.
+- Validation contains only the 2020-2021 seasons, so selection estimates have sampling uncertainty.
+- Probabilities were evaluated for ranking and threshold classification, not formal calibration.
+- Permutation importance, SHAP, and LIME explain associations inside fitted models, not causes of podium finishes.
+""")
 
 nb["cells"] = cells
 OUT.parent.mkdir(parents=True, exist_ok=True)
 nbf.write(nb, OUT)
 print(OUT)
-

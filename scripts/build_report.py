@@ -1,8 +1,7 @@
 """Turn the verified pipeline outputs into the milestone report.
 
-Numbers in the prose come from ``artifacts/`` at build time. Ana kont keeping
-model training out of this file on purpose: this script publishes the evidence;
-it does not quietly create a second version of the analysis.
+Numbers in the prose come from ``artifacts/`` at build time. Model training stays
+in the pipeline so the report cannot create a second version of the analysis.
 """
 
 from __future__ import annotations
@@ -46,6 +45,7 @@ CONTENT_W = PAGE_W - 2 * MARGIN
 
 
 def esc(value) -> str:
+    """Escape text before placing it in a ReportLab paragraph."""
     return (
         str(value)
         .replace("&", "&amp;")
@@ -55,18 +55,22 @@ def esc(value) -> str:
 
 
 def pct(value, digits: int = 1) -> str:
+    """Format a proportion as a percentage."""
     return f"{100 * float(value):.{digits}f}%"
 
 
 def num(value, digits: int = 3) -> str:
+    """Format a number with a fixed number of decimal places."""
     return f"{float(value):.{digits}f}"
 
 
 def integer(value) -> str:
+    """Format a numeric value as a comma-separated integer."""
     return f"{int(round(float(value))):,}"
 
 
 def build_styles():
+    """Create the paragraph styles shared across the report."""
     base = getSampleStyleSheet()
     styles = {
         "Title": ParagraphStyle(
@@ -188,10 +192,12 @@ COUNTERS = {"fig": 0, "tab": 0}
 
 
 def P(text: str, style: str = "Body"):
+    """Build a report paragraph with the requested style."""
     return Paragraph(text, STYLES[style])
 
 
 def figure_image(name: str, width: float) -> Image:
+    """Load a figure and preserve its aspect ratio."""
     path = FIG / f"{name}.png"
     iw, ih = ImageReader(str(path)).getSize()
     height = width * ih / float(iw)
@@ -201,6 +207,7 @@ def figure_image(name: str, width: float) -> Image:
 
 
 def add_figure(story, name: str, caption: str, width: float | None = None):
+    """Add a numbered figure and caption to the report story."""
     COUNTERS["fig"] += 1
     width = CONTENT_W if width is None else width
     img = figure_image(name, width)
@@ -211,6 +218,7 @@ def add_figure(story, name: str, caption: str, width: float | None = None):
 
 
 def make_table(headers: list[str], rows: list[list[str]], widths: list[float], numeric_from: int = 1) -> Table:
+    """Build a styled table and right-align its numeric columns."""
     head = [Paragraph(esc(h), STYLES["Th"]) for h in headers]
     body = []
     for row in rows:
@@ -241,6 +249,7 @@ def make_table(headers: list[str], rows: list[list[str]], widths: list[float], n
 
 
 def add_table(story, headers, rows, widths, caption: str, numeric_from: int = 1):
+    """Add a numbered table and caption to the report story."""
     COUNTERS["tab"] += 1
     cap = Paragraph(f"<b>Table {COUNTERS['tab']}.</b> {caption}", STYLES["Caption"])
     block = [
@@ -254,16 +263,19 @@ def add_table(story, headers, rows, widths, caption: str, numeric_from: int = 1)
 
 
 def h1(story, text: str):
+    """Add a first-level heading with enough room below it."""
     story.append(CondPageBreak(28 * mm))
     story.append(P(text, "H1"))
 
 
 def h2(story, text: str):
+    """Add a second-level heading with enough room below it."""
     story.append(CondPageBreak(22 * mm))
     story.append(P(text, "H2"))
 
 
 def footer(canvas, doc):
+    """Draw the running header, footer, and page number."""
     canvas.saveState()
     canvas.setStrokeColor(NAVY)
     canvas.setLineWidth(0.6)
@@ -281,6 +293,7 @@ def footer(canvas, doc):
 
 
 def team_row(q3: pd.DataFrame, era: str, name: str) -> pd.Series:
+    """Look up one constructor-era row used in the report text."""
     hit = q3[(q3.era == era) & (q3.constructor_name == name)]
     if hit.empty:
         raise KeyError(f"Missing constructor row: {era} / {name}")
@@ -288,6 +301,7 @@ def team_row(q3: pd.DataFrame, era: str, name: str) -> pd.Series:
 
 
 def circuit_row(q1: pd.DataFrame, era: str, name: str) -> pd.Series:
+    """Look up one circuit-era row used in the report text."""
     hit = q1[(q1.era == era) & (q1.circuit_name == name)]
     if hit.empty:
         raise KeyError(f"Missing circuit row: {era} / {name}")
@@ -295,6 +309,7 @@ def circuit_row(q1: pd.DataFrame, era: str, name: str) -> pd.Series:
 
 
 def load():
+    """Load the analysis artifacts used to build the report."""
     summary = json.loads((ART / "summary.json").read_text(encoding="utf-8"))
     frame = pd.read_csv(ART / "modeling_table.csv", low_memory=False)
     q1 = pd.read_csv(ART / "front_row_circuits.csv")
@@ -308,6 +323,7 @@ def load():
     cleaning = pd.read_csv(ART / "cleaning_eda.csv")
     shap = pd.read_csv(FIG / "shap_global.csv")
     local = pd.read_csv(FIG / "shap_local.csv")
+    lime = pd.read_csv(FIG / "lime_local.csv")
     perm = pd.read_csv(FIG / "permutation_importance.csv")
     return {
         "summary": summary,
@@ -323,11 +339,13 @@ def load():
         "cleaning": cleaning,
         "shap": shap,
         "local": local,
+        "lime": lime,
         "perm": perm,
     }
 
 
 def main():
+    """Assemble the analytical report from the saved evidence."""
     data = load()
     summary = data["summary"]
     frame = data["frame"]
@@ -363,7 +381,7 @@ def main():
     story.append(Spacer(1, 4))
     story.append(HRFlowable(width="100%", thickness=1, color=NAVY, spaceAfter=8))
 
-    # Start with the decision we are making, not with library or table details.
+    # Open with the prediction decision before moving into implementation details.
     h1(story, "1. The question we are trying to answer")
     story.append(P(
         "This report asks a narrow question. After qualifying, and before the race starts, "
@@ -393,7 +411,7 @@ def main():
         "whether they rank the rare podium rows above the rest."
     , "Takeaway"))
 
-    # Before trusting any result, show why the joins and final grain are safe.
+    # Establish key integrity and final grain before presenting any results.
     h1(story, "2. What we checked before trusting the joins")
     story.append(P(
         "The raw files are the 14 Kaggle/Ergast tables, and we do not edit them. The literal "
@@ -490,7 +508,7 @@ def main():
         "Takeaway",
     ))
 
-    # Hena the missingness plot explains why qualifying needs special treatment.
+    # Qualifying coverage explains why the missingness flag and imputation are needed.
     h1(story, "3. Qualifying coverage is not stable across history")
     story.append(P(
         "Qualifying position is an obvious pre-race feature, but it is not recorded for "
@@ -535,7 +553,7 @@ def main():
         "Takeaway",
     ))
 
-    # These are the three required descriptive questions from the brief.
+    # Present the three required descriptive questions before the model results.
     h1(story, "4. Three questions about the races, before any model")
     story.append(P(
         "The prediction model comes later. These three questions use the joined tables "
@@ -563,7 +581,8 @@ def main():
     )
 
     def top_circuits(era: str, n: int = 5):
-        # Keep the pipeline order hena: rate first, then its original stable tie order.
+        """Format the leading circuits for one era."""
+        # Keep the pipeline ordering so tied rates stay consistent with the saved table.
         part = q1[q1.era == era].head(n)
         rows = []
         for r in part.itertuples(index=False):
@@ -810,7 +829,7 @@ def main():
         "Takeaway",
     ))
 
-    # Now move from descriptive work to the actual model-ready row.
+    # Move from descriptive results to the row and features used for prediction.
     h1(story, "5. What the model is allowed to see")
     story.append(P(
         "The descriptive results above already point at the grid. The modelling step has "
@@ -891,7 +910,7 @@ def main():
         "Takeaway",
     ))
 
-    # Compare preprocessing choices before comparing model families.
+    # Settle preprocessing on validation data before comparing model families.
     h1(story, "6. Imputation and scaling barely move the validation score")
     story.append(P(
         "Missing qualifying and missing early-season standings have to be filled inside "
@@ -930,7 +949,7 @@ def main():
         "Takeaway",
     ))
 
-    # Same rows and features for every model, otherwise the comparison is not fair.
+    # Every model uses the same rows and features for a fair comparison.
     h1(story, "7. Three models, and why the scores are not interchangeable")
     story.append(P(
         "We fit three classifiers on the same training rows and the same 17 features. "
@@ -977,6 +996,7 @@ def main():
     )
 
     def mget(model, split, col):
+        """Read one model metric from the long-form score table."""
         hit = metrics[(metrics.model == model) & (metrics.split == split)].iloc[0]
         return float(hit[col])
 
@@ -1042,7 +1062,7 @@ def main():
         "Takeaway",
     ))
 
-    # Ablation asks what each feature group adds after retraining.
+    # Retraining after each removal shows what the feature group adds.
     h1(story, "8. Removing the grid hurts more than removing anything else")
     story.append(P(
         "An ablation retrains logistic regression after deleting one feature group, then "
@@ -1111,7 +1131,7 @@ def main():
         "Takeaway",
     ))
 
-    # Explain the forest globally and locally, with no causal claims.
+    # Explain forest behavior globally and locally without treating it as causal.
     h1(story, "9. What the forest relies on, and where the two explanations disagree")
     story.append(P(
         "The explanations in this section are for the random forest, not for the neural "
@@ -1232,15 +1252,52 @@ def main():
         "the ablation, and it matches the grid ladder in Section 4, but a single row is not "
         "a general law."
     ))
+    story.append(P("9.3 Local LIME explanation", "H2"))
+    lime = data["lime"]
+    lime_fidelity = float(lime.iloc[0].local_fidelity_r2)
+    lime_model_p = float(lime.iloc[0].model_probability)
+    lime_surrogate_p = float(lime.iloc[0].surrogate_probability)
     story.append(P(
-        "<b>Takeaway.</b> Grid position is the feature both explanation methods agree on. "
+        "LIME provides the required model-agnostic local explanation for the same fixed "
+        "validation case. We create 5,000 nearby records by either retaining each observed "
+        "feature or replacing it with a value drawn from the training seasons. The random "
+        "forest scores those records, and a distance-weighted ridge model approximates the "
+        "forest around the explained row. A positive coefficient pushes the local surrogate "
+        "toward a podium; a negative coefficient pushes it away."
+    ))
+    add_figure(
+        story,
+        "lime_local",
+        f"Local LIME contributions for one fixed validation prediction. The black-box probability "
+        f"is {lime_model_p:.3f}, the local surrogate estimate is {lime_surrogate_p:.3f}, and "
+        f"weighted local R-squared is {lime_fidelity:.3f}.",
+        width=CONTENT_W * 0.78,
+    )
+    lime_rows = []
+    for r in lime.head(8).itertuples(index=False):
+        lime_rows.append([r.feature, f"{float(r.lime_weight):+.3f}", f"{float(r.observed_value):.1f}"])
+    add_table(
+        story,
+        ["Feature", "LIME weight", "Observed value"],
+        lime_rows,
+        [2.8 * inch, 1.3 * inch, 1.5 * inch],
+        "Largest absolute LIME weights for the fixed validation row.",
+        numeric_from=1,
+    )
+    story.append(P(
+        f"The weighted local R-squared is {lime_fidelity:.3f}. This fidelity value states how "
+        "closely the simple surrogate follows the forest in the sampled neighborhood, so the "
+        "local coefficients should be interpreted together with it rather than as global effects."
+    ))
+    story.append(P(
+        "<b>Takeaway.</b> Grid position is the feature the explanation methods agree on. "
         "Form looks important to SHAP and unimportant to permutation, which is what we "
         "expect if form repeats information the grid and the standings already carry. "
         "None of these values is a causal effect of starting further forward.",
         "Takeaway",
     ))
 
-    # Show that the fitted pipeline also works on real and incomplete records.
+    # Check inference with both a complete row and a partially filled record.
     h1(story, "10. Two predictions from the selected network")
     demo = summary["inference_demos"]
     story.append(P(
@@ -1284,7 +1341,7 @@ def main():
         "Takeaway",
     ))
 
-    # Be direct about what this project cannot claim; momken this is asked orally.
+    # State the limits that affect how the results can be interpreted.
     h1(story, "11. What we do not want the results to be taken to say")
     story.append(P(
         "Qualifying coverage is a property of this snapshot. We described it, and we kept "
@@ -1317,7 +1374,7 @@ def main():
         "about the next race."
     ))
 
-    # End by bringing the cleaning, modeling, and evidence back into one answer.
+    # Close by connecting the cleaning, modeling, and explanation evidence.
     h1(story, "12. What the evidence supports")
     story.append(P(
         "The tables join, and after 85 shared-drive groups are resolved we have one row "

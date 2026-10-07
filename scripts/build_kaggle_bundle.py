@@ -1,8 +1,7 @@
 """Package the shared Python source for attachment to a Kaggle notebook.
 
-Kaggle notebooks cannot import a local repository path. This keeps the workaround
-small: momken upload one ZIP beside the public F1 dataset, while the notebook still
-runs the exact same ``pipeline.py`` used locally.
+Kaggle notebooks cannot import a local repository path. This bundles the package
+beside the public dataset while keeping the same ``pipeline.py`` used locally.
 """
 
 from pathlib import Path
@@ -14,11 +13,12 @@ OUT = ROOT / "kaggle" / "f1podium_src.zip"
 
 
 def main() -> None:
+    """Package the local f1podium module in a Kaggle-friendly ZIP."""
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(OUT, "w", compression=ZIP_DEFLATED) as bundle:
         for path in sorted(SOURCE.glob("*.py")):
             # Keep the package directory inside the ZIP so importing works as soon
-            # as the notebook extracts it. No setup command is needed hena.
+            # as the notebook extracts it. No installation step is needed.
             bundle.write(path, Path("f1podium") / path.name)
     print(f"Wrote {OUT}")
 

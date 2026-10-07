@@ -1,7 +1,7 @@
 """Checks for the quiet data mistakes we do not want to discover in evaluation.
 
-The tests read like small examples on purpose. Ana kont avoiding clever test
-helpers hena so any team member can see the setup, action, and expected result.
+The tests use direct examples so the setup, action, and expected result remain easy
+to inspect.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from f1podium.pipeline import (
 )
 
 # These tests focus on mistakes that can make the final scores look believable
-# while the data is actually wrong. Momken a plot still looks nice after leakage,
+# while the data is actually wrong. A plot can still look reasonable after leakage,
 # so we check the grain and timing rules directly.
 
 
@@ -62,7 +62,7 @@ def test_real_modeling_table_grain_features_and_splits():
 
 
 def test_form_features_cannot_see_current_target():
-    """Hena we make sure a driver's current podium never enters current form."""
+    """A driver's current podium must never enter the current form feature."""
     frame, _ = build_modeling_table(load_raw_tables("data/raw"))
     first = frame.sort_values(["date", "raceId"]).groupby("driverId").head(1)
     assert first.driver_podium_rate_5.isna().all()
@@ -74,7 +74,7 @@ def test_form_features_cannot_see_current_target():
 
 
 def test_randomized_duplicate_cleaning_is_deterministic_and_unique():
-    """Row order momken change; the retained shared-drive row must not."""
+    """Changing row order must not change the retained shared-drive record."""
     rng = np.random.default_rng(903)
     size = 20_000
     rows = pd.DataFrame({
@@ -94,7 +94,7 @@ def test_randomized_duplicate_cleaning_is_deterministic_and_unique():
 
 
 def test_mechanical_rate_denominator_contains_race_starts_only():
-    """Mechanical rates use actual starters, mesh drivers who never started."""
+    """Mechanical rates use actual starters and exclude recorded non-starters."""
     tables = load_raw_tables("data/raw")
     frame, _ = build_modeling_table(tables)
     answers = engineering_answers(frame, tables)
