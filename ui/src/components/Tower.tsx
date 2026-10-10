@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { haptic } from "../lib/haptic";
 import { SECTIONS } from "../lib/sections";
 
-export function Nav({ active }: { active: string }) {
+export function Nav({ active, progress }: { active: string; progress: number }) {
   const track = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -20,6 +20,9 @@ export function Nav({ active }: { active: string }) {
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-signal bg-tower">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-line" aria-hidden>
+        <span className="block h-full bg-signal" style={{ width: `${progress * 100}%` }} />
+      </div>
       <div className="flex flex-col md:h-16 md:flex-row md:items-center md:gap-5 md:px-8">
         <div className="flex items-center px-5 pt-3 pb-1 md:px-0 md:py-0">
           <a href="#decision" className="flex items-center gap-3 text-ink no-underline" onClick={() => haptic("select")}>
@@ -51,7 +54,7 @@ export function Nav({ active }: { active: string }) {
                   on ? "bg-signal text-ink" : "text-steel hover:text-ink"
                 }`}
               >
-                {section.label}
+                <span>{section.label}</span>
               </a>
             );
           })}

@@ -5,7 +5,7 @@ export const SECTIONS = [
   { id: "findings", label: "The trace" },
   { id: "row", label: "The row" },
   { id: "features", label: "The garage" },
-  { id: "models", label: "Three models" },
+  { id: "models", label: "ML lab" },
   { id: "classification", label: "Classification" },
   { id: "cases", label: "Two cars" },
   { id: "limits", label: "Limits" },

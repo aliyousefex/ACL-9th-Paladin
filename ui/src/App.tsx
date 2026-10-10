@@ -14,6 +14,7 @@ import { Models } from "./sections/Models";
 
 export default function App() {
   const active = useActiveSection();
+  const progress = useReadingProgress();
 
   return (
     <>
@@ -23,7 +24,7 @@ export default function App() {
       >
         Skip to the decision
       </a>
-      <Nav active={active} />
+      <Nav active={active} progress={progress} />
       <main className="px-5 pt-28 pb-16 md:px-8 md:pt-24">
         <div className="mx-auto max-w-6xl">
           <Decision />
@@ -40,6 +41,26 @@ export default function App() {
       </main>
     </>
   );
+}
+
+function useReadingProgress(): number {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const distance = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(distance > 0 ? Math.min(1, Math.max(0, window.scrollY / distance)) : 0);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  return progress;
 }
 
 function useActiveSection(): string {

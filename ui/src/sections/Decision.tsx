@@ -1,3 +1,4 @@
+import { useRef, useState, type KeyboardEvent } from "react";
 import { CARS, CarFrame } from "../components/CarFrame";
 import { StartLights } from "../components/StartLights";
 import site from "../data/site.json";
@@ -30,11 +31,7 @@ export function Decision() {
         The race result is the label. It is not an input for the same row.
       </p>
 
-      <div className="mt-8 grid gap-6 md:grid-cols-3">
-        <CarFrame photo={CARS.mercedes} eager />
-        <CarFrame photo={CARS.aston} />
-        <CarFrame photo={CARS.williams} />
-      </div>
+      <RaceGallery />
 
       <div className="mt-10 grid gap-8 md:grid-cols-[1fr_28px_1fr] md:gap-0">
         <div className="md:pr-8">
@@ -94,5 +91,53 @@ export function Decision() {
         </p>
       </div>
     </section>
+  );
+}
+
+const HERO_CARS = [CARS.mercedes, CARS.ferrari, CARS.redbull, CARS.aston, CARS.mclaren, CARS.williams];
+
+function RaceGallery() {
+  const [selected, setSelected] = useState(0);
+  const tabs = useRef<HTMLDivElement>(null);
+  const photo = HERO_CARS[selected];
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const last = HERO_CARS.length - 1;
+    const next = event.key === "Home" ? 0 : event.key === "End" ? last :
+      event.key === "ArrowRight" || event.key === "ArrowDown" ? (selected + 1) % HERO_CARS.length :
+      (selected - 1 + HERO_CARS.length) % HERO_CARS.length;
+    setSelected(next);
+    tabs.current?.querySelectorAll<HTMLButtonElement>("[role=tab]")[next]?.focus();
+  };
+
+  return (
+    <div className="mt-8 grid gap-4 md:grid-cols-[minmax(0,1fr)_13rem] md:items-stretch">
+      <div id="featured-car-panel" role="tabpanel" aria-labelledby={`featured-car-${selected}`} className="overflow-hidden bg-tower">
+        <CarFrame photo={photo} eager />
+      </div>
+      <div ref={tabs} onKeyDown={onKeyDown} className="grid grid-cols-3 gap-px bg-line md:grid-cols-1" role="tablist" aria-label="Featured Formula One cars">
+        {HERO_CARS.map((car, index) => {
+          const active = index === selected;
+          return (
+            <button
+              key={car.team}
+              type="button"
+              role="tab"
+              id={`featured-car-${index}`}
+              aria-selected={active}
+              aria-controls="featured-car-panel"
+              tabIndex={active ? 0 : -1}
+              onClick={() => setSelected(index)}
+              className={`group flex min-h-14 items-center justify-between gap-2 bg-paper px-3 py-2 text-left font-display text-[0.92rem] tracking-[0.04em] uppercase transition-colors ${active ? "text-ink" : "text-steel hover:text-ink"}`}
+            >
+              <span>{car.team}</span>
+              <span className={`h-2 w-2 shrink-0 ${active ? "bg-signal" : "bg-line group-hover:bg-steel"}`} aria-hidden />
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

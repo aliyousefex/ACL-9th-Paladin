@@ -1,0 +1,13 @@
+﻿{
+  "name": "Paladin F1 Podium Prediction",
+  "short_name": "Paladin F1",
+  "description": "Interactive machine-learning analysis of Formula One podium prediction.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07080a",
+  "theme_color": "#e10600",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "64x64", "type": "image/png" },
+    { "src": "/apple-touch-icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

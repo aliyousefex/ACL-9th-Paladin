@@ -34,8 +34,11 @@ export function Findings() {
 
       <h3 className="pt-4 text-[1.7rem]">Qualifying is not there for most of the history</h3>
       <Prose>
-        Drag the season. Coverage is the share of driver-race rows with a qualifying position.
-        The line is not a smooth rise. The bar under the split is drawn to the length of the years, so 2020-2021 is a thin mark.
+        Drag the season. The horizontal axis is the season from 1950 to 2024. The vertical
+        axis is the percentage of driver-race rows that contain a qualifying position in the
+        attached public dataset. This measures data availability, not driver performance.
+        The bar above the chart shows the locked ML split, so the two-season validation window
+        appears as a thin red mark.
       </Prose>
       <SeasonSpine year={year} onYear={setYear} />
       <CoverageChart year={year} />
@@ -56,7 +59,9 @@ export function Findings() {
         />
       </label>
       <Prose>
-        It is {pct(coverageAt(1950), 0)} in 1950 and still {pct(coverageAt(1993), 0)} in 1993.
+        Coverage is {pct(coverageAt(1950), 0)} in 1950 and remains {pct(coverageAt(1993), 0)}
+        through 1993 because the qualifying CSV has no recorded qualifying-position rows for
+        those seasons. Formula One still held qualifying; this is a limitation of this dataset.
         It jumps to {pct(coverageAt(1994))} in 1994, then falls again. The low point of that
         second gap is {pct(coverageAt(2001))} in 2001. From 2003 the line sits on{" "}
         {pct(coverageAt(2003), 0)}. Across every row, {pct(site.qualifyingMissing)} have no
@@ -175,8 +180,12 @@ export function Findings() {
       </Prose>
       <div className="grid gap-6 md:grid-cols-3">
         <CarFrame photo={CARS.redbull} />
+        <CarFrame photo={CARS.ferrari} />
         <CarFrame photo={CARS.mclaren} />
         <CarFrame photo={CARS.alpine} />
+        <CarFrame photo={CARS.alfa} />
+        <CarFrame photo={CARS.haas} />
+        <CarFrame photo={CARS.alphatauri} />
       </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Mechanical era">
         <Choice pressed={mechEra === "All"} onClick={() => setMechEra("All")}>
