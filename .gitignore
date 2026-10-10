@@ -10,9 +10,10 @@ venv/
 artifacts/
 tmp/
 
-# Local presentation website and design workspace
-# These support the optional visual walkthrough, not the graded data/ML submission.
-ui/
+# Local presentation website and design workspace.
+# The walkthrough source is tracked. Dependencies and the build are not.
+ui/node_modules/
+ui/dist/
 .impeccable/
 PRODUCT.md
 vercel.json
