@@ -18,7 +18,11 @@ from f1podium.pipeline import (
     cleaning_eda,
     engineering_answers,
     load_raw_tables,
+    preprocessing_effects,
+    preprocessing_order_experiments,
     split_by_time,
+    split_integrity,
+    split_summary,
 )
 
 # These tests focus on mistakes that can make the final scores look believable
@@ -143,4 +147,40 @@ def test_cleaning_eda_quantifies_grain_change_without_duplicates():
     assert clean.rows == clean.unique_driver_races
     assert clean.duplicate_rows == 0
     assert abs(raw.podium_rate - clean.podium_rate) < 0.001
+
+
+def test_split_is_complete_disjoint_and_ordered():
+    """Every row lands in one split, no race straddles two, and time only moves forward."""
+    frame, _ = build_modeling_table(load_raw_tables("data/raw"))
+    integrity = split_integrity(frame)
+    assert integrity.passed.all(), integrity[~integrity.passed]
+    summary = split_summary(frame).set_index("split")
+    assert summary.rows.sum() == len(frame)
+    assert abs(summary.share_of_rows.sum() - 1) < 1e-9
+
+
+def test_preprocessing_is_fitted_on_training_rows_only():
+    """Fill values are training medians, and only training is exactly centred by the scaler."""
+    frame, _ = build_modeling_table(load_raw_tables("data/raw"))
+    train = split_by_time(frame)["train"]
+    effects = preprocessing_effects(frame).set_index("feature")
+    for feature in FEATURES:
+        assert np.isclose(effects.loc[feature, "fill_value"], train[feature].median())
+    assert effects.isna().sum().sum() == 0
+    assert np.allclose(effects.scaled_mean, 0, atol=1e-9)
+    complete = effects.missing_share.eq(0)
+    assert np.allclose(effects.loc[complete, "std_change_from_imputation"], 0, atol=1e-9)
+    assert (effects.loc[~complete, "std_change_from_imputation"] != 0).all()
+
+
+def test_preprocessing_order_experiments_report_two_or_more_orders():
+    """The order experiments must swap steps and record how missing cells are filled."""
+    frame, _ = build_modeling_table(load_raw_tables("data/raw"))
+    result = preprocessing_order_experiments(frame)
+    assert result.groupby("experiment").order.nunique().ge(2).sum() >= 2
+    rows = result[result.model.eq("Logistic regression")].set_index("order")
+    # Zero-filling before scaling writes a literal zero; after scaling it means the training mean.
+    assert rows.loc["zero-fill -> scale", "missing_grid_position_becomes"] == 0
+    train = split_by_time(frame)["train"]
+    assert np.isclose(rows.loc["scale -> zero-fill", "missing_grid_position_becomes"], train.grid_position.mean())
 

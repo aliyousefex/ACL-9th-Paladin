@@ -325,7 +325,15 @@ def load():
     local = pd.read_csv(FIG / "shap_local.csv")
     lime = pd.read_csv(FIG / "lime_local.csv")
     perm = pd.read_csv(FIG / "permutation_importance.csv")
+    extra = {name: pd.read_csv(ART / f"{file}.csv") for name, file in {
+        "effects": "preprocessing_effects",
+        "engineering_effects": "feature_engineering_effects",
+        "order": "preprocessing_order_experiments",
+        "split_integrity": "split_integrity",
+        "split_strategies": "split_strategy_experiment",
+    }.items()}
     return {
+        **extra,
         "summary": summary,
         "frame": frame,
         "q1": q1,
@@ -860,7 +868,9 @@ def main():
     story.append(P(
         "We split by season, not at random. A random split would let 2023 teach the model "
         "about 2022. Training is every season through 2019, validation is 2020-2021, and "
-        "the test seasons 2022-2024 are scored once. Table 7 shows why that split is not "
+        "the test seasons 2022-2024 are scored once. Training fits the imputer, scaler, and "
+        "weights; validation makes every choice (preprocessing, ablation, model, cutoff); "
+        f"test is only reported. Table {COUNTERS['tab'] + 1} shows why that split is not "
         "a copy of the same problem three times."
     ))
     split_rows = []
@@ -896,6 +906,40 @@ def main():
         f"{len(val) / val.raceId.nunique():.1f} in validation. There are still three podium "
         "places, shared across fewer cars."
     ))
+    integrity = data["split_integrity"]
+    strategies = data["split_strategies"].set_index("strategy")
+    story.append(P(
+        f"All {len(integrity)} split checks pass: every row is assigned once, no race appears "
+        "in two splits, and the last training race is before the first validation race, which "
+        f"is before the first test race. Figure {COUNTERS['fig'] + 1} shows the split on the "
+        "season axis together with the two quantities that drift across it."
+    ))
+    add_figure(
+        story,
+        "chronological_split",
+        "Rows, podium rate, and qualifying missingness by season, coloured by split.",
+    )
+    rr, rc = strategies.loc["random rows"], strategies.loc["chronological (used)"]
+    story.append(P(
+        f"To check the choice, Table {COUNTERS['tab'] + 1} holds out the same number of rows three "
+        "ways and trains the logistic baseline on the rest. With a random-row split, "
+        f"{pct(rr.held_out_races_also_in_train)} of held-out rows have their own race in "
+        f"training, and {pct(rr.held_out_rows_with_future_training)} have later seasons in "
+        "training. A random-race split removes the first problem but not the second. The "
+        "chronological split has zero of both. Random hold-outs also mix every era, so their "
+        f"score ({num(rr['PR-AUC'])} PR-AUC for random rows, against {num(rc['PR-AUC'])} on "
+        "2020-2021) answers a different question from predicting the next seasons."
+    ))
+    add_table(
+        story,
+        ["Strategy", "Held-out years", "Podium rate", "Same race in train", "Later seasons in train", "PR-AUC", "ROC-AUC"],
+        [[name, r.held_out_years, pct(r.held_out_podium_rate), pct(r.held_out_races_also_in_train),
+          pct(r.held_out_rows_with_future_training), num(r["PR-AUC"]), num(r["ROC-AUC"])]
+         for name, r in strategies.iterrows()],
+        [1.45 * inch, 0.95 * inch, 0.8 * inch, 1.0 * inch, 1.05 * inch, 0.7 * inch, 0.75 * inch],
+        "Split-strategy check with logistic regression. Leakage columns are shares of held-out rows.",
+        numeric_from=1,
+    )
     story.append(P(
         "From these results, we notice that validation is a short window. Two seasons and "
         "39 races can separate a large gap from a small one, but they cannot support a "
@@ -911,7 +955,7 @@ def main():
     ))
 
     # Settle preprocessing on validation data before comparing model families.
-    h1(story, "6. Imputation and scaling barely move the validation score")
+    h1(story, "6. Feature engineering and preprocessing: strategy, effect on the values, and order")
     story.append(P(
         "Missing qualifying and missing early-season standings have to be filled inside "
         "the model pipeline, using training rows only. We compare three settings of "
@@ -943,9 +987,127 @@ def main():
         "imputation with scaling for the linear model and the network. The forest does not "
         "use scaling, because a tree split does not depend on the units of a feature."
     ))
+    h2(story, "6.1 What feature engineering does to the values")
+    eng = data["engineering_effects"].set_index("column")
     story.append(P(
-        "<b>Takeaway.</b> On this validation window, how we fill missing values matters "
-        "less than which information we give the model. The next sections test that second question.",
+        f"Table {COUNTERS['tab'] + 1} compares each raw source column with the feature built from it. "
+        f"Raw grid has a minimum of 0 and {pct(eng.loc['grid (raw)', 'zero_share'])} zeros, which would "
+        "rank a pit-lane start ahead of pole. In the grid-position feature those zeros become missing, "
+        "so the minimum is 1, and the pit-lane flag carries the information instead. Qualifying "
+        "strings become seconds; after the join to every driver-race row, "
+        f"{pct(eng.loc['qualifying_time_seconds (joined)', 'missing_share'])} of rows have no "
+        "qualifying time. Shifted form and previous-race standings are missing on a first race "
+        "or first round, because nothing earlier exists. These gaps are what the imputer fills next."
+    ))
+    add_table(
+        story,
+        ["Column", "Missing", "Zeros", "Min", "Median", "Max"],
+        [[r.Index, pct(r.missing_share), pct(r.zero_share), num(r.min, 2), num(r.median, 2), num(r.max, 2)]
+         for r in eng.itertuples()],
+        [2.55 * inch, 0.8 * inch, 0.7 * inch, 0.85 * inch, 0.95 * inch, 1.0 * inch],
+        "Raw source columns against the engineered features built from them (all 1950-2024 rows).",
+        numeric_from=1,
+    )
+
+    h2(story, "6.2 What imputation and scaling do to the values")
+    effects = data["effects"].set_index("feature")
+    heavy = effects.sort_values("missing_share", ascending=False).head(1)
+    story.append(P(
+        f"Table {COUNTERS['tab'] + 1} measures both steps on the training rows. Median "
+        "imputation writes the training median into every gap. It does not change the range, "
+        "because the median is inside it, but it piles rows onto one value and shrinks the "
+        f"spread. {esc(heavy.index[0])} is missing in {pct(heavy.missing_share.iloc[0])} of training "
+        f"rows, and its standard deviation falls by {pct(-heavy.std_change_from_imputation.iloc[0])}. "
+        "The qualifying-missing flag keeps the fact that a value was filled. Scaling then puts "
+        "every training feature at mean 0 and standard deviation 1. Raw ranges run from 0-1 for "
+        f"the flags to {integer(effects.loc['constructor_points_before', 'raw_max'])} constructor points; "
+        "after scaling they share one scale, so neither the logistic penalty nor the network's "
+        "gradient steps are dominated by large units. Scaling is linear, so the shape and order "
+        "of values do not change."
+    ))
+    shown = ["grid_position", "qualifying_position", "qualifying_time_seconds", "driver_podium_rate_5",
+             "driver_points_before", "constructor_points_before", "driver_age", "year"]
+    add_table(
+        story,
+        ["Feature", "Missing", "Fill value", "Raw range", "Std change", "Scaled range", "Val. mean", "Test mean"],
+        [[f, pct(effects.loc[f, "missing_share"]), num(effects.loc[f, "fill_value"], 2),
+          f"{effects.loc[f, 'raw_min']:.1f} to {effects.loc[f, 'raw_max']:.1f}",
+          pct(effects.loc[f, "std_change_from_imputation"]),
+          f"{effects.loc[f, 'scaled_min']:.2f} to {effects.loc[f, 'scaled_max']:.2f}",
+          f"{effects.loc[f, 'validation_scaled_mean']:+.2f}", f"{effects.loc[f, 'test_scaled_mean']:+.2f}"]
+         for f in shown],
+        [1.6 * inch, 0.6 * inch, 0.7 * inch, 1.05 * inch, 0.7 * inch, 1.0 * inch, 0.6 * inch, 0.65 * inch],
+        "Effect of median imputation and scaling, fitted on 1950-2019. Val. and test means are after "
+        "the same training-fitted transform; training means are 0 by construction.",
+        numeric_from=1,
+    )
+    story.append(P(
+        f"Figure {COUNTERS['fig'] + 1} shows the spike at the median and the shift of later "
+        f"seasons; Figure {COUNTERS['fig'] + 2} compares raw and scaled ranges for all 17 features. "
+        "Because the transform is fitted on training only, validation and test are not centred "
+        f"at zero: year sits at {effects.loc['year', 'validation_scaled_mean']:+.2f} standard "
+        "deviations in validation. That is the period shift the model faces at deployment, "
+        "not a bug."
+    ))
+    add_figure(story, "preprocessing_distributions",
+               "Top: training values before and after median imputation (dashed line is the fill value, "
+               "log scale). Bottom: training and validation after the training-fitted scaler.")
+    add_figure(story, "preprocessing_ranges",
+               "Left: raw training range per feature. Right: range after scaling, with the validation mean.",
+               width=CONTENT_W * 0.9)
+
+    h2(story, "6.3 Preprocessing-order experiments")
+    order = data["order"]
+    story.append(P(
+        "The table above changes which strategy we use. We also ran three experiments that "
+        f"change the <i>order</i> of the steps (Table {COUNTERS['tab'] + 1}), each scored on "
+        "validation with logistic regression and the network. A swaps median imputation and "
+        "scaling. B swaps zero-filling and scaling. C fits the preprocessing on all seasons "
+        "before splitting, against the normal fit on training only."
+    ))
+    add_table(
+        story,
+        ["Experiment", "Order", "Fitted on", "Model", "Missing grid becomes", "Val. PR-AUC", "Change"],
+        [[r.experiment.split(":")[0], r.order, "all years" if r.preprocessing_fitted_on.startswith("all") else "train",
+          "LogReg" if r.model.startswith("Log") else "MLP", num(r.missing_grid_position_becomes, 2),
+          num(r["validation_PR-AUC"]), f"{r['PR-AUC_change_vs_reference']:+.4f}"]
+         for _, r in order.iterrows()],
+        [0.75 * inch, 1.35 * inch, 0.75 * inch, 0.65 * inch, 1.2 * inch, 0.85 * inch, 0.75 * inch],
+        "Preprocessing-order experiments on 2020-2021. Change is against the first order of the same "
+        "experiment and model; for C it is against the train-only fit.",
+        numeric_from=4,
+    )
+
+    def oget(experiment, order_name, model, col, fitted="train"):
+        """Read one value from the order-experiment table."""
+        hit = order[order.experiment.str.startswith(experiment) & order.order.eq(order_name)
+                    & order.model.eq(model) & order.preprocessing_fitted_on.str.startswith(fitted[:3])]
+        return float(hit[col].iloc[0])
+
+    lr, nn = "Logistic regression", "Shallow neural network"
+    story.append(P(
+        "<b>A.</b> Median imputation commutes with a linear rescale, so a missing grid becomes "
+        f"{num(oget('A', 'impute -> scale', lr, 'missing_grid_position_becomes'), 1)} either way. "
+        "Only the scaler's statistics differ, because scaling first measures spread on observed "
+        "values. Validation PR-AUC moves by "
+        f"{oget('A', 'scale -> impute', lr, 'PR-AUC_change_vs_reference'):+.4f} for logistic regression "
+        f"and {oget('A', 'scale -> impute', nn, 'PR-AUC_change_vs_reference'):+.4f} for the network. "
+        "<b>B.</b> Here order changes the value. Zero-filling first writes a literal 0, a grid slot "
+        "ahead of pole and a 0-second lap. Zero-filling after scaling writes the training mean "
+        f"({num(oget('B', 'scale -> zero-fill', lr, 'missing_grid_position_becomes'), 1)} for grid). "
+        f"Validation PR-AUC changes by {oget('B', 'scale -> zero-fill', lr, 'PR-AUC_change_vs_reference'):+.4f} "
+        f"(logistic) and {oget('B', 'scale -> zero-fill', nn, 'PR-AUC_change_vs_reference'):+.4f} (network). "
+        "<b>C.</b> Fitting before the split lets 2020-2024 set the medians and scaling used in "
+        f"training. The score moves by {oget('C', 'impute -> scale', lr, 'PR-AUC_change_vs_reference', 'all'):+.4f} "
+        f"and {oget('C', 'impute -> scale', nn, 'PR-AUC_change_vs_reference', 'all'):+.4f}; "
+        "small or not, it uses future data, so we never do it."
+    ))
+    story.append(P(
+        "<b>Takeaway.</b> We keep split, then median imputation, then scaling, all fitted on "
+        "training rows inside the model pipeline. Logistic regression is almost indifferent to "
+        "strategy and order (every change is within 0.004 PR-AUC). The network is more "
+        "sensitive, up to about 0.04 PR-AUC, so for it the order is part of the model, not a "
+        "detail. The next sections test which information the models need.",
         "Takeaway",
     ))
 
@@ -964,7 +1126,8 @@ def main():
         "logistic model. Precision and recall tell us what the cutoff actually does."
     ))
     story.append(P(
-        "Figure 5 compares the three models on the test seasons only. Table 9 gives "
+        f"Figure {COUNTERS['fig'] + 1} compares the three models on the test seasons only. "
+        f"Table {COUNTERS['tab'] + 1} gives "
         "training, validation, and test, so we can see whether a high training score survives."
     ))
     add_figure(
@@ -974,6 +1137,7 @@ def main():
         "Precision and recall differ because each model uses its own validation cutoff.",
         width=CONTENT_W * 0.92,
     )
+    model_figure = COUNTERS["fig"]
     metric_rows = []
     for _, r in metrics.iterrows():
         metric_rows.append([
@@ -1026,7 +1190,7 @@ def main():
         f"{num(mget('Random forest', 'validation', 'PR-AUC'))}."
     ))
     story.append(P(
-        f"The operating points explain the precision and recall bars in Figure 5. At its "
+        f"The operating points explain the precision and recall bars in Figure {model_figure}. At its "
         f"validation cutoff, logistic regression has test precision "
         f"{num(mget('Logistic regression', 'test', 'Precision'))} and recall "
         f"{num(mget('Logistic regression', 'test', 'Recall'))}. It catches most podiums and "
@@ -1067,7 +1231,7 @@ def main():
     story.append(P(
         "An ablation retrains logistic regression after deleting one feature group, then "
         "records the change in validation PR-AUC. The point is to see which group the "
-        "linear model was using, on the same rows as Section 7. Figure 6 shows the change "
+        f"linear model was using, on the same rows as Section 7. Figure {COUNTERS['fig'] + 1} shows the change "
         "from the full model. A bar to the left of zero is a loss."
     ))
     add_figure(
@@ -1119,8 +1283,8 @@ def main():
         "poor guide for what to keep."
     ))
     story.append(P(
-        "The context and qualifying changes are about the same size as the preprocessing "
-        "gap in Section 6. On 39 validation races, we treat those as small. The grid drop "
+        "The context and qualifying changes are about the same size as the logistic-regression "
+        "preprocessing gaps in Section 6. On 39 validation races, we treat those as small. The grid drop "
         "is several times larger, and it agrees with the descriptive ladder in Section 4.2, "
         "where podium rate falls from about 55% at the front of the grid to under 1% at the back."
     ))
@@ -1184,7 +1348,7 @@ def main():
 
     story.append(P("9.2 Global and local SHAP", "H2"))
     story.append(P(
-        "Figure 8 asks the same question with SHAP. Each validation prediction is split into "
+        f"Figure {COUNTERS['fig'] + 1} asks the same question with SHAP. Each validation prediction is split into "
         "one credit per feature, and we average the size of those credits. The sign is not "
         "in this chart. A tall bar means the forest moved the prediction a long way when that "
         "feature changed, whether the move was toward a podium or away from one."
@@ -1220,7 +1384,7 @@ def main():
         "methods put the grid first, by a wide margin."
     ))
     story.append(P(
-        "Figure 9 is one validation row from that sample, not a row we picked because it "
+        f"Figure {COUNTERS['fig'] + 1} is one validation row from that sample, not a row we picked because it "
         "looks tidy. It is George Russell, Williams, 2021 Dutch Grand Prix. He qualified "
         "and started 11th in a field of 20, sat 15th in the championship, and had a podium "
         "in one of his previous five starts (driver podium rate 0.2). He did not podium."

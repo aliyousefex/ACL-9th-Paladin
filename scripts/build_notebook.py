@@ -146,30 +146,75 @@ md("""
 **Mechanical retirements.** Rates use recorded race starters as the denominator and documented component-status labels as the numerator, with at least twenty starts per constructor-era. Ambiguous status coding remains a limitation.
 """)
 
-md("## 10. Leakage-safe features and chronological split")
+md("## 10. Leakage-safe features")
+code('display(FEATURE_GROUPS)')
+md("""
+Every selected feature is known after qualifying and before the start. Driver form shifts before rolling, constructor outcomes are aggregated by race before shifting, and standings attach only to the following race. Current-race position, points, status, laps, pit stops, and fastest-lap information never enter `FEATURES`.
+""")
+
+md("## 11. Proper train / validation / test split")
 code("""
-display(FEATURE_GROUPS)
-splits = split_by_time(results["modeling_table"])
-split_summary = pd.DataFrame([
-    {"split": name, "years": f"{int(part.year.min())}-{int(part.year.max())}",
-     "rows": len(part), "races": part.raceId.nunique(),
-     "podium_rate": part.podium.mean(),
-     "qualifying_missing": part.qualifying_missing.mean()}
-    for name, part in splits.items()
-])
-display(split_summary)
+display(results["split_summary"])
+display(results["split_integrity"])
+display(Image(filename=str(OUT / "figures" / "chronological_split.png")))
+display(results["split_strategies"])
 """)
 md("""
-Every selected feature is known after qualifying and before the start. Driver form shifts before rolling, constructor outcomes are aggregated by race before shifting, and standings attach only to the following race. Current-race position, points, status, laps, pit stops, and fastest-lap information never enter `FEATURES`. The chronological split prevents future seasons from training predictions about earlier seasons.
+**Choice.** Training is 1950-2019, validation 2020-2021, and the unseen test set 2022-2024. The split is by season, so every race belongs to exactly one split and every training race happens before every validation race, which happens before every test race (all integrity checks pass). This matches deployment: on race morning the model only knows earlier seasons.
+
+**Roles.** Training fits the imputer, scaler, and model weights. Validation is used for every decision: preprocessing variant and order, feature-group ablation, model choice, and the probability threshold. The test seasons are scored once, after those choices are frozen.
+
+**Why not random.** The strategy experiment holds out the same number of rows three ways. A random-row split puts the teammates and rivals from the same race in training for almost every held-out row, and nearly all held-out rows have later seasons in training. That would let the model learn from the future and from the same race. A random-race split removes same-race leakage but still trains on later seasons. Random splits also mix every era into the held-out set, so their score answers a different question from "how well do we predict the next seasons?". Only the chronological split has zero same-race and zero future leakage.
+
+**Shift between splits.** Training has far more missing qualifying and larger fields, so its podium rate is lower. That shift is real and is the reason for a separate recent validation period rather than validating on old seasons.
 """)
 
-md("## 11. Preprocessing experiments")
-code('display(results["preprocessing"])')
 md("""
-Median imputation with scaling, median imputation without scaling, and zero imputation with scaling are compared on validation only. The retained preprocessing is learned entirely from training rows; the test seasons do not influence this choice.
+## 12. Effect of feature engineering and preprocessing on distributions, ranges, and values
+
+### 12.1 Feature-engineering steps
+""")
+code('display(results["feature_engineering_effects"])')
+md("""
+The table compares each raw source column with the feature built from it (all 1950-2024 rows). Raw `grid` contains 6.1% zeros (pit-lane or exceptional starts), which would sit numerically *ahead* of pole. In `grid_position` those zeros become missing, the minimum becomes 1, and the information moves to the binary `pit_lane_start` flag. Qualifying strings such as `1:23.456` become numeric seconds; the left join to every driver-race row then exposes the missing qualifying history of older seasons (61% of rows have no qualifying time). The shifted form and previous-race standings are missing on a driver's first race and on the first round of a season, because no earlier result exists. These gaps are what the imputer fills in the next step.
+
+### 12.2 Imputation and scaling
+""")
+code("""
+effects = results["preprocessing_effects"]
+display(effects[["feature", "missing_share", "fill_value", "raw_min", "raw_max", "raw_mean", "raw_std",
+                 "imputed_std", "std_change_from_imputation", "scaled_min", "scaled_max",
+                 "scaled_mean", "scaled_std", "validation_scaled_mean", "test_scaled_mean"]].round(3))
+display(Image(filename=str(OUT / "figures" / "preprocessing_distributions.png")))
+display(Image(filename=str(OUT / "figures" / "preprocessing_ranges.png")))
+""")
+md("""
+**Median imputation** writes the training median into every missing cell. Qualifying position and time are missing in about two thirds of training rows, so they get a tall spike at the median and their standard deviation falls by about 42%. Standings and form features lose only a few percent. Ranges do not change, because the median is inside the observed range. The `qualifying_missing` flag keeps the information that a value was filled.
+
+**Standardization** moves every training feature to mean 0 and standard deviation 1. Raw ranges differ by orders of magnitude (`constructor_points_before` spans 0-722, the flags 0-1). After scaling they share one scale, so neither logistic regression's penalty nor the MLP's gradient steps are dominated by large-unit features. Scaling is linear, so the shape of each distribution and the order of values are unchanged. Long right tails stay long: one recorded qualifying time of 1002.6 s lands about 100 standard deviations out, and the points features reach about 11.
+
+**Fitted on training only.** Validation and test pass through the training-fitted transform, so their means are *not* zero. `year` sits about +1.7 standard deviations above the training mean, prior points about +1.0, `field_size` about -1.0 (smaller modern grids), and `qualifying_missing` about -1.4 (qualifying is almost always recorded now). This is the honest view of period shift, and it is what the model sees at deployment.
 """)
 
-md("## 12. Model comparison: train, validation, and unseen test")
+md("## 13. Preprocessing experiments: strategy and order")
+code("""
+display(results["preprocessing"])
+order = results["preprocessing_order"]
+display(order.round(4))
+display(order.pivot_table(index=["experiment", "order", "preprocessing_fitted_on"], columns="model",
+                          values="validation_PR-AUC").round(4))
+""")
+md("""
+The first table compares preprocessing **strategies** (median with and without scaling, zero with scaling). The second reports three preprocessing-**order** experiments, each scored on validation with logistic regression and the shallow neural network:
+
+- **A: impute → scale vs scale → impute.** Median imputation commutes with a linear rescale, so the missing value maps to the same raw median either way. The difference is the scaler's statistics: scaling first computes mean and spread from observed values only, so after imputation qualifying time has a training standard deviation of 0.58 instead of 1. Logistic regression is unchanged; the MLP, which is sensitive to input scale, loses about 0.012 validation PR-AUC.
+- **B: zero-fill → scale vs scale → zero-fill.** Here the order changes the value. Filling zero *before* scaling writes a literal 0, which means "grid 0, ahead of pole" and "a 0-second qualifying lap". Filling zero *after* scaling writes the training mean (grid ≈ 12.0, qualifying ≈ 88.8 s). The `missing_..._becomes` columns show the fill in original units. The impossible raw zeros cost the MLP about 0.010 PR-AUC; logistic regression barely moves.
+- **C: preprocess before vs after the split.** Fitting the imputer and scaler on all seasons lets 2020-2024 set the medians and scaling used in training. Here it did not help: the MLP lost about 0.038 PR-AUC and logistic regression was unchanged. Whatever the score, it uses future seasons, so the pipeline fits preprocessing inside the scikit-learn `Pipeline` on training rows only.
+
+We keep split → median imputation → scaling for the linear model and the MLP, and median imputation without scaling for the forest.
+""")
+
+md("## 14. Model comparison: train, validation, and unseen test")
 code("""
 display(results["metrics"])
 display(Image(filename=str(OUT / "figures" / "model_comparison.png")))
@@ -182,7 +227,7 @@ md("""
 Logistic regression is the statistical baseline, random forest captures nonlinear interactions, and the two-hidden-layer MLP is the shallow neural network. PR-AUC is the selection metric because the positive class is uncommon. Model-specific thresholds maximize validation F1 and are frozen before test scoring. Training-to-validation differences, especially for the forest, reveal overfitting and historical distribution shift.
 """)
 
-md("## 13. Feature-group ablation")
+md("## 15. Feature-group ablation")
 code("""
 display(results["ablations"])
 display(Image(filename=str(OUT / "figures" / "ablation.png")))
@@ -191,7 +236,7 @@ md("""
 Each experiment removes one complete feature group and retrains the logistic baseline. The change from full-model validation PR-AUC measures the group's incremental predictive contribution after training and complements the earlier exploratory motivation.
 """)
 
-md("## 14. Global and local explainability")
+md("## 16. Global and local explainability")
 code("""
 for figure in ["permutation_importance", "shap_global", "lime_local", "shap_local"]:
     display(Image(filename=str(OUT / "figures" / f"{figure}.png")))
@@ -203,14 +248,14 @@ md("""
 Permutation importance measures the validation PR-AUC change after shuffling one feature, and global SHAP summarizes average contribution magnitude. Local LIME explains one fixed validation prediction with 5,000 perturbations around that row and a distance-weighted ridge surrogate; its weighted R² reports local fidelity. Positive LIME weights push the surrogate toward a podium and negative weights push it away. Local SHAP is retained as a supplementary cross-check. Correlated predictors can divide importance differently across methods. These values describe fitted-model reliance and are **not causal effects**.
 """)
 
-md("## 15. Complete and partially missing inference")
+md("## 17. Complete and partially missing inference")
 code('display(results["summary"]["inference_demos"])')
 md("""
 The complete example follows the normal inference path. The partial example demonstrates that missing inputs are handled by the imputer fitted on training seasons, without consulting validation or test data. Its output demonstrates software robustness rather than a historical base rate.
 """)
 
 md("""
-## 16. Limitations
+## 18. Limitations
 
 - Qualifying coverage is sparse and era-dependent in older seasons.
 - Regulations, field size, reliability, and competitive structure change over time.

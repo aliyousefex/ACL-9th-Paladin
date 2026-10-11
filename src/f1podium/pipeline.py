@@ -209,13 +209,93 @@ def build_modeling_table(tables: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame,
     return base, diagnostics
 
 
+SPLIT_YEARS = {"train": (1950, 2019), "validation": (2020, 2021), "test": (2022, 2024)}
+
+
 def split_by_time(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Create fixed chronological train, validation, and test periods."""
-    return {
-        "train": frame[frame.year <= 2019].copy(),
-        "validation": frame[frame.year.between(2020, 2021)].copy(),
-        "test": frame[frame.year >= 2022].copy(),
+    return {name: frame[frame.year.between(first, last)].copy()
+            for name, (first, last) in SPLIT_YEARS.items()}
+
+
+def split_summary(frame: pd.DataFrame) -> pd.DataFrame:
+    """Describe the size, period, target rate, and missingness of each split."""
+    rows = []
+    for name, part in split_by_time(frame).items():
+        rows.append({
+            "split": name,
+            "years": f"{int(part.year.min())}-{int(part.year.max())}",
+            "first_race": part.date.min().date().isoformat(),
+            "last_race": part.date.max().date().isoformat(),
+            "rows": int(len(part)),
+            "share_of_rows": len(part) / len(frame),
+            "races": int(part.raceId.nunique()),
+            "drivers": int(part.driverId.nunique()),
+            "starters_per_race": len(part) / part.raceId.nunique(),
+            "podiums": int(part.podium.sum()),
+            "podium_rate": float(part.podium.mean()),
+            "qualifying_missing": float(part.qualifying_missing.mean()),
+        })
+    return pd.DataFrame(rows)
+
+
+def split_integrity(frame: pd.DataFrame) -> pd.DataFrame:
+    """Check that the split is complete, disjoint, and strictly ordered in time."""
+    splits = split_by_time(frame)
+    train, val, test = splits["train"], splits["validation"], splits["test"]
+    races = {name: set(part.raceId) for name, part in splits.items()}
+    checks = {
+        "every row assigned to exactly one split": sum(len(p) for p in splits.values()) == len(frame),
+        "no race shared by train and validation": not races["train"] & races["validation"],
+        "no race shared by validation and test": not races["validation"] & races["test"],
+        "no race shared by train and test": not races["train"] & races["test"],
+        "last training race before first validation race": train.date.max() < val.date.min(),
+        "last validation race before first test race": val.date.max() < test.date.min(),
+        "both classes present in every split": all(p.podium.nunique() == 2 for p in splits.values()),
     }
+    return pd.DataFrame({"check": list(checks), "passed": [bool(v) for v in checks.values()]})
+
+
+def split_strategy_experiment(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
+    """Compare the chronological split with two random alternatives.
+
+    Each strategy holds out the same number of rows as the validation seasons and
+    trains the logistic baseline on the rest. The leakage columns show what a random
+    split lets the model see that would not exist on a real race morning.
+    """
+    rng = np.random.default_rng(random_state)
+    chrono = split_by_time(frame)
+    holdout_size = len(chrono["validation"])
+    # Hold out whole races so one strategy is random in time but not split inside a race.
+    race_ids = frame.raceId.unique()
+    shuffled = rng.permutation(race_ids)
+    race_sizes = frame.groupby("raceId").size().loc[shuffled]
+    held_races = set(race_sizes.index[race_sizes.cumsum() <= holdout_size])
+    random_rows = frame.index[rng.permutation(len(frame))[:holdout_size]]
+    strategies = {
+        "chronological (used)": (chrono["train"], chrono["validation"]),
+        "random races": (frame[~frame.raceId.isin(held_races)], frame[frame.raceId.isin(held_races)]),
+        "random rows": (frame.drop(index=random_rows), frame.loc[random_rows]),
+    }
+    rows = []
+    for name, (train, held) in strategies.items():
+        model = clone(model_definitions(random_state)["Logistic regression"])
+        model.fit(train[FEATURES], train.podium)
+        p = model.predict_proba(held[FEATURES])[:, 1]
+        rows.append({
+            "strategy": name,
+            "train_rows": int(len(train)),
+            "held_out_rows": int(len(held)),
+            "held_out_years": f"{int(held.year.min())}-{int(held.year.max())}",
+            "held_out_podium_rate": float(held.podium.mean()),
+            # Same-race leakage: another row from the held-out row's race sits in training.
+            "held_out_races_also_in_train": float(held.raceId.isin(set(train.raceId)).mean()),
+            # Future leakage: training contains seasons later than the held-out row.
+            "held_out_rows_with_future_training": float(held.year.lt(train.year.max()).mean()),
+            "PR-AUC": float(average_precision_score(held.podium, p)),
+            "ROC-AUC": float(roc_auc_score(held.podium, p)),
+        })
+    return pd.DataFrame(rows)
 
 
 def cleaning_eda(raw_results: pd.DataFrame, cleaned: pd.DataFrame) -> pd.DataFrame:
@@ -308,6 +388,207 @@ def preprocessing_experiments(frame: pd.DataFrame) -> pd.DataFrame:
         rows.append({"preprocessing": name, "validation_ROC-AUC": roc_auc_score(splits["validation"].podium, p),
                      "validation_PR-AUC": average_precision_score(splits["validation"].podium, p)})
     return pd.DataFrame(rows)
+
+
+def preprocessing_effects(frame: pd.DataFrame) -> pd.DataFrame:
+    """Measure what median imputation and scaling do to every feature.
+
+    Both steps are fitted on training rows. Validation and test pass through the
+    same fitted transform, so their scaled means show the shift between periods.
+    """
+    splits = split_by_time(frame)
+    train = splits["train"][FEATURES]
+    imputer = SimpleImputer(strategy="median").fit(train)
+    imputed = pd.DataFrame(imputer.transform(train), columns=FEATURES, index=train.index)
+    scaler = StandardScaler().fit(imputed)
+    scaled = pd.DataFrame(scaler.transform(imputed), columns=FEATURES, index=train.index)
+
+    def later_scaled(name: str) -> pd.DataFrame:
+        """Apply the training-fitted imputer and scaler to a later split."""
+        filled = pd.DataFrame(imputer.transform(splits[name][FEATURES]), columns=FEATURES)
+        return pd.DataFrame(scaler.transform(filled), columns=FEATURES)
+
+    val_scaled, test_scaled = later_scaled("validation"), later_scaled("test")
+    rows = []
+    for i, f in enumerate(FEATURES):
+        rows.append({
+            "feature": f,
+            "missing_share": float(train[f].isna().mean()),
+            "fill_value": float(imputer.statistics_[i]),
+            "raw_min": float(train[f].min()), "raw_max": float(train[f].max()),
+            "raw_mean": float(train[f].mean()), "raw_std": float(train[f].std()),
+            "imputed_mean": float(imputed[f].mean()), "imputed_std": float(imputed[f].std()),
+            # Filling many rows with one value shrinks the spread of that feature.
+            "std_change_from_imputation": float(imputed[f].std() / train[f].std() - 1),
+            "scaled_min": float(scaled[f].min()), "scaled_max": float(scaled[f].max()),
+            "scaled_mean": float(scaled[f].mean()), "scaled_std": float(scaled[f].std()),
+            "validation_scaled_mean": float(val_scaled[f].mean()),
+            "test_scaled_mean": float(test_scaled[f].mean()),
+        })
+    return pd.DataFrame(rows)
+
+
+def feature_engineering_effects(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """Compare raw source columns with the engineered features built from them."""
+    qualifying = tables["qualifying"]
+    raw_times = qualifying[["q1", "q2", "q3"]]
+    parsed = pd.concat([raw_times[c].map(_time_to_seconds) for c in raw_times], axis=1)
+    pairs = [
+        ("grid (raw)", frame["grid"]),
+        ("grid_position (0 -> missing)", frame["grid_position"]),
+        ("pit_lane_start (grid == 0)", frame["pit_lane_start"]),
+        ("q1/q2/q3 text present", raw_times.notna().any(axis=1).astype(float)),
+        ("best qualifying seconds (parsed)", parsed.min(axis=1)),
+        ("qualifying_time_seconds (joined)", frame["qualifying_time_seconds"]),
+        ("driver_podium_rate_5 (shifted)", frame["driver_podium_rate_5"]),
+        ("driver_points_before (previous race)", frame["driver_points_before"]),
+    ]
+    rows = []
+    for name, values in pairs:
+        values = pd.to_numeric(values, errors="coerce")
+        rows.append({"column": name, "rows": int(len(values)),
+                     "missing_share": float(values.isna().mean()),
+                     "zero_share": float(values.eq(0).mean()),
+                     "min": float(values.min()), "median": float(values.median()),
+                     "max": float(values.max()), "mean": float(values.mean())})
+    return pd.DataFrame(rows)
+
+
+def _ordered_preprocessor(order: str) -> Pipeline:
+    """Return imputation and scaling steps in the requested order."""
+    median = ("imputer", SimpleImputer(strategy="median"))
+    zero = ("imputer", SimpleImputer(strategy="constant", fill_value=0))
+    scale = ("scaler", StandardScaler())
+    steps = {
+        "impute -> scale": [median, scale],
+        "scale -> impute": [scale, median],
+        "zero-fill -> scale": [zero, scale],
+        "scale -> zero-fill": [scale, zero],
+    }[order]
+    return Pipeline(steps)
+
+
+PREPROCESSING_ORDERS = [
+    # (experiment, order, fit preprocessing on)
+    ("A: impute vs scale first", "impute -> scale", "train"),
+    ("A: impute vs scale first", "scale -> impute", "train"),
+    ("B: zero-fill vs scale first", "zero-fill -> scale", "train"),
+    ("B: zero-fill vs scale first", "scale -> zero-fill", "train"),
+    ("C: split vs preprocess first", "impute -> scale", "all years (before split)"),
+]
+
+
+def preprocessing_order_experiments(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
+    """Swap the order of preprocessing steps and score each order on validation.
+
+    Experiment A swaps median imputation and scaling. Experiment B swaps zero-filling
+    and scaling, where order changes the value written into missing cells. Experiment C
+    fits the preprocessing before splitting, which lets later seasons set the medians
+    and scaling statistics used in training.
+    """
+    splits = split_by_time(frame)
+    train, val = splits["train"], splits["validation"]
+    base_models = model_definitions(random_state)
+    rows = []
+    for experiment, order, fitted_on in PREPROCESSING_ORDERS:
+        pre = _ordered_preprocessor(order)
+        pre.fit(frame[FEATURES] if fitted_on.startswith("all") else train[FEATURES])
+        X_train, X_val = pre.transform(train[FEATURES]), pre.transform(val[FEATURES])
+        # Express the value given to a missing cell in original units for two features.
+        scaler = pre.named_steps["scaler"]
+        filled = pre.transform(pd.DataFrame([{f: np.nan for f in FEATURES}]))[0] * scaler.scale_ + scaler.mean_
+        for model_name in ["Logistic regression", "Shallow neural network"]:
+            model = clone(base_models[model_name].named_steps["model"]).fit(X_train, train.podium)
+            p = model.predict_proba(X_val)[:, 1]
+            rows.append({
+                "experiment": experiment, "order": order, "preprocessing_fitted_on": fitted_on,
+                "model": model_name,
+                "missing_grid_position_becomes": float(filled[FEATURES.index("grid_position")]),
+                "missing_qualifying_time_becomes": float(filled[FEATURES.index("qualifying_time_seconds")]),
+                "train_std_qualifying_time": float(X_train[:, FEATURES.index("qualifying_time_seconds")].std()),
+                "validation_PR-AUC": float(average_precision_score(val.podium, p)),
+                "validation_ROC-AUC": float(roc_auc_score(val.podium, p)),
+            })
+    result = pd.DataFrame(rows)
+    # Compare each order with the first order of the same experiment and model.
+    first = result.groupby(["experiment", "model"])["validation_PR-AUC"].transform("first")
+    result["PR-AUC_change_vs_reference"] = result["validation_PR-AUC"] - first
+    reference = result[result.experiment.str.startswith("A") & result.order.eq("impute -> scale")]
+    reference = reference.set_index("model")["validation_PR-AUC"]
+    # Experiment C has a single row per model, so compare it with the fit-on-train run.
+    leaky = result.experiment.str.startswith("C")
+    result.loc[leaky, "PR-AUC_change_vs_reference"] = (
+        result.loc[leaky, "validation_PR-AUC"] - result.loc[leaky, "model"].map(reference))
+    return result
+
+
+def preprocessing_plots(frame: pd.DataFrame, effects: pd.DataFrame, out_dir: str | Path) -> dict[str, str]:
+    """Plot feature distributions and ranges before and after preprocessing."""
+    out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    sns.set_theme(style="whitegrid", context="notebook")
+    splits = split_by_time(frame)
+    train = splits["train"][FEATURES]
+    imputer = SimpleImputer(strategy="median").fit(train)
+    imputed = pd.DataFrame(imputer.transform(train), columns=FEATURES)
+    scaler = StandardScaler().fit(imputed)
+    scaled = pd.DataFrame(scaler.transform(imputed), columns=FEATURES)
+    val_filled = pd.DataFrame(imputer.transform(splits["validation"][FEATURES]), columns=FEATURES)
+    val_scaled = pd.DataFrame(scaler.transform(val_filled), columns=FEATURES)
+    shown = ["grid_position", "qualifying_time_seconds", "driver_points_before", "constructor_podium_rate_5"]
+
+    fig, axes = plt.subplots(2, len(shown), figsize=(15, 6.5))
+    for j, f in enumerate(shown):
+        # Top row: the imputed column has a spike at the training median.
+        bins = np.histogram_bin_edges(imputed[f], bins=40)
+        axes[0, j].hist(imputed[f], bins=bins, color="#e76f51", alpha=0.55, label="after median imputation")
+        axes[0, j].hist(train[f].dropna(), bins=bins, color="#264653", alpha=0.7, label="raw (observed)")
+        axes[0, j].axvline(imputer.statistics_[FEATURES.index(f)], color="black", ls="--", lw=1)
+        axes[0, j].set_title(f"{f}\n{train[f].isna().mean():.0%} missing in training")
+        axes[0, j].set_yscale("log")
+        # Bottom row: training is centred at zero; validation shows the later-season shift.
+        bins = np.histogram_bin_edges(np.r_[scaled[f], val_scaled[f]], bins=40)
+        axes[1, j].hist(scaled[f], bins=bins, density=True, color="#2a9d8f", alpha=0.6, label="training, scaled")
+        axes[1, j].hist(val_scaled[f], bins=bins, density=True, color="#f4a261", alpha=0.6, label="validation, same transform")
+        axes[1, j].axvline(0, color="black", lw=1)
+        axes[1, j].set_xlabel("standardized value")
+    axes[0, 0].set_ylabel("rows (log)"); axes[1, 0].set_ylabel("density")
+    axes[0, 0].legend(fontsize=8); axes[1, 0].legend(fontsize=8)
+    fig.suptitle("Effect of median imputation (top) and training-fitted scaling (bottom)")
+    fig.tight_layout(); fig.savefig(out / "preprocessing_distributions.png", dpi=150, bbox_inches="tight"); plt.close(fig)
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 6), sharey=True)
+    order = effects.sort_values("raw_std")["feature"]
+    e = effects.set_index("feature").loc[order]
+    axes[0].barh(order, e.raw_max - e.raw_min, color="#264653")
+    axes[0].set_xscale("symlog", linthresh=1); axes[0].set_title("Raw training range (max - min)")
+    axes[1].hlines(order, e.scaled_min, e.scaled_max, color="#2a9d8f", lw=4)
+    axes[1].plot(e.validation_scaled_mean, order, "o", color="#e76f51", label="validation mean")
+    axes[1].axvline(0, color="black", lw=1); axes[1].legend()
+    axes[1].set_title("Range after scaling (training)")
+    fig.tight_layout(); fig.savefig(out / "preprocessing_ranges.png", dpi=150, bbox_inches="tight"); plt.close(fig)
+    return {"preprocessing_distributions": str(out / "preprocessing_distributions.png"),
+            "preprocessing_ranges": str(out / "preprocessing_ranges.png")}
+
+
+def split_plot(frame: pd.DataFrame, out_dir: str | Path) -> str:
+    """Plot rows, podium rate, and qualifying missingness by season, coloured by split."""
+    out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    labelled = pd.concat([part.assign(split=name) for name, part in split_by_time(frame).items()])
+    by_year = labelled.groupby(["year", "split"]).agg(rows=("podium", "size"), podium_rate=("podium", "mean"),
+                                                      qualifying_missing=("qualifying_missing", "mean")).reset_index()
+    palette = {"train": "#264653", "validation": "#f4a261", "test": "#e76f51"}
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+    for ax, col, title in zip(axes, ["rows", "podium_rate", "qualifying_missing"],
+                              ["Driver-race rows", "Podium rate", "Qualifying missing"]):
+        sns.barplot(by_year, x="year", y=col, hue="split", palette=palette, dodge=False, ax=ax, width=1)
+        ax.set_title(title); ax.set_xlabel("season"); ax.set_ylabel("")
+        ax.set_xticks(range(0, len(by_year.year.unique()), 10))
+        ax.set_xticklabels(sorted(by_year.year.unique())[::10])
+        if ax is not axes[0]:
+            ax.get_legend().remove()
+    fig.tight_layout(); path = out / "chronological_split.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight"); plt.close(fig)
+    return str(path)
 
 
 def ablation_experiments(frame: pd.DataFrame) -> pd.DataFrame:
@@ -547,8 +828,15 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     answers = engineering_answers(frame, tables)
     trained, metrics, thresholds = train_and_evaluate(frame)
     preprocessing = preprocessing_experiments(frame)
+    effects = preprocessing_effects(frame)
+    engineering_effects = feature_engineering_effects(frame, tables)
+    order_experiments = preprocessing_order_experiments(frame)
+    splits_table, integrity = split_summary(frame), split_integrity(frame)
+    split_strategies = split_strategy_experiment(frame)
     ablations = ablation_experiments(frame)
     plots = create_plots(frame, cleaning, answers, metrics, ablations, trained, out / "figures")
+    plots.update(preprocessing_plots(frame, effects, out / "figures"))
+    plots["chronological_split"] = split_plot(frame, out / "figures")
     shap_global, shap_local = shap_explanations(frame, trained, out / "figures")
     lime_local = lime_explanation(frame, trained, out / "figures")
 
@@ -557,6 +845,11 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     cleaning.to_csv(out / "cleaning_eda.csv", index=False)
     pk.to_csv(out / "primary_key_audit.csv", index=False); fk.to_csv(out / "foreign_key_audit.csv", index=False)
     metrics.to_csv(out / "model_metrics.csv", index=False); preprocessing.to_csv(out / "preprocessing_experiments.csv", index=False)
+    effects.to_csv(out / "preprocessing_effects.csv", index=False)
+    engineering_effects.to_csv(out / "feature_engineering_effects.csv", index=False)
+    order_experiments.to_csv(out / "preprocessing_order_experiments.csv", index=False)
+    splits_table.to_csv(out / "split_summary.csv", index=False); integrity.to_csv(out / "split_integrity.csv", index=False)
+    split_strategies.to_csv(out / "split_strategy_experiment.csv", index=False)
     ablations.to_csv(out / "ablation_results.csv", index=False)
     for name, answer in answers.items(): answer.to_csv(out / f"{name}.csv", index=False)
     # Check a complete historical row and an intentionally partial input using the
@@ -577,7 +870,10 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return {"tables": tables, "modeling_table": frame, "pk_audit": pk, "fk_audit": fk,
             "answers": answers, "models": trained, "metrics": metrics, "thresholds": thresholds,
-            "preprocessing": preprocessing, "ablations": ablations, "cleaning_eda": cleaning, "plots": plots,
+            "preprocessing": preprocessing, "preprocessing_effects": effects,
+            "feature_engineering_effects": engineering_effects, "preprocessing_order": order_experiments,
+            "split_summary": splits_table, "split_integrity": integrity, "split_strategies": split_strategies,
+            "ablations": ablations, "cleaning_eda": cleaning, "plots": plots,
             "shap_global": shap_global, "shap_local": shap_local, "lime_local": lime_local,
             "summary": summary}
 

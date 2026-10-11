@@ -262,7 +262,12 @@ Leakage prevention is part of construction:
   - Median imputation with scaling.
   - Median imputation without scaling.
   - Zero imputation with scaling.
-- The split is chronological rather than random to prevent future seasons from teaching the model about earlier races.
+- The effect of each step on the values is measured per feature (`preprocessing_effects`, `feature_engineering_effects`): missing share, fill value, range, mean, and spread before imputation, after imputation, and after scaling, plus validation and test means under the training-fitted transform.
+- Three preprocessing-order experiments are run with logistic regression and the MLP (`preprocessing_order_experiments`):
+  - A: impute -> scale vs scale -> impute.
+  - B: zero-fill -> scale vs scale -> zero-fill.
+  - C: preprocessing fitted after the split (train only) vs before the split (all seasons).
+- The split is chronological rather than random to prevent future seasons from teaching the model about earlier races. `split_summary` and `split_integrity` document and check it (complete, no shared races, strictly ordered dates), and `split_strategy_experiment` shows the same-race and future leakage that random row or random race splits would introduce.
 
 ### 5. Predictive models and evaluation
 
@@ -390,6 +395,9 @@ The first notebook cell searches `/kaggle/input` for `results.csv`. All analysis
 6. Correct race-start denominator for mechanical retirements.
 7. Current-race results cannot change their own feature values.
 8. Before/after cleaning EDA reaches unique driver-race grain without materially shifting the target rate.
+9. The split is complete, has no race in two splits, and is strictly ordered in time.
+10. Imputation fill values are training medians and only training is centred by the scaler.
+11. At least two preprocessing-order experiments are reported, and zero-fill order changes the filled value as expected.
 
 ## Verified headline results
 
@@ -596,14 +604,19 @@ Main code locations:
   - `FEATURE_GROUPS` and `FEATURES`
   - `_previous_standings`
   - `build_modeling_table`
-  - `split_by_time`
+  - `split_by_time`, `split_summary`, `split_integrity`, `split_strategy_experiment`
   - `_pipeline`
-  - `preprocessing_experiments`
+  - `preprocessing_experiments`, `preprocessing_order_experiments`
+  - `preprocessing_effects`, `feature_engineering_effects`, `preprocessing_plots`, `split_plot`
 - `scripts/build_notebook.py`
   - Sections 4 and 5.
 - `scripts/build_report.py`
   - Feature table, chronological split, and preprocessing experiment sections.
 - `artifacts/preprocessing_experiments.csv`
+- `artifacts/preprocessing_order_experiments.csv`
+- `artifacts/preprocessing_effects.csv` and `artifacts/feature_engineering_effects.csv`
+- `artifacts/split_summary.csv`, `artifacts/split_integrity.csv`, `artifacts/split_strategy_experiment.csv`
+- `artifacts/figures/preprocessing_distributions.png`, `preprocessing_ranges.png`, `chronological_split.png`
 - `artifacts/modeling_table.csv`
 
 Key points for Aya:
