@@ -315,13 +315,21 @@ display(tuning[["model", "settings", "is_initial", "is_current", "validation_PR-
                 "validation_ROC-AUC", "train_PR-AUC", "rank_within_model"]].round(4))
 """)
 md("""
-**Random forest: improved.** The starting forest (unlimited depth, leaf size 4) scored 0.702 on validation but 0.919 on training, a memorized fit. The search ranked it 7th of 9. Depth 12 with leaf size 30 scores 0.717 on validation, and its training PR-AUC falls from 0.919 to 0.647, so it no longer memorizes the training seasons. We adopted it, and test PR-AUC rose from 0.689 to 0.713 without the test set influencing the choice.
+**Random forest: improved.** The starting forest (unlimited depth, leaf size 4) scored 0.702 on validation but 0.919 on training, a memorized fit. The search ranked it 7th of 9. Depth 12 with leaf size 30 scores 0.717 on validation, and its training PR-AUC falls from 0.919 to 0.647, so it no longer memorizes the training seasons. We adopted it, and test PR-AUC rose from 0.689 to 0.712 without the test set influencing the choice.
 
 **Shallow neural network: confirmed, not improved.** We tried one hidden layer of 8, 16, 32, and 64 units and two layers (32, 12) and (64, 32), each with two regularization strengths. The starting (32, 12) with alpha 0.002 was best at 0.7248 averaged over three seeds. Wider and deeper networks did not help, so we kept it. The network is not a deliberately weak model. Smaller ones are worse and larger ones are no better.
 
 **Logistic regression: insensitive.** L1 and L2 penalties and C from 0.01 to 10 all fall between 0.713 and 0.728. C = 1 with L2 ties for best, so we keep it.
 
 **A caution about the headline number.** The network's 0.7385 validation score comes from seed 42. Averaged over three seeds it is 0.7248, with a seed standard deviation of 0.016, which is slightly below logistic regression's 0.7276. Differences between the three models are smaller than that spread, as the bootstrap in section 11.1 also shows.
+""")
+
+md("""
+### 14.2 Does the added complexity earn its place?
+
+On unseen test seasons (2022-2024) PR-AUC is 0.703 for logistic regression, 0.712 for the random forest and 0.716 for the network; ROC-AUC is 0.935, 0.937 and 0.938. The gap between the baseline and the best model is about 0.013 PR-AUC. That is smaller than the network's seed-to-seed spread (0.016) and well inside the bootstrap interval over 39 validation races in section 11.1, where the forest minus logistic regression difference spans zero. **The data do not support claiming that a more complex model is better.**
+
+We therefore treat the three models as equivalent in ranking quality and use the other properties to decide. Logistic regression is the baseline and the easiest to defend and explain: its coefficients are directly readable, it is stable across seeds, and it needs no tuning to behave. The network is nominally highest on both primary (PR-AUC) and secondary (ROC-AUC) metrics, so it is the model used for the inference demo, but we report that its edge is within noise. The reason a nonlinear model gains so little is that the strongest signals (grid, qualifying position, and recent form) act close to monotonically on podium odds, which a linear model already captures. PR-AUC is primary because only about one in eight entrants finishes on the podium, so ROC-AUC rewards correctly ranking the many easy non-podium rows; ROC-AUC stays as the secondary metric.
 """)
 
 md("## 15. Feature-group ablation")

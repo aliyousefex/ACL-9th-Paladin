@@ -6,8 +6,10 @@ columns are only used for the target, lagged history, and the descriptive questi
 
 from __future__ import annotations
 
+import functools
 import json
 import re
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,7 @@ import seaborn as sns
 from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.experimental import enable_iterative_imputer  # noqa: F401  (activates IterativeImputer)
 from sklearn.impute import IterativeImputer, KNNImputer, SimpleImputer
 from sklearn.inspection import permutation_importance
@@ -617,6 +620,23 @@ def ablation_experiments(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def _quiet(function):
+    """Hide two expected scikit-learn notices inside an experiment.
+
+    Newer scikit-learn deprecates the ``penalty`` argument that the search grid uses on
+    purpose (older versions need it), and the iterative imputer reports that it stopped at
+    its iteration limit. Neither changes the result, and repeating them hundreds of times
+    would bury the tables.
+    """
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*penalty.*")
+            warnings.filterwarnings("ignore", category=ConvergenceWarning)
+            return function(*args, **kwargs)
+    return wrapper
+
+
 def _feature_bins(values: pd.Series) -> pd.Series:
     """Return a bin code per row: the value itself for flags, else five equal-count bins.
 
@@ -722,6 +742,7 @@ def _validation_scores(train: pd.DataFrame, val: pd.DataFrame, features: list[st
     return scores
 
 
+@_quiet
 def missing_value_experiments(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
     """Compare ways of handling missing values, scored on validation only.
 
@@ -799,6 +820,7 @@ def _current_params(name: str) -> dict[str, Any]:
     return params
 
 
+@_quiet
 def hyperparameter_search(frame: pd.DataFrame) -> pd.DataFrame:
     """Search each model's settings on validation only; the test seasons are never touched.
 
@@ -829,6 +851,7 @@ def hyperparameter_search(frame: pd.DataFrame) -> pd.DataFrame:
     return result.sort_values(["model", "rank_within_model"]).reset_index(drop=True)
 
 
+@_quiet
 def split_window_experiment(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
     """Score the same two models on four validation windows that all precede the test seasons.
 
@@ -933,6 +956,7 @@ def non_starter_audit(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> p
     return pd.DataFrame(rows).sort_values("group", key=lambda s: s.map(order)).reset_index(drop=True)
 
 
+@_quiet
 def non_starter_experiment(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
     """Train with and without the drivers who never started, scored on the same validation rows."""
     splits = split_by_time(frame)

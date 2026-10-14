@@ -62,22 +62,22 @@ ACL-9th-Paladin/
 |-- notebooks/
 |   `-- milestone_1_f1_podium_prediction.ipynb
 |                                      Executed, run-all submission notebook
-|-- kaggle/
-|   `-- f1podium_src.zip               Legacy optional source bundle
 |-- reports/
-|   `-- milestone_1_analytical_report.pdf
-|                                      Final structured analytical report
+|   |-- milestone_1_analytical_report.tex
+|   |                                  LaTeX source (Overleaf-ready, one file)
+|   `-- milestone_1_analytical_report_latex.pdf
+|                                      Submission PDF, compiled from the .tex
 |-- scripts/
 |   |-- run_analysis.py               Run the complete analytical pipeline
 |   |-- build_notebook.py             Rebuild the notebook source
 |   |-- build_report.py               Build the report from artifacts
-|   |-- build_report_latex.py         Render the same report as one LaTeX file for Overleaf
-|   `-- build_kaggle_bundle.py        Package shared source for Kaggle
+|   `-- build_report_latex.py         Render the same report as one LaTeX file for Overleaf
 |-- src/f1podium/
 |   |-- __init__.py                   Public package exports
 |   `-- pipeline.py                   Cleaning, features, models, evaluation, XAI
 |-- tests/
 |   `-- test_pipeline.py              Grain, cleaning, split, and leakage tests
+|-- ui/                               Walkthrough website source (Vite + React), optional
 |-- pyproject.toml                    Python package and pytest configuration
 |-- requirements.txt                  Python dependency ranges
 `-- README.md                         This orientation document
@@ -291,6 +291,8 @@ Settings come from `hyperparameter_search`, which trains every setting in a smal
 
 Every model reports ROC-AUC, PR-AUC, F1, precision, and recall. Each model's classification threshold maximizes F1 on validation only and is frozen before test evaluation. PR-AUC is primary because podium rows are rare; ROC-AUC is secondary.
 
+Notebook section 14.2 asks whether the added complexity earns its place. Test PR-AUC is 0.703 (logistic regression), 0.712 (forest), and 0.716 (network). The gaps sit inside the seed spread and the validation bootstrap, so we treat the three models as tied in ranking quality and keep logistic regression as the explainable baseline.
+
 ### 6. Experiments and XAI
 
 - Feature-group ablation removes and retrains without grid, qualifying, form, standings, or context.
@@ -377,7 +379,7 @@ Build order:
 ```text
 run_analysis.py or executed notebook
                 -> artifacts/
-                -> build_report.py        -> reports/milestone_1_analytical_report.pdf
+                -> build_report.py        -> reports/milestone_1_analytical_report.pdf (optional ReportLab preview, not submitted)
                 -> build_report_latex.py -> reports/milestone_1_analytical_report.tex
 ```
 
@@ -432,7 +434,7 @@ The first notebook cell searches `/kaggle/input` for `results.csv`. All analysis
 - Zero orphan values in the audited foreign-key relationships.
 - The shallow neural network has the highest validation PR-AUC and remains slightly first on the unseen test set, but the lead is not significant. A bootstrap over the 39 validation races puts the network minus logistic regression difference at about +0.011, with an interval that includes zero. Averaged over three seeds the network scores slightly below logistic regression on validation.
 - Grid is the most important feature group under ablation, permutation importance, and SHAP.
-- The random forest's first settings memorized the training seasons (training PR-AUC 0.92 against 0.70 on validation). After the validation search, its training score is 0.65 and its test PR-AUC rose from 0.689 to 0.713.
+- The random forest's first settings memorized the training seasons (training PR-AUC 0.92 against 0.70 on validation). After the validation search, its training score is 0.65 and its test PR-AUC rose from 0.689 to 0.712.
 
 Exact scores, thresholds, plots, and sample sizes are stored in the executed notebook and analytical report rather than duplicated here.
 
@@ -699,7 +701,7 @@ Key points for Aya:
 The core files intended for review are:
 
 - `notebooks/milestone_1_f1_podium_prediction.ipynb`
-- `reports/milestone_1_analytical_report.pdf`
+- `reports/milestone_1_analytical_report_latex.pdf` (submission PDF, compiled from `reports/milestone_1_analytical_report.tex`)
 - `src/f1podium/pipeline.py`
 - `tests/test_pipeline.py`
 - `data/raw/*.csv`

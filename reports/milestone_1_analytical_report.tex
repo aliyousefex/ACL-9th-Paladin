@@ -946,7 +946,7 @@ Figure 10 compares the three models on the test seasons only. Table 18 gives tra
 \begin{tikzpicture}
 \begin{axis}[ybar, bar width=11pt, width=0.828\linewidth, height=6cm, xtick={0,1,2,3,4}, xticklabels={ROC-AUC,PR-AUC,F1,Precision,Recall}, ymin=0, ymax=1.05, ylabel={score}, ymajorgrids, enlarge x limits=0.12, legend style={at={(0.5,-0.18)}, anchor=north, legend columns=3}]
 \addplot[ybar, fill=modelA, draw=none] coordinates {(0,0.935048) (1,0.702575) (2,0.66791) (3,0.539157) (4,0.877451)};
-\addplot[ybar, fill=modelB, draw=none] coordinates {(0,0.937628) (1,0.713316) (2,0.651852) (3,0.656716) (4,0.647059)};
+\addplot[ybar, fill=modelB, draw=none] coordinates {(0,0.937446) (1,0.712175) (2,0.646914) (3,0.651741) (4,0.642157)};
 \addplot[ybar, fill=modelC, draw=none] coordinates {(0,0.937913) (1,0.716215) (2,0.669355) (3,0.568493) (4,0.813725)};
 \legend{Logistic regression, Random forest, Shallow neural network}
 \end{axis}
@@ -967,9 +967,9 @@ Figure 10 compares the three models on the test seasons only. Table 18 gives tra
 Logistic regression & train & 0.655 & 0.906 & 0.561 & 0.580 & 0.468 & 0.763 \\
 Logistic regression & validation & 0.655 & 0.926 & 0.728 & 0.703 & 0.647 & 0.769 \\
 Logistic regression & test & 0.655 & 0.935 & 0.703 & 0.668 & 0.539 & 0.877 \\
-Random forest & train & 0.785 & 0.932 & 0.647 & 0.606 & 0.613 & 0.600 \\
-Random forest & validation & 0.785 & 0.926 & 0.717 & 0.707 & 0.713 & 0.701 \\
-Random forest & test & 0.785 & 0.938 & 0.713 & 0.652 & 0.657 & 0.647 \\
+Random forest & train & 0.785 & 0.932 & 0.648 & 0.606 & 0.614 & 0.599 \\
+Random forest & validation & 0.785 & 0.926 & 0.722 & 0.707 & 0.713 & 0.701 \\
+Random forest & test & 0.785 & 0.937 & 0.712 & 0.647 & 0.652 & 0.642 \\
 Shallow neural network & train & 0.240 & 0.912 & 0.585 & 0.578 & 0.462 & 0.771 \\
 Shallow neural network & validation & 0.240 & 0.928 & 0.738 & 0.713 & 0.677 & 0.752 \\
 Shallow neural network & test & 0.240 & 0.938 & 0.716 & 0.669 & 0.568 & 0.814 \\
@@ -978,16 +978,16 @@ Shallow neural network & test & 0.240 & 0.938 & 0.716 & 0.669 & 0.568 & 0.814 \\
 \end{table}
 
 
-On the test set we measure a ROC-AUC of 0.935 for logistic regression, 0.938 for the forest, and 0.938 for the network. Those three numbers are within 0.005 of each other. In the pair reading of ROC-AUC, a true podium finisher outranks a non-podium about 93 to 94 times out of 100. That is a strong ranking. It is also a ranking on which the models do not separate. ROC-AUC compresses the comparison because most rows are not podiums, so a modest number of false alarms barely moves the false-positive rate.
+On the test set we measure a ROC-AUC of 0.935 for logistic regression, 0.937 for the forest, and 0.938 for the network. Those three numbers are within 0.005 of each other. In the pair reading of ROC-AUC, a true podium finisher outranks a non-podium about 93 to 94 times out of 100. That is a strong ranking. It is also a ranking on which the models do not separate. ROC-AUC compresses the comparison because most rows are not podiums, so a modest number of false alarms barely moves the false-positive rate.
 
 
-PR-AUC is where they separate. On test, the network scores 0.716, logistic regression 0.703, and the forest 0.713. The test podium rate is 15.0\%, so a useless ranking would sit near 0.150. All three models are far above that floor. The network's lead over logistic regression is 0.014 PR-AUC. We call that a small lead, not a different kind of model. We selected the network before looking at this comparison, because its validation PR-AUC of 0.738 was ahead of 0.728 and 0.717.
+PR-AUC is where they separate. On test, the network scores 0.716, logistic regression 0.703, and the forest 0.712. The test podium rate is 15.0\%, so a useless ranking would sit near 0.150. All three models are far above that floor. The network's lead over logistic regression is 0.014 PR-AUC. We call that a small lead, not a different kind of model. We selected the network before looking at this comparison, because its validation PR-AUC of 0.738 was ahead of 0.728 and 0.722.
 
 
-The operating points we chose explain the precision and recall bars in Figure 10. At its validation cutoff, logistic regression has test precision 0.539 and recall 0.877. It catches most podiums and accepts more false alarms. The forest has precision 0.657 and recall 0.647. It is the conservative one of the three. The network sits between them, with precision 0.568 and recall 0.814. Test F1 ends up almost tied, from 0.652 to 0.669. Same F1, different mix of missed podiums and false podiums.
+The operating points we chose explain the precision and recall bars in Figure 10. At its validation cutoff, logistic regression has test precision 0.539 and recall 0.877. It catches most podiums and accepts more false alarms. The forest has precision 0.652 and recall 0.642. It is the conservative one of the three. The network sits between them, with precision 0.568 and recall 0.814. Test F1 ends up almost tied, from 0.647 to 0.669. Same F1, different mix of missed podiums and false podiums.
 
 
-The training column is the check for memorizing. All three models have a training PR-AUC below their validation score: 0.561 for logistic regression, 0.647 for the forest, and 0.585 for the network. That was not true of the first forest, which scored 0.919 on training and 0.702 on validation because it had no depth limit and four rows per leaf. The validation search in Section 7.1 limited it. We do not read the higher validation score as the model improving after 2019. Training has a lower podium rate and far more missing qualifying, so the PR-AUC floor on training is lower as well. The comparison we trust is validation against test, where the positive rate is almost the same.
+The training column is the check for memorizing. All three models have a training PR-AUC below their validation score: 0.561 for logistic regression, 0.648 for the forest, and 0.585 for the network. That was not true of the first forest, which scored 0.919 on training and 0.702 on validation because it had no depth limit and four rows per leaf. The validation search in Section 7.1 limited it. We do not read the higher validation score as the model improving after 2019. Training has a lower podium rate and far more missing qualifying, so the PR-AUC floor on training is lower as well. The comparison we trust is validation against test, where the positive rate is almost the same.
 
 
 \begin{takeaway}
@@ -1013,15 +1013,16 @@ We trained each model on 1950-2019 and scored it on 2020-2021 for every setting 
 \midrule
 Logistic regression & C: 10.0, penalty: l2 & best of grid (tie) & 0.7276 & 0.0000 & 0.5610 \\
 Logistic regression & C: 1.0, penalty: l2 & starting, kept & 0.7276 & 0.0000 & 0.5610 \\
-Random forest & max\_depth: 12, min\_samples\_leaf: 30 & adopted & 0.7174 & 0.0000 & 0.6469 \\
-Random forest & max\_depth: None, min\_samples\_leaf: 4 & starting & 0.7021 & 0.0000 & 0.9192 \\
+Random forest & max\_depth: None, min\_samples\_leaf: 30 & best of grid (tie) & 0.7231 & 0.0000 & 0.6490 \\
+Random forest & max\_depth: 12, min\_samples\_leaf: 30 & adopted & 0.7215 & 0.0000 & 0.6478 \\
+Random forest & max\_depth: None, min\_samples\_leaf: 4 & starting & 0.7040 & 0.0000 & 0.9198 \\
 Shallow neural network & hidden\_layer\_sizes: (32, 12), alpha: 0.002 & starting, kept & 0.7248 & 0.0163 & 0.5867 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-\textbf{Random forest: improved.} The starting forest ranked 7th of 9. A depth limit of 12 with 30 rows per leaf raises validation PR-AUC from 0.702 to 0.717 and cuts the training score from 0.919 to 0.647, so it no longer memorizes the training seasons. We adopted it, and test PR-AUC rose from 0.689 to 0.713 without the test set taking part in the choice. \textbf{Shallow network: confirmed, not improved.} One layer of 8, 16, 32, or 64 units and two layers of 32 and 12 or 64 and 32, each with two regularization strengths, were all tried. The starting 32 and 12 was best, at 0.7248 over three seeds, so the network is not a deliberately weak choice: smaller ones are worse and larger ones are no better. \textbf{Logistic regression} is insensitive: L1 and L2 penalties and C from 0.01 to 10 all fall between 0.713 and 0.728, and C = 1 with L2 ties for best.
+\textbf{Random forest: improved.} The starting forest ranked 7th of 9. A depth limit of 12 with 30 rows per leaf raises validation PR-AUC from 0.702 to 0.717 and cuts the training score from 0.919 to 0.647, so it no longer memorizes the training seasons. We adopted it, and test PR-AUC rose from 0.689 to 0.712 without the test set taking part in the choice. \textbf{Shallow network: confirmed, not improved.} One layer of 8, 16, 32, or 64 units and two layers of 32 and 12 or 64 and 32, each with two regularization strengths, were all tried. The starting 32 and 12 was best, at 0.7248 over three seeds, so the network is not a deliberately weak choice: smaller ones are worse and larger ones are no better. \textbf{Logistic regression} is insensitive: L1 and L2 penalties and C from 0.01 to 10 all fall between 0.713 and 0.728, and C = 1 with L2 ties for best.
 
 
 
@@ -1062,9 +1063,9 @@ To measure the uncertainty directly we resampled whole validation races (Table 2
 \textcolor{white}{\textbf{Comparison}} & \textcolor{white}{\textbf{Validation PR-AUC}} & \textcolor{white}{\textbf{95\% low}} & \textcolor{white}{\textbf{95\% high}} \\
 \midrule
 Logistic regression & 0.7276 & 0.6167 & 0.8364 \\
-Random forest & 0.7174 & 0.6028 & 0.8338 \\
+Random forest & 0.7215 & 0.6073 & 0.8322 \\
 Shallow neural network & 0.7385 & 0.6270 & 0.8450 \\
-Random forest minus Logistic regression & $-$0.0102 & $-$0.0441 & 0.0276 \\
+Random forest minus Logistic regression & $-$0.0061 & $-$0.0395 & 0.0300 \\
 Shallow neural network minus Logistic regression & 0.0109 & $-$0.0105 & 0.0307 \\
 \bottomrule
 \end{tabular}}
@@ -1137,8 +1138,8 @@ The explanations in this section are for the random forest, not for the neural n
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,constructor\_podium\_rate\_5,driver\_points\_before,driver\_rank\_before,driver\_podium\_rate\_5,round,constructor\_points\_before,front\_row,qualifying\_position,driver\_age,pit\_lane\_start,driver\_races\_before}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={Mean change in PR-AUC when shuffled}, xmajorgrids, xmin=0, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Permutation importance}, ]
-\addplot[xbar, fill=modelA, draw=none] coordinates {(0.099476,0) (0.0188843,1) (0.00748939,2) (0.00567179,3) (0.00500172,4) (0.00488749,5) (0.0035371,6) (0.00329779,7) (0.00146695,8) (0.000866121,9) (0.000812563,10) (0.000807814,11)};
+\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,constructor\_podium\_rate\_5,driver\_points\_before,driver\_podium\_rate\_5,constructor\_points\_before,driver\_rank\_before,front\_row,round,qualifying\_position,driver\_races\_before,pit\_lane\_start,qualifying\_missing}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={Mean change in PR-AUC when shuffled}, xmajorgrids, xmin=0, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Permutation importance}, ]
+\addplot[xbar, fill=modelA, draw=none] coordinates {(0.0979545,0) (0.0205964,1) (0.0130707,2) (0.0110198,3) (0.00766976,4) (0.0075761,5) (0.00582276,6) (0.00375319,7) (0.00342515,8) (0.000964234,9) (0.000885707,10) (1.1538e-05,11)};
 \end{axis}
 \end{tikzpicture}
 \caption{Permutation importance on a validation sample, scored with PR-AUC. A taller bar means shuffling that column hurt the forest more.}
@@ -1154,23 +1155,23 @@ The explanations in this section are for the random forest, not for the neural n
 \rowcolor{navy}
 \textcolor{white}{\textbf{Feature}} & \textcolor{white}{\textbf{Mean PR-AUC change when shuffled}} \\
 \midrule
-grid\_position & +0.099 \\
-constructor\_podium\_rate\_5 & +0.019 \\
-driver\_points\_before & +0.007 \\
-driver\_rank\_before & +0.006 \\
-driver\_podium\_rate\_5 & +0.005 \\
-round & +0.005 \\
-constructor\_points\_before & +0.004 \\
-front\_row & +0.003 \\
-qualifying\_time\_seconds & $-$0.004 \\
-constructor\_rank\_before & $-$0.002 \\
-qualifying\_missing & +0.000 \\
+grid\_position & +0.098 \\
+constructor\_podium\_rate\_5 & +0.021 \\
+driver\_points\_before & +0.013 \\
+driver\_podium\_rate\_5 & +0.011 \\
+constructor\_points\_before & +0.008 \\
+driver\_rank\_before & +0.008 \\
+front\_row & +0.006 \\
+round & +0.004 \\
+qualifying\_time\_seconds & $-$0.003 \\
+driver\_age & $-$0.001 \\
+constructor\_rank\_before & $-$0.001 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-Grid position is in a class of its own, at +0.099. The next feature, constructor\_podium\_rate\_5, is +0.019, about 19\% of that, and every other feature is +0.007 or smaller. Driver podium rate is ranked 5 at +0.005, and year sits at +0.000. Shuffling qualifying\_time\_seconds changes PR-AUC by $-$0.004: the score rises slightly when the column is destroyed. We read a negative value as the forest not getting stable help from that column on these rows. We do not read it as evidence that the feature causes worse finishes.
+Grid position is in a class of its own, at +0.098. The next feature, constructor\_podium\_rate\_5, is +0.021, about 21\% of that, and every other feature is +0.013 or smaller. Driver podium rate is ranked 4 at +0.011, and year sits at +0.000. Shuffling qualifying\_time\_seconds changes PR-AUC by $-$0.003: the score rises slightly when the column is destroyed. We read a negative value as the forest not getting stable help from that column on these rows. We do not read it as evidence that the feature causes worse finishes.
 
 
 
@@ -1264,12 +1265,12 @@ LIME provides the required model-agnostic local explanation for the same fixed v
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,year,driver\_podium\_rate\_5,driver\_rank\_before,driver\_age,round,front\_row,constructor\_podium\_rate\_5,driver\_races\_before,constructor\_rank\_before,driver\_points\_before,qualifying\_position}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={LIME weight (toward podium is positive)}, xmajorgrids, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Local LIME}, ]
-\addplot[xbar, fill=modelB, draw=none] coordinates {(-0.0746564,0) (-0.0541669,1) (-0.0336603,3) (-0.0207338,5) (-0.0196676,6) (-0.0188447,7) (-0.00865997,9) (-0.00540089,10) (-0.00447633,11)};
-\addplot[xbar, fill=modelC, draw=none] coordinates {(0.0526331,2) (0.020962,4) (0.0104363,8)};
+\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,driver\_podium\_rate\_5,year,driver\_rank\_before,round,front\_row,constructor\_podium\_rate\_5,driver\_age,constructor\_rank\_before,driver\_races\_before,driver\_points\_before,qualifying\_position}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={LIME weight (toward podium is positive)}, xmajorgrids, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Local LIME}, ]
+\addplot[xbar, fill=modelB, draw=none] coordinates {(-0.0705144,0) (-0.0437454,2) (-0.0313297,3) (-0.0216921,4) (-0.0191906,5) (-0.0188209,6) (-0.0115937,8) (-0.00568169,10) (-0.00518926,11)};
+\addplot[xbar, fill=modelC, draw=none] coordinates {(0.0518475,1) (0.0150962,7) (0.00723147,9)};
 \end{axis}
 \end{tikzpicture}
-\caption{Local LIME contributions for one fixed validation prediction. The black-box probability is 0.161, the local surrogate estimate is 0.157, and weighted local R-squared is 0.206.}
+\caption{Local LIME contributions for one fixed validation prediction. The black-box probability is 0.163, the local surrogate estimate is 0.158, and weighted local R-squared is 0.185.}
 \end{figure}
 
 
@@ -1282,20 +1283,20 @@ LIME provides the required model-agnostic local explanation for the same fixed v
 \rowcolor{navy}
 \textcolor{white}{\textbf{Feature}} & \textcolor{white}{\textbf{LIME weight}} & \textcolor{white}{\textbf{Observed value}} \\
 \midrule
-grid\_position & $-$0.075 & 11.0 \\
-year & $-$0.054 & 2021.0 \\
-driver\_podium\_rate\_5 & +0.053 & 0.2 \\
-driver\_rank\_before & $-$0.034 & 15.0 \\
-driver\_age & +0.021 & 23.6 \\
-round & $-$0.021 & 13.0 \\
-front\_row & $-$0.020 & 0.0 \\
+grid\_position & $-$0.071 & 11.0 \\
+driver\_podium\_rate\_5 & +0.052 & 0.2 \\
+year & $-$0.044 & 2021.0 \\
+driver\_rank\_before & $-$0.031 & 15.0 \\
+round & $-$0.022 & 13.0 \\
+front\_row & $-$0.019 & 0.0 \\
 constructor\_podium\_rate\_5 & $-$0.019 & 0.1 \\
+driver\_age & +0.015 & 23.6 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-The weighted local R-squared is 0.206. This fidelity value tells us how closely the simple surrogate follows the forest in the sampled neighborhood, so we read the local coefficients together with it rather than as global effects.
+The weighted local R-squared is 0.185. This fidelity value tells us how closely the simple surrogate follows the forest in the sampled neighborhood, so we read the local coefficients together with it rather than as global effects.
 
 
 \begin{takeaway}
@@ -1340,7 +1341,7 @@ The home analysis depends on a nationality-to-country map. Drivers we could not 
 The mechanical list is a rule we wrote down, not a measurement from the car. Ambiguous statuses can fall outside it. Leading rates such as Caterham's rest on a few dozen starts. The lower 2022-2024 totals are consistent with a more reliable field, and they are also consistent with changes in how retirements were described.
 
 
-Validation is 39 races. We used it to pick a cutoff and a model, which is what a held-out test set requires, and we do not pretend it can rank effects of a few thousandths. A bootstrap over those races gives each PR-AUC an interval about 0.2 wide, and the differences between the models fall inside it. Regulation changes in 2014 and 2022 sit inside the eras we compared. The models are associating historical patterns. They do not tell a team what would happen if it started one place further forward, and a probability is not a guarantee about the next race.
+Validation is 39 races. We used it to pick a cutoff and a model, which is what a held-out test set requires, and we do not pretend it can rank effects of a few thousandths. A bootstrap over those races gives each PR-AUC an interval about 0.2 wide, and the differences between the models fall inside it. On the unseen test seasons PR-AUC is 0.703 for logistic regression, 0.712 for the forest and 0.716 for the network, a spread smaller than the network's seed-to-seed variation of about 0.016. We therefore do not claim that the more complex models are better. We treat the three as tied in ranking quality and keep logistic regression as the readable baseline. Regulation changes in 2014 and 2022 sit inside the eras we compared. The models are associating historical patterns. They do not tell a team what would happen if it started one place further forward, and a probability is not a guarantee about the next race.
 
 
 
