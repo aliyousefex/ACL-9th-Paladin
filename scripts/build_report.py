@@ -17,6 +17,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch, mm
 from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
+    PageBreak,
     CondPageBreak,
     HRFlowable,
     Image,
@@ -190,6 +191,14 @@ def build_styles():
 STYLES = build_styles()
 COUNTERS = {"fig": 0, "tab": 0}
 
+# Team Paladin, as shown on the title page. Rana's email was not given to us.
+TEAM = [
+    ("Ali Ussama Youssef", "58-2854", "ali.ussama@student.guc.edu.eg", "T-25"),
+    ("Yehia Wael Raafat Abdelfattah", "58-5798", "yehia.abdelfattah@student.guc.edu.eg", "T-25"),
+    ("Aya Ahmed Elkelany", "58-1764", "aya.elkelany@student.guc.edu.eg", "T-14"),
+    ("Rana Tamer Elsayed", "58-6459", "", "T-13"),
+]
+
 
 def P(text: str, style: str = "Body"):
     """Build a report paragraph with the requested style."""
@@ -262,6 +271,25 @@ def add_table(story, headers, rows, widths, caption: str, numeric_from: int = 1)
     story.append(Spacer(1, 6))
 
 
+def add_title_page(story):
+    """Add the title page: course, title, team name, and the four team members."""
+    story.append(Spacer(1, 170))
+    story.append(P("ACL-903 Milestone 1", "Subtitle"))
+    story.append(P("Formula 1 podium prediction", "Title"))
+    story.append(P("An analytical report on leakage-safe prediction after qualifying", "Subtitle"))
+    story.append(Spacer(1, 10))
+    story.append(HRFlowable(width="100%", thickness=1, color=NAVY, spaceAfter=14))
+    story.append(P("Team Paladin", "Title"))
+    story.append(Spacer(1, 8))
+    story.append(make_table(
+        ["Name", "ID", "Email", "Tutorial"],
+        [list(member) for member in TEAM],
+        [2.15 * inch, 0.75 * inch, 2.7 * inch, 0.75 * inch],
+        numeric_from=99,
+    ))
+    story.append(PageBreak())
+
+
 def h1(story, text: str):
     """Add a first-level heading with enough room below it."""
     story.append(CondPageBreak(28 * mm))
@@ -331,6 +359,14 @@ def load():
         "order": "preprocessing_order_experiments",
         "split_integrity": "split_integrity",
         "split_strategies": "split_strategy_experiment",
+        "windows": "split_window_experiment",
+        "uncertainty": "validation_uncertainty",
+        "missing": "missing_value_experiments",
+        "tuning": "hyperparameter_search",
+        "sprint": "sprint_weekend_check",
+        "non_starters": "non_starter_audit",
+        "non_starter_runs": "non_starter_experiment",
+        "feature_eda": "feature_eda",
     }.items()}
     return {
         **extra,
@@ -383,16 +419,12 @@ def main():
     base_overall = base.groupby("era").podium.agg(["mean", "count"])
 
     story: list = []
-    story.append(P("ACL-903 Milestone 1", "Subtitle"))
-    story.append(P("Formula 1 podium prediction", "Title"))
-    story.append(P("An analytical report on leakage-safe prediction after qualifying", "Subtitle"))
-    story.append(Spacer(1, 4))
-    story.append(HRFlowable(width="100%", thickness=1, color=NAVY, spaceAfter=8))
+    add_title_page(story)
 
     # Open with the prediction decision before moving into implementation details.
     h1(story, "1. The question we are trying to answer")
     story.append(P(
-        "This report asks a narrow question. After qualifying, and before the race starts, "
+        "In this report we ask a narrow question. After qualifying, and before the race starts, "
         "can we tell which drivers will finish in the top three? We use the Formula 1 World "
         "Championship tables from 1950 to 2024. The prediction cutoff matters. Anything that "
         "is only known once the race is underway, such as the finishing order, the points "
@@ -428,7 +460,7 @@ def main():
         "depend on."
     ))
     story.append(P(
-        f"Table 1 covers the eleven tables with a single-column primary key. Together they "
+        f"Table {COUNTERS['tab'] + 1} covers the eleven tables with a single-column primary key. Together they "
         f"hold {integer(data['pk'].rows.sum())} rows. Every audited key is non-null, and "
         "none of these keys is duplicated. That is the check we needed before treating "
         "circuitId, driverId, raceId, and the other identifiers as safe join keys."
@@ -446,7 +478,7 @@ def main():
         numeric_from=2,
     )
     story.append(P(
-        "Table 2 checks the foreign keys we actually use. A result row should point at a "
+        f"Table {COUNTERS['tab'] + 1} checks the foreign keys we actually use. A result row should point at a "
         "real race, driver, constructor, and status. A race should point at a real circuit. "
         "Qualifying and both standings tables should point at real races. In every one of "
         f"these relationships the orphan count is zero. The largest check is results.raceId, "
@@ -503,11 +535,11 @@ def main():
         numeric_from=1,
     )
     story.append(P(
-        f"Cleaning removes {integer(int(raw_eda.rows - clean_eda.rows))} extra shared-drive rows. "
+        f"In cleaning we remove {integer(int(raw_eda.rows - clean_eda.rows))} extra shared-drive rows. "
         f"Duplicate participation falls from {integer(int(raw_eda.duplicate_rows))} rows to zero, while "
         f"the podium rate moves only from {pct(raw_eda.podium_rate)} to {pct(clean_eda.podium_rate)} and "
-        f"the median non-zero grid remains {num(clean_eda.median_grid, 1)}. The cleaning therefore fixes "
-        "the prediction grain without materially reshaping the label or starting-position distribution."
+        f"the median non-zero grid remains {num(clean_eda.median_grid, 1)}. So we fix the prediction "
+        "grain without materially reshaping the label or the starting-position distribution."
     ))
     story.append(P(
         "<b>Takeaway.</b> The joins we rely on later are supported by the key audit, and "
@@ -520,7 +552,7 @@ def main():
     h1(story, "3. Qualifying coverage is not stable across history")
     story.append(P(
         "Qualifying position is an obvious pre-race feature, but it is not recorded for "
-        "most of the early championship. Figure 1 plots, for each season, the share of "
+        f"most of the early championship. Figure {COUNTERS['fig'] + 1} plots, for each season, the share of "
         "driver-race rows that have a qualifying position. We use this plot to decide "
         "whether we can drop seasons that lack qualifying, or whether we have to keep a "
         "feature that survives the whole time span."
@@ -533,7 +565,7 @@ def main():
         width=CONTENT_W * 0.96,
     )
     story.append(P(
-        f"From the same modelling table, coverage is {pct(coverage.loc[1950], 0)} in 1950 "
+        f"In our modelling table, coverage is {pct(coverage.loc[1950], 0)} in 1950 "
         f"and still {pct(coverage.loc[1993], 0)} in 1993. It jumps to {pct(coverage.loc[1994])} "
         f"in 1994 and {pct(coverage.loc[1995], 0)} in 1995, then falls again. The low point "
         f"of that second gap is {pct(coverage.loc[2001])} in 2001. From 2003 onwards the "
@@ -614,7 +646,7 @@ def main():
     suzuka = circuit_row(q1, "2014-2024", "Suzuka Circuit")
     istanbul = circuit_row(q1, "1950-2013", "Istanbul Park")
     story.append(P(
-        f"The data shows a shift in level, not just a change of leader. Across circuits that "
+        f"What we see is a shift in level, not just a change of leader. Across circuits that "
         f"pass the ten-start rule, the median front-row podium rate is {pct(early['mean'].median())} "
         f"in 1950-2013 and {pct(modern['mean'].median())} in 2014-2024. The early range runs "
         f"from {pct(early_low['mean'])} at {early_low.circuit_name} "
@@ -662,7 +694,7 @@ def main():
         "and so on) and mark a row as home when those match. Drivers whose nationality is "
         "not in the map are left out. We then compare home and away podium rates inside "
         "the same grid bands, because Section 4.1 already shows that starting position "
-        "can overwhelm a smaller effect. Figure 3 plots the two series."
+        f"can overwhelm a smaller effect. Figure {COUNTERS['fig'] + 1} plots the two series."
     ))
     add_figure(
         story,
@@ -696,7 +728,7 @@ def main():
         numeric_from=1,
     )
     story.append(P(
-        f"The pattern in Figure 3 and Table 4 is the grid, not the passport. Away drivers "
+        f"What we find in Figure {COUNTERS['fig']} and Table {COUNTERS['tab']} is the grid, not the passport. Away drivers "
         f"podium {pct(gaps[0][3]['mean'])} of the time from positions 1-3 "
         f"({integer(gaps[0][3]['count'])} starts), {pct(gaps[1][3]['mean'])} from 4-6, "
         f"{pct(gaps[2][3]['mean'])} from 7-10, {pct(gaps[3][3]['mean'])} from 11-15, and "
@@ -705,7 +737,7 @@ def main():
         f"{pct(gaps[3][2]['mean'])}, and {pct(gaps[4][2]['mean'])}."
     ))
     story.append(P(
-        f"The home-minus-away gaps are {gaps[0][1]:+.1f}, {gaps[1][1]:+.1f}, "
+        f"The home-minus-away gaps we measure are {gaps[0][1]:+.1f}, {gaps[1][1]:+.1f}, "
         f"{gaps[2][1]:+.1f}, {gaps[3][1]:+.1f}, and {gaps[4][1]:+.1f} percentage points. "
         "Four of the five bands are slightly negative. The only positive gap is positions "
         f"11-15, and it is {gaps[3][1]:+.1f} percentage points."
@@ -772,7 +804,7 @@ def main():
         f"{integer(era_bits[1][2])} starts in {era_bits[1][0]} ({pct(era_bits[1][3])}). "
         f"The median constructor rate falls from {pct(era_bits[0][4])} to {pct(era_bits[1][4])}. "
         f"That is {era_bits[0][5]} constructors in the first era and {era_bits[1][5]} in the second. "
-        "Figure 4 shows the high end of each list. Table 5 also shows the low end, because "
+        f"Figure {COUNTERS['fig']} shows the high end of each list. Table {COUNTERS['tab'] + 1} also shows the low end, because "
         "a chart of only the worst rates makes an era look less reliable than it is."
     ))
 
@@ -809,7 +841,7 @@ def main():
     alfa_old = team_row(q3, "2014-2021", "Alfa Romeo")
     sauber = team_row(q3, "2022-2024", "Sauber")
     story.append(P(
-        f"Caterham has the highest 2014-2021 rate, {pct(caterham['mean'])}, which is "
+        f"In our table Caterham has the highest 2014-2021 rate, {pct(caterham['mean'])}, which is "
         f"{integer(caterham['sum'])} failures in {integer(caterham['count'])} starts. "
         f"Mercedes, over {integer(merc['count'])} starts, sits at {pct(merc['mean'])} "
         f"({integer(merc['sum'])} failures). Aston Martin's {pct(aston['mean'])} is "
@@ -893,7 +925,7 @@ def main():
         numeric_from=2,
     )
     story.append(P(
-        f"Training has {integer(len(train))} rows and {integer(train.raceId.nunique())} races, "
+        f"Our training seasons have {integer(len(train))} rows and {integer(train.raceId.nunique())} races, "
         f"but {pct(train.qualifying_missing.mean())} of those rows have no qualifying result. "
         f"Validation has only {integer(len(val))} rows and {integer(val.raceId.nunique())} races, "
         f"and the test set has {integer(len(test))} rows and {integer(test.raceId.nunique())} races. "
@@ -909,7 +941,7 @@ def main():
     integrity = data["split_integrity"]
     strategies = data["split_strategies"].set_index("strategy")
     story.append(P(
-        f"All {len(integrity)} split checks pass: every row is assigned once, no race appears "
+        f"All {len(integrity)} of our split checks pass: every row is assigned once, no race appears "
         "in two splits, and the last training race is before the first validation race, which "
         f"is before the first test race. Figure {COUNTERS['fig'] + 1} shows the split on the "
         "season axis together with the two quantities that drift across it."
@@ -921,8 +953,8 @@ def main():
     )
     rr, rc = strategies.loc["random rows"], strategies.loc["chronological (used)"]
     story.append(P(
-        f"To check the choice, Table {COUNTERS['tab'] + 1} holds out the same number of rows three "
-        "ways and trains the logistic baseline on the rest. With a random-row split, "
+        f"To check our choice, Table {COUNTERS['tab'] + 1} holds out the same number of rows three "
+        "ways, and we train the logistic baseline on the rest. With a random-row split, "
         f"{pct(rr.held_out_races_also_in_train)} of held-out rows have their own race in "
         f"training, and {pct(rr.held_out_rows_with_future_training)} have later seasons in "
         "training. A random-race split removes the first problem but not the second. The "
@@ -951,6 +983,145 @@ def main():
         "<b>Takeaway.</b> The features are pre-race by construction, and the split is "
         "chronological. The training years are a different problem from 2020-2024: more "
         "missing qualifying, larger fields, and a lower podium rate.",
+        "Takeaway",
+    ))
+
+    h2(story, "5.1 Sprint races: known before the start, but not a feature")
+    sprint = data["sprint"]
+    story.append(P(
+        "A sprint is a separate short race on the same weekend, stored in the sprint-results "
+        "table. We had to decide whether it leaks. By time it does not: every sprint ends one "
+        "day before the main race, so its result is known before the lights go out. We still "
+        "leave it out, for two reasons. Sprints exist only from 2021, so no training row "
+        f"(1950-2019) has one; there are {int(sprint.sprint_rows_in_training.iloc[0])} such rows. "
+        "And in 2021-2022 the sprint set the main-race grid, so the grid features already "
+        "contain it (Table " + str(COUNTERS["tab"] + 1) + ")."
+    ))
+    add_table(
+        story,
+        ["Season", "Sprint races", "Driver rows", "Split", "Days before race", "Grid vs sprint finish", "Grid vs qualifying"],
+        [[str(int(r.season)), str(int(r.sprint_races)), str(int(r.driver_rows)), r.split,
+          num(r.days_before_race, 0), num(r.grid_vs_sprint_finish, 2), num(r.grid_vs_qualifying, 2)]
+         for r in sprint.itertuples()],
+        [0.7 * inch, 0.85 * inch, 0.85 * inch, 0.9 * inch, 1.0 * inch, 1.35 * inch, 1.2 * inch],
+        "Sprint weekends. The last two columns are Spearman rank correlations of the main-race grid "
+        "with the sprint finishing order and with qualifying position.",
+        numeric_from=4,
+    )
+    story.append(P(
+        "In 2023-2024 the sprint stopped setting the grid, which follows qualifying again. "
+        "A sprint feature would then cover only 12 weekends, so we leave it out. The hazard we guard against is a join: sprint "
+        "positions and points sit under the same race identifier as the main race, but they "
+        "belong to a different race. Standings are already moved to the following round, so "
+        "sprint points reach the features only through the previous round."
+    ))
+
+    h2(story, "5.2 Grid 0 is mostly drivers who never raced")
+    audit = data["non_starters"]
+    runs = data["non_starter_runs"]
+    failed = audit[audit.group.str.startswith("F:")].iloc[0]
+    story.append(P(
+        f"{pct(frame.pit_lane_start.mean())} of rows have grid 0, and the feature name suggests "
+        "a pit-lane start. Most of them are not. "
+        f"We found that {integer(failed.rows)} rows are drivers who did not qualify, did not prequalify, or "
+        "failed the 107% rule. All of them are in 1952-2012, all are in training, and none "
+        "finished on the podium. Only 87 grid-0 rows are real pit-lane or exceptional starts "
+        f"(Table {COUNTERS['tab'] + 1})."
+    ))
+    add_table(
+        story,
+        ["Group", "Rows", "Share", "Podium rate", "Years", "In training", "In validation", "In test"],
+        [[r.group, integer(r.rows), pct(r.share_of_rows), pct(r.podium_rate),
+          f"{int(r.first_year)}-{int(r.last_year)}", integer(r.rows_in_training),
+          integer(r.rows_in_validation), integer(r.rows_in_test)]
+         for r in audit.itertuples()],
+        [2.3 * inch, 0.55 * inch, 0.55 * inch, 0.7 * inch, 0.75 * inch, 0.65 * inch, 0.7 * inch, 0.5 * inch],
+        "Who has grid 0 or a withdrawal code, by group.",
+        numeric_from=1,
+    )
+
+    def run_change(variant, model):
+        """Read the validation PR-AUC change for one non-starter variant and model."""
+        hit = runs[runs.variant.str.startswith(variant) & runs.model.eq(model)].iloc[0]
+        return float(hit["PR-AUC_change_vs_used"])
+
+    story.append(P(
+        "We trained with and without these rows and scored the same validation seasons. "
+        f"Dropping the did-not-qualify rows changes validation PR-AUC by "
+        f"{run_change('drop F rows', 'Logistic regression'):+.4f} for logistic regression and "
+        f"{run_change('drop F rows', 'Shallow neural network'):+.4f} for the network, which is "
+        "within noise. Dropping the withdrawals as well changes it by "
+        f"{run_change('drop F and W', 'Shallow neural network'):+.4f} for the network. "
+        "<b>We keep every row.</b> Validation and test contain no did-not-qualify rows, so the "
+        "evaluation is unchanged either way. A withdrawal cannot be shown to be known before "
+        "the start, because the same code covers drivers who started and retired. The caveat "
+        "is that in training the pit-lane flag is mostly a did-not-qualify marker. Dropping "
+        "those rows is a reasonable alternative if the instructor rules that a driver who "
+        "did not qualify did not enter the race."
+    ))
+
+    h2(story, "5.3 Evidence for each individual feature")
+    fe = data["feature_eda"].set_index("feature")
+
+    def auc(name, split="auc_train"):
+        """Read one one-feature ROC-AUC."""
+        return num(fe.loc[name, split], 2)
+
+    story.append(P(
+        "The group-level ablation in Section 8 says what a whole group adds to the model. "
+        "Each feature also has its own exploratory evidence, computed on the training seasons only "
+        f"(Table {COUNTERS['tab'] + 1} and Figure {COUNTERS['fig'] + 1}). For every feature we report the "
+        "share of missing cells, the podium rate in its lowest and highest bin, and a one-feature "
+        "ROC-AUC. An AUC above 0.5 means a higher value goes with more podiums, and below 0.5 the "
+        "reverse. The same AUC on validation checks that the pattern still holds in later seasons."
+    ))
+    add_figure(
+        story,
+        "feature_eda",
+        "Podium rate by feature value on the training seasons. Each bar is one of five equal-count bins "
+        "(labelled by its median value; tied values are split across bins, so a label can repeat), flags show "
+        "0 and 1, and the orange bar is the podium rate of the rows where the feature is missing.",
+    )
+    add_table(
+        story,
+        ["Feature", "Group", "Missing", "Lowest bin", "Highest bin", "AUC train", "AUC valid."],
+        [[r.Index, r.group, pct(r.missing_share_train, 0), pct(r.podium_rate_lowest_bin),
+          pct(r.podium_rate_highest_bin), num(r.auc_train, 2), num(r.auc_validation, 2)]
+         for r in fe.itertuples()],
+        [1.95 * inch, 0.85 * inch, 0.65 * inch, 0.8 * inch, 0.85 * inch, 0.8 * inch, 0.8 * inch],
+        "One-feature evidence on the training seasons. Missing cells are left out of the bins and the AUC. "
+        "Valid. is the same AUC on 2020-2021.",
+        numeric_from=2,
+    )
+    story.append(P(
+        "<b>Strong single signals.</b> Position features carry the most. "
+        f"Qualifying position has an AUC of {auc('qualifying_position')} (lower is better, measured on the third of rows "
+        f"that have it) and grid position {auc('grid_position')}; the podium rate falls from about 45-50% in the best bin "
+        "to under 1% in the worst. The standings ranks "
+        f"({auc('driver_rank_before')} and {auc('constructor_rank_before')}), the form rates "
+        f"({auc('driver_podium_rate_5')} and {auc('constructor_podium_rate_5')}), and the points "
+        f"({auc('driver_points_before')} and {auc('constructor_points_before')}) come next. The front-row flag "
+        f"({auc('front_row')}) and prior starts ({auc('driver_races_before')}) are clear but smaller. All of these "
+        "keep their direction on validation, with similar or slightly stronger AUCs."
+    ))
+    story.append(P(
+        "<b>Weak single signals, kept for another reason.</b> Field size "
+        f"({auc('field_size')}), driver age ({auc('driver_age')}), qualifying time ({auc('qualifying_time_seconds')}), "
+        f"the pit-lane flag ({auc('pit_lane_start')}), and the qualifying-missing flag ({auc('qualifying_missing')}) are "
+        "close to 0.5 on their own. A raw qualifying time is not comparable across circuits and eras, so it says little "
+        "without the rest of the row. The two flags are indicators. Removing the qualifying-missing flag costs the "
+        "network 0.041 PR-AUC (Section 6.4), and rows with no grid position, drivers who never started, never podium, "
+        "while rows with no qualifying record podium at about the average rate "
+        f"({pct(fe.loc['qualifying_position', 'podium_rate_when_missing'])} against {pct(frame.podium.mean())}). Round "
+        f"({auc('round')}) and year ({auc('year')}) have essentially no single-feature signal, and field size, round, and "
+        "year are flat or constant on validation, where every race has 20 starters. We keep them as context and era "
+        "controls, and the ablation shows the whole context group adds the least of the five (0.004 PR-AUC). We have not "
+        "shown that round or year help on their own, so they are the first candidates to remove."
+    ))
+    story.append(P(
+        "<b>What this does and does not show.</b> A one-feature AUC ignores the other 16 features. A feature that looks "
+        "weak here can still help in combination, and a strong one can add little once the grid is present: the ablation "
+        "shows qualifying adds only 0.005 on top of the grid. The AUCs describe association in past races, not causes.",
         "Takeaway",
     ))
 
@@ -990,7 +1161,7 @@ def main():
     h2(story, "6.1 What feature engineering does to the values")
     eng = data["engineering_effects"].set_index("column")
     story.append(P(
-        f"Table {COUNTERS['tab'] + 1} compares each raw source column with the feature built from it. "
+        f"In Table {COUNTERS['tab'] + 1} we compare each raw source column with the feature we built from it. "
         f"Raw grid has a minimum of 0 and {pct(eng.loc['grid (raw)', 'zero_share'])} zeros, which would "
         "rank a pit-lane start ahead of pole. In the grid-position feature those zeros become missing, "
         "so the minimum is 1, and the pit-lane flag carries the information instead. Qualifying "
@@ -1013,7 +1184,7 @@ def main():
     effects = data["effects"].set_index("feature")
     heavy = effects.sort_values("missing_share", ascending=False).head(1)
     story.append(P(
-        f"Table {COUNTERS['tab'] + 1} measures both steps on the training rows. Median "
+        f"In Table {COUNTERS['tab'] + 1} we measure both steps on the training rows. Median "
         "imputation writes the training median into every gap. It does not change the range, "
         "because the median is inside it, but it piles rows onto one value and shrinks the "
         f"spread. {esc(heavy.index[0])} is missing in {pct(heavy.missing_share.iloc[0])} of training "
@@ -1043,7 +1214,7 @@ def main():
     )
     story.append(P(
         f"Figure {COUNTERS['fig'] + 1} shows the spike at the median and the shift of later "
-        f"seasons; Figure {COUNTERS['fig'] + 2} compares raw and scaled ranges for all 17 features. "
+        f"seasons; in Figure {COUNTERS['fig'] + 2} we compare raw and scaled ranges for all 17 features. "
         "Because the transform is fitted on training only, validation and test are not centred "
         f"at zero: year sits at {effects.loc['year', 'validation_scaled_mean']:+.2f} standard "
         "deviations in validation. That is the period shift the model faces at deployment, "
@@ -1111,16 +1282,50 @@ def main():
         "Takeaway",
     ))
 
+    h2(story, "6.4 Missing values: impute, drop columns, or drop rows?")
+    missing = data["missing"]
+    wide = missing.pivot_table(index=["approach", "variant", "train_rows"], columns="model",
+                               values=["validation_PR-AUC", "PR-AUC_change_vs_used"], sort=False).reset_index()
+    lr_name, nn_name = "Logistic regression", "Shallow neural network"
+    story.append(P(
+        "About two thirds of training rows have no qualifying record, so we did not choose the "
+        "handling by preference. Each approach is scored on the same validation seasons "
+        f"(Table {COUNTERS['tab'] + 1}). The network is run once with one seed, and its seed-to-seed "
+        "spread is about 0.016 (Section 7.1), so small network differences are noise."
+    ))
+    add_table(
+        story,
+        ["Approach", "Training rows", "LogReg PR-AUC", "Change", "MLP PR-AUC", "Change"],
+        [[str(row[("variant", "")]), integer(row[("train_rows", "")]),
+          num(row[("validation_PR-AUC", lr_name)], 4), f"{row[('PR-AUC_change_vs_used', lr_name)]:+.4f}",
+          num(row[("validation_PR-AUC", nn_name)], 4), f"{row[('PR-AUC_change_vs_used', nn_name)]:+.4f}"]
+         for _, row in wide.iterrows()],
+        [2.9 * inch, 0.7 * inch, 0.8 * inch, 0.6 * inch, 0.8 * inch, 0.6 * inch],
+        "Missing-value experiments on 2020-2021. Change is against median imputation, which is used.",
+        numeric_from=1,
+    )
+    story.append(P(
+        "For logistic regression every alternative stays within 0.005 of median imputation "
+        "(k-nearest-neighbour imputation is the best, at +0.0022). For the network every "
+        "alternative is worse, by 0.015 for mean imputation and about 0.045 for k-nearest-"
+        "neighbour and iterative imputation. Dropping the two sparse qualifying columns costs "
+        "the network 0.035, and removing the missing-value flag instead costs it 0.041, so the "
+        "flag carries real information. Dropping rows keeps only 8,356 or 7,374 of 24,529 "
+        "training rows and lowers both scores. <b>We keep median imputation with the flag</b>, "
+        "fitted on training rows only: it is the best or tied for best, and it keeps all the "
+        "history."
+    ))
+
     # Every model uses the same rows and features for a fair comparison.
     h1(story, "7. Three models, and why the scores are not interchangeable")
     story.append(P(
         "We fit three classifiers on the same training rows and the same 17 features. "
         "Logistic regression is the linear baseline, with class weights so the rare podium "
-        "rows are not ignored. The random forest has 240 trees and a minimum of four rows "
-        "per leaf; it can use combinations such as a strong recent record together with a "
-        "poor grid. The neural network has two hidden layers, of 32 and 12 units. We did "
-        "not search over these settings. The only threshold we tune is the probability "
-        "cutoff that maximises F1 on validation. That produces a different cutoff for each "
+        "rows are not ignored. The random forest has 240 trees, a depth limit of 12, and a "
+        "minimum of 30 rows per leaf; it can use combinations such as a strong recent record "
+        "together with a poor grid. The neural network has two hidden layers, of 32 and 12 "
+        "units. Each model's settings were searched on validation (Section 7.1), and the "
+        "probability cutoff that maximises F1 on validation is chosen last. That produces a different cutoff for each "
         "model, because the three probability scales are not the same number line. A cutoff "
         "of 0.240 on the network is not automatically more aggressive than 0.655 on the "
         "logistic model. Precision and recall tell us what the cutoff actually does."
@@ -1165,7 +1370,7 @@ def main():
         return float(hit[col])
 
     story.append(P(
-        f"On the test set, ROC-AUC is {num(mget('Logistic regression', 'test', 'ROC-AUC'))} "
+        f"On the test set we measure a ROC-AUC of {num(mget('Logistic regression', 'test', 'ROC-AUC'))} "
         f"for logistic regression, {num(mget('Random forest', 'test', 'ROC-AUC'))} for the "
         f"forest, and {num(mget('Shallow neural network', 'test', 'ROC-AUC'))} for the "
         "network. Those three numbers are within 0.005 of each other. In the pair reading "
@@ -1190,7 +1395,7 @@ def main():
         f"{num(mget('Random forest', 'validation', 'PR-AUC'))}."
     ))
     story.append(P(
-        f"The operating points explain the precision and recall bars in Figure {model_figure}. At its "
+        f"The operating points we chose explain the precision and recall bars in Figure {model_figure}. At its "
         f"validation cutoff, logistic regression has test precision "
         f"{num(mget('Logistic regression', 'test', 'Precision'))} and recall "
         f"{num(mget('Logistic regression', 'test', 'Recall'))}. It catches most podiums and "
@@ -1205,32 +1410,116 @@ def main():
         "missed podiums and false podiums."
     ))
     story.append(P(
-        f"The training column is the warning. The forest's training PR-AUC is "
-        f"{num(mget('Random forest', 'train', 'PR-AUC'))}, then "
-        f"{num(mget('Random forest', 'validation', 'PR-AUC'))} on validation and "
-        f"{num(mget('Random forest', 'test', 'PR-AUC'))} on test. That drop is what "
-        "overfitting looks like here: the trees fit the historical seasons more tightly "
-        "than they rank later ones. Logistic regression and the network do not show that "
-        f"pattern. Their training PR-AUC values are "
-        f"{num(mget('Logistic regression', 'train', 'PR-AUC'))} and "
-        f"{num(mget('Shallow neural network', 'train', 'PR-AUC'))}, below their validation "
-        "scores. We do not read the higher validation score as the model improving after "
-        "2019. Training has a lower podium rate and far more missing qualifying, so the "
-        "PR-AUC floor on training is lower as well. The comparison we trust is validation "
-        "against test, where the positive rate is almost the same."
+        f"The training column is the check for memorizing. All three models have a training "
+        f"PR-AUC below their validation score: {num(mget('Logistic regression', 'train', 'PR-AUC'))} "
+        f"for logistic regression, {num(mget('Random forest', 'train', 'PR-AUC'))} for the "
+        f"forest, and {num(mget('Shallow neural network', 'train', 'PR-AUC'))} for the network. "
+        "That was not true of the first forest, which scored 0.919 on training and 0.702 on "
+        "validation because it had no depth limit and four rows per leaf. The validation "
+        "search in Section 7.1 limited it. We do not read the higher validation score as the "
+        "model improving after 2019. Training has a lower podium rate and far more missing "
+        "qualifying, so the PR-AUC floor on training is lower as well. The comparison we "
+        "trust is validation against test, where the positive rate is almost the same."
     ))
     story.append(P(
         "<b>Takeaway.</b> All three models rank podium finishers well above non-podiums. "
-        "On the primary score, the network is slightly ahead and the forest gives back a "
-        "large training advantage. ROC-AUC hides that difference.",
+        "On the primary score, the network is slightly ahead, but the lead is smaller than "
+        "the uncertainty of a 39-race validation set (Section 7.2). ROC-AUC hides even that "
+        "difference.",
         "Takeaway",
     ))
+
+    h2(story, "7.1 Searching each model's settings, on validation only")
+    tuning = data["tuning"]
+    shown = tuning[tuning.is_initial | tuning.is_current | tuning.selected].copy()
+
+    def role(r):
+        """Label how a setting relates to the search."""
+        if r.is_initial and r.is_current:
+            return "starting, kept"
+        if r.is_current:
+            return "adopted"
+        if r.is_initial:
+            return "starting"
+        return "best of grid (tie)"
+
+    story.append(P(
+        "We trained each model on 1950-2019 and scored it on 2020-2021 for every setting in a "
+        "small grid. Our grid held 8 settings for logistic regression, 9 for the forest, and 12 "
+        "for the network. We averaged the network over three seeds because its score depends "
+        "on the initialization. We did not use the test seasons "
+        f"(Table {COUNTERS['tab'] + 1})."
+    ))
+    add_table(
+        story,
+        ["Model", "Setting", "Role", "Val. PR-AUC", "Seed sd", "Train PR-AUC"],
+        [[r.model, r.settings.strip("{}").replace("'", ""), role(r), num(r["validation_PR-AUC"], 4),
+          num(r["validation_PR-AUC_std"], 4), num(r["train_PR-AUC"], 4)]
+         for _, r in shown.iterrows()],
+        [1.4 * inch, 2.2 * inch, 1.0 * inch, 0.8 * inch, 0.6 * inch, 0.8 * inch],
+        "Search results for the starting settings, the adopted settings, and the top of each grid.",
+        numeric_from=3,
+    )
+    story.append(P(
+        "<b>Random forest: improved.</b> The starting forest ranked 7th of 9. A depth limit of 12 "
+        "with 30 rows per leaf raises validation PR-AUC from 0.702 to 0.717 and cuts the training "
+        "score from 0.919 to 0.647, so it no longer memorizes the training seasons. We adopted it, "
+        "and test PR-AUC rose from 0.689 to 0.713 without the test set taking part in the choice. "
+        "<b>Shallow network: confirmed, not improved.</b> One layer of 8, 16, 32, or 64 units and "
+        "two layers of 32 and 12 or 64 and 32, each with two regularization strengths, were all "
+        "tried. The starting 32 and 12 was best, at 0.7248 over three seeds, so the network is "
+        "not a deliberately weak choice: smaller ones are worse and larger ones are no better. "
+        "<b>Logistic regression</b> is insensitive: L1 and L2 penalties and C from 0.01 to 10 all "
+        "fall between 0.713 and 0.728, and C = 1 with L2 ties for best."
+    ))
+
+    h2(story, "7.2 How much the validation score can be trusted")
+    windows, uncertainty = data["windows"], data["uncertainty"]
+    story.append(P(
+        "We also asked whether 2019 is a good boundary. The same two models were scored on "
+        "four validation windows that all end before the test seasons, each training on every "
+        f"earlier season (Table {COUNTERS['tab'] + 1}). The score depends on the window: "
+        f"logistic regression ranges from {num(windows['Logistic regression PR-AUC'].min())} to "
+        f"{num(windows['Logistic regression PR-AUC'].max())}, and the network from "
+        f"{num(windows['Shallow neural network PR-AUC'].min())} to "
+        f"{num(windows['Shallow neural network PR-AUC'].max())}. The window we use is at the "
+        "top of both ranges, so validation scores are somewhat optimistic."
+    ))
+    add_table(
+        story,
+        ["Validation window", "Train years", "Train rows", "Val. races", "LogReg PR-AUC", "MLP PR-AUC"],
+        [[r.validation_window, r.train_years, integer(r.train_rows), str(int(r.validation_races)),
+          num(r._7, 4), num(r._8, 4)] for r in windows.itertuples()],
+        [1.4 * inch, 1.0 * inch, 0.9 * inch, 0.9 * inch, 1.2 * inch, 1.0 * inch],
+        "Validation PR-AUC on four windows that precede the test seasons.",
+        numeric_from=2,
+    )
+    story.append(P(
+        "To measure the uncertainty directly we resampled whole validation races "
+        f"(Table {COUNTERS['tab'] + 1}). With 39 races, each model's PR-AUC has a 95% interval "
+        "about 0.2 wide. The difference between the network and logistic regression is "
+        f"{uncertainty.iloc[4]['validation_PR-AUC']:+.3f} with an interval from "
+        f"{uncertainty.iloc[4]['ci_low_2.5%']:+.3f} to {uncertainty.iloc[4]['ci_high_97.5%']:+.3f}, "
+        "and the forest's difference also includes zero. The data therefore do not show that any "
+        "model beats the baseline, and we report the ranking as a tie within validation "
+        "uncertainty. The chronological split stays because it is the only one with no same-race "
+        "and no future leakage."
+    ))
+    add_table(
+        story,
+        ["Comparison", "Validation PR-AUC", "95% low", "95% high"],
+        [[r.comparison, num(r["validation_PR-AUC"], 4), num(r["ci_low_2.5%"], 4), num(r["ci_high_97.5%"], 4)]
+         for _, r in uncertainty.iterrows()],
+        [3.1 * inch, 1.3 * inch, 1.0 * inch, 1.0 * inch],
+        "Bootstrap over the 39 validation races. The last two rows are differences from logistic regression.",
+        numeric_from=1,
+    )
 
     # Retraining after each removal shows what the feature group adds.
     h1(story, "8. Removing the grid hurts more than removing anything else")
     story.append(P(
-        "An ablation retrains logistic regression after deleting one feature group, then "
-        "records the change in validation PR-AUC. The point is to see which group the "
+        "In our ablation we retrain logistic regression after deleting one feature group, then "
+        "record the change in validation PR-AUC. We want to see which group the "
         f"linear model was using, on the same rows as Section 7. Figure {COUNTERS['fig'] + 1} shows the change "
         "from the full model. A bar to the left of zero is a loss."
     ))
@@ -1279,7 +1568,7 @@ def main():
     story.append(P(
         f"ROC-AUC barely notices the same deletion. It moves from {num(full_roc)} to "
         f"{num(grid_roc)} when the grid group is removed. This is the same lesson as the "
-        "model comparison. A metric that stays high while the primary score drops is a "
+        "model comparison we drew in Section 7. A metric that stays high while the primary score drops is a "
         "poor guide for what to keep."
     ))
     story.append(P(
@@ -1296,7 +1585,7 @@ def main():
     ))
 
     # Explain forest behavior globally and locally without treating it as causal.
-    h1(story, "9. What the forest relies on, and where the two explanations disagree")
+    h1(story, "9. What the forest relies on, and where the two explanations differ")
     story.append(P(
         "The explanations in this section are for the random forest, not for the neural "
         "network we selected in Section 7. Tree explanations apply directly to the forest. "
@@ -1332,18 +1621,21 @@ def main():
         "Computed on the random forest and a validation sample.",
         numeric_from=1,
     )
-    grid_imp = float(perm_top.loc[perm_top.feature.eq("grid_position"), "importance"].iloc[0])
-    pts_imp = float(perm_top.loc[perm_top.feature.eq("driver_points_before"), "importance"].iloc[0])
-    races_imp = float(perm_top.loc[perm_top.feature.eq("driver_races_before"), "importance"].iloc[0])
+    perm_all = perm_top.reset_index(drop=True)
+    perm_rank = {f: i + 1 for i, f in enumerate(perm_all.feature)}
+    perm_val = dict(zip(perm_all.feature, perm_all.importance.astype(float)))
+    second = perm_all.iloc[1]
+    most_negative = perm_all.sort_values("importance").iloc[0]
     story.append(P(
-        f"Grid position is in a class of its own, at {grid_imp:+.3f}. The next feature, "
-        f"driver points before the race, is {pts_imp:+.3f}, about a fifth of that. "
-        "Qualifying position, constructor points, and the front-row flag follow, all "
-        "smaller again. Year and field size sit on zero in this sample. Shuffling career "
-        f"length (driver races before this one) changes PR-AUC by {races_imp:+.3f}: the "
-        "score rises slightly when the column is destroyed. We read a negative value as "
-        "the forest not getting stable help from that column on these rows. We do not read "
-        "it as evidence that experience causes worse finishes."
+        f"Grid position is in a class of its own, at {perm_val['grid_position']:+.3f}. The next feature, "
+        f"{esc(second.feature)}, is {float(second.importance):+.3f}, about "
+        f"{float(second.importance) / perm_val['grid_position']:.0%} of that, and every other feature is "
+        f"{float(perm_all.iloc[2].importance):+.3f} or smaller. Driver podium rate is "
+        f"ranked {perm_rank['driver_podium_rate_5']} at {perm_val['driver_podium_rate_5']:+.3f}, and year sits at "
+        f"{perm_val['year']:+.3f}. Shuffling {esc(most_negative.feature)} changes PR-AUC by "
+        f"{float(most_negative.importance):+.3f}: the score rises slightly when the column is destroyed. "
+        "We read a negative value as the forest not getting stable help from that column on these "
+        "rows. We do not read it as evidence that the feature causes worse finishes."
     ))
 
     story.append(P("9.2 Global and local SHAP", "H2"))
@@ -1371,17 +1663,21 @@ def main():
         "Eight largest mean absolute SHAP values for the random forest on the validation sample.",
         numeric_from=1,
     )
+    shap_all = data["shap"].reset_index(drop=True)
+    shap_rank = {f: i + 1 for i, f in enumerate(shap_all.feature)}
+    shap_val = dict(zip(shap_all.feature, shap_all.mean_abs_shap.astype(float)))
     story.append(P(
-        f"Global SHAP also puts grid position first, at {num(float(data['shap'].iloc[0].mean_abs_shap))}. "
-        "The next two are constructor podium rate and driver podium rate over the previous "
-        f"five races ({num(float(data['shap'].iloc[1].mean_abs_shap))} and "
-        f"{num(float(data['shap'].iloc[2].mean_abs_shap))}). That is the disagreement. "
-        "Permutation said shuffling driver form did not help PR-AUC, and constructor form "
-        "barely moved it. SHAP still assigns form a large average push inside the trees. "
-        "A reasonable reading is that form is entangled with grid and standings: the tree "
-        "uses it, but once the other columns are left intact, destroying form alone does "
-        "not collapse the score. We treat the shared finding as the reliable one. Both "
-        "methods put the grid first, by a wide margin."
+        f"Global SHAP also puts grid position first, at {num(shap_val['grid_position'])}, and constructor podium "
+        f"rate second ({num(shap_val['constructor_podium_rate_5'])}), the same top two as permutation "
+        f"importance. Driver podium rate follows at {num(shap_val['driver_podium_rate_5'])}. The two methods "
+        "differ below that. Year has a mean SHAP value of "
+        f"{num(shap_val['year'])} (rank {shap_rank['year']}) but a permutation importance of "
+        f"{perm_val['year']:+.3f}, and driver points before the race is the reverse: rank "
+        f"{perm_rank['driver_points_before']} under permutation and rank {shap_rank['driver_points_before']} "
+        "under SHAP. A reasonable reading is that year, form, and the standings overlap with each other "
+        "and with the grid. The trees use them, but once the other columns are left intact, destroying one "
+        "of them alone does not collapse the score. We treat the shared finding as the reliable one: "
+        "grid position first, constructor form second."
     ))
     story.append(P(
         f"Figure {COUNTERS['fig'] + 1} is one validation row from that sample, not a row we picked because it "
@@ -1407,15 +1703,27 @@ def main():
         "Largest SHAP contributions for the Russell validation row. The sign is the direction of the push.",
         numeric_from=1,
     )
-    story.append(P(
-        "The largest push is grid position 11, and it is negative (-0.129). Championship "
-        "rank 15 is the next negative push (-0.057). The clearest positive push is the "
-        "recent driver podium rate of 0.2 (+0.055), and it is smaller than the grid push. "
-        "We observe a row where recent form points up and the start position points down, "
-        "with the start position winning inside this forest. That is one example. It matches "
-        "the ablation, and it matches the grid ladder in Section 4, but a single row is not "
-        "a general law."
-    ))
+    loc = data["local"].reset_index(drop=True)
+    top = loc.iloc[0]
+    negatives = loc[loc.shap_value < 0]
+    positives = loc[loc.shap_value > 0]
+    if top.feature == "grid_position" and top.shap_value < 0 and len(positives) and len(negatives) > 1:
+        nxt, pos = negatives.iloc[1], positives.iloc[0]
+        story.append(P(
+            f"The largest push is {esc(top.feature)} = {float(top.observed_value):g}, and it is negative "
+            f"({float(top.shap_value):+.3f}). The next negative push is {esc(nxt.feature)} = "
+            f"{float(nxt.observed_value):g} ({float(nxt.shap_value):+.3f}). The clearest positive push is "
+            f"{esc(pos.feature)} = {float(pos.observed_value):g} ({float(pos.shap_value):+.3f}), and it is "
+            "smaller than the grid push. We observe a row where recent form points up and the start "
+            "position points down, with the start position winning inside this forest. That is one "
+            "example. It matches the ablation, and it matches the grid ladder in Section 4, but a single "
+            "row is not a general law."
+        ))
+    else:
+        story.append(P(
+            f"The largest push is {esc(top.feature)} ({float(top.shap_value):+.3f}). This is one example, "
+            "and a single row is not a general law."
+        ))
     story.append(P("9.3 Local LIME explanation", "H2"))
     lime = data["lime"]
     lime_fidelity = float(lime.iloc[0].local_fidelity_r2)
@@ -1449,15 +1757,15 @@ def main():
         numeric_from=1,
     )
     story.append(P(
-        f"The weighted local R-squared is {lime_fidelity:.3f}. This fidelity value states how "
-        "closely the simple surrogate follows the forest in the sampled neighborhood, so the "
-        "local coefficients should be interpreted together with it rather than as global effects."
+        f"The weighted local R-squared is {lime_fidelity:.3f}. This fidelity value tells us how "
+        "closely the simple surrogate follows the forest in the sampled neighborhood, so we "
+        "read the local coefficients together with it rather than as global effects."
     ))
     story.append(P(
-        "<b>Takeaway.</b> Grid position is the feature the explanation methods agree on. "
-        "Form looks important to SHAP and unimportant to permutation, which is what we "
-        "expect if form repeats information the grid and the standings already carry. "
-        "None of these values is a causal effect of starting further forward.",
+        "<b>Takeaway.</b> Grid position is the feature the explanation methods agree on, with "
+        "constructor form second under both. They differ on the smaller features, such as year and "
+        "driver points, which is what we expect when form, standings, and year overlap with the "
+        "grid. None of these values is a causal effect of starting further forward.",
         "Takeaway",
     ))
 
@@ -1513,9 +1821,9 @@ def main():
         "gap is history and how much is the way the public tables were filled."
     ))
     story.append(P(
-        "Constructor identifiers reset when a team is renamed. Form and standings for the "
-        "new name start again. That is deliberate, and it means a works team that changes "
-        "its entry name looks like a new constructor."
+        "Constructor identifiers reset when a team is renamed, so form and standings for the "
+        "new name start again. We left it that way on purpose, which means a works team that "
+        "changes its entry name looks like a new constructor to us."
     ))
     story.append(P(
         "The home analysis depends on a nationality-to-country map. Drivers we could not "
@@ -1532,7 +1840,8 @@ def main():
     story.append(P(
         "Validation is 39 races. We used it to pick a cutoff and a model, which is what a "
         "held-out test set requires, and we do not pretend it can rank effects of a few "
-        "thousandths. Regulation changes in 2014 and 2022 sit inside the eras we compared. "
+        "thousandths. A bootstrap over those races gives each PR-AUC an interval about 0.2 "
+        "wide, and the differences between the models fall inside it. Regulation changes in 2014 and 2022 sit inside the eras we compared. "
         "The models are associating historical patterns. They do not tell a team what would "
         "happen if it started one place further forward, and a probability is not a guarantee "
         "about the next race."
@@ -1558,9 +1867,11 @@ def main():
         "Predictively, logistic regression, a random forest, and a shallow network all "
         "clear the PR-AUC baseline of the recent seasons by a wide margin. The network is "
         "the one we select from the validation scores, and the untouched test seasons "
-        "still place it slightly first. The forest's training score does not travel. "
-        "Ablation, permutation, and SHAP agree that grid position carries the prediction. "
-        "They do not agree about recent form, and we do not force them to. The Hamilton "
+        "still place it slightly first, although the three models are within validation "
+        "uncertainty of each other. "
+        "Ablation, permutation, and SHAP agree that grid position carries the prediction, and "
+        "permutation and SHAP also agree that constructor form comes second. They differ on the "
+        "smaller features, and we do not force them to agree. The Hamilton "
         "example is the same story in one row: a recent run of podiums, from 15th on the "
         "grid, was not enough."
     ))

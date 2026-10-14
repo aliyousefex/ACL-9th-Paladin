@@ -71,6 +71,7 @@ ACL-9th-Paladin/
 |   |-- run_analysis.py               Run the complete analytical pipeline
 |   |-- build_notebook.py             Rebuild the notebook source
 |   |-- build_report.py               Build the report from artifacts
+|   |-- build_report_latex.py         Render the same report as one LaTeX file for Overleaf
 |   `-- build_kaggle_bundle.py        Package shared source for Kaggle
 |-- src/f1podium/
 |   |-- __init__.py                   Public package exports
@@ -191,6 +192,10 @@ This is the smallest runner. It calls the complete pipeline directly without ope
 
 This script reads the saved tables and figures from `artifacts/` and builds the analytical PDF. Report text and layout live here, while calculations stay in `pipeline.py`.
 
+### `scripts/build_report_latex.py`: the LaTeX version
+
+This script runs `build_report.py` with LaTeX renderers swapped in, so the prose, tables, and numbers are the same ones as in the PDF and cannot drift. Every chart is drawn natively with pgfplots from the saved artifacts. The output, `reports/milestone_1_analytical_report.tex`, is one self-contained file: paste it into an empty Overleaf project and compile with pdfLaTeX. No images or data files need to be uploaded.
+
 ### What each file is for
 
 | File | Role | What it does |
@@ -201,6 +206,7 @@ This script reads the saved tables and figures from `artifacts/` and builds the 
 | `build_notebook.py` | Notebook builder | Recreates the notebook structure and narrative |
 | `run_analysis.py` | Runner | Runs the pipeline directly |
 | `build_report.py` | Report builder | Turns saved results into the final report |
+| `build_report_latex.py` | LaTeX report builder | Renders the same report as one Overleaf-ready `.tex` file |
 
 `pipeline.py` is the maintainable repository source. The notebook builder embeds that implementation into the self-contained submission notebook, the tests verify the reusable module, and the report communicates the results.
 
@@ -245,6 +251,8 @@ The model uses 17 pre-race features in five groups:
 | Standings | `driver_points_before`, `driver_rank_before`, `constructor_points_before`, `constructor_rank_before` |
 | Context | `driver_age`, `round`, `year` |
 
+Each feature also has its own exploratory evidence on the training seasons (`feature_eda`, `feature_eda.png`): missing share, podium rate in its lowest and highest bin, and a one-feature ROC-AUC checked again on validation. Position, standings, and form features are strong single signals. Field size, driver age, qualifying time, and the two flags are weak on their own, and `round` and `year` carry essentially none, so they are the first candidates to remove. Those AUCs describe association only.
+
 Leakage prevention is part of construction:
 
 - Driver form uses `shift()` before the five-race rolling mean.
@@ -267,15 +275,19 @@ Leakage prevention is part of construction:
   - A: impute -> scale vs scale -> impute.
   - B: zero-fill -> scale vs scale -> zero-fill.
   - C: preprocessing fitted after the split (train only) vs before the split (all seasons).
-- The split is chronological rather than random to prevent future seasons from teaching the model about earlier races. `split_summary` and `split_integrity` document and check it (complete, no shared races, strictly ordered dates), and `split_strategy_experiment` shows the same-race and future leakage that random row or random race splits would introduce.
+- Missing values are handled by an experiment, not by preference (`missing_value_experiments`). Median, mean, k-nearest-neighbour, and iterative imputation are compared with dropping the sparse qualifying columns, removing the missing flag, dropping training rows with no qualifying, and dropping rows with any missing feature. Median imputation with the flag is best or tied for best for logistic regression and the network, so we keep it.
+- Grid 0 is audited (`non_starter_audit`, `non_starter_experiment`). Most grid-0 rows are drivers who never raced, not pit-lane starts, and dropping them does not change validation scores, so every row is kept.
+- The split is chronological rather than random to prevent future seasons from teaching the model about earlier races. `split_summary` and `split_integrity` document and check it (complete, no shared races, strictly ordered dates), and `split_strategy_experiment` shows the same-race and future leakage that random row or random race splits would introduce. `split_window_experiment` scores four validation windows that all precede the test seasons, and `validation_uncertainty` bootstraps whole validation races, so the 39-race validation score comes with an interval.
 
 ### 5. Predictive models and evaluation
 
 All models receive the same rows and 17 features:
 
 - Logistic regression: interpretable statistical baseline.
-- Random forest: nonlinear tree ensemble.
+- Random forest: nonlinear tree ensemble, 240 trees, depth limited to 12, at least 30 rows per leaf.
 - Shallow MLP: two hidden layers with 32 and 12 units.
+
+Settings come from `hyperparameter_search`, which trains every setting in a small grid on 1950-2019 and scores it on 2020-2021 only (the network is averaged over three seeds). The forest's first settings (no depth limit, four rows per leaf) memorized the training seasons, so the search replaced them. The network's starting settings were best and logistic regression is insensitive, so both were kept. The test seasons never take part in the search.
 
 Every model reports ROC-AUC, PR-AUC, F1, precision, and recall. Each model's classification threshold maximizes F1 on validation only and is frozen before test evaluation. PR-AUC is primary because podium rows are rare; ROC-AUC is secondary.
 
@@ -352,13 +364,21 @@ Rebuild the analytical report after regenerating artifacts:
 .\.venv\Scripts\python.exe scripts\build_report.py
 ```
 
+Render the same report as LaTeX (one file, pgfplots charts, nothing to upload):
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_report_latex.py
+```
+
+Open `reports/milestone_1_analytical_report.tex`, copy everything into a new Overleaf project, and compile with pdfLaTeX. Run `build_report_latex.py` again after any change to the analysis so the numbers stay current.
+
 Build order:
 
 ```text
 run_analysis.py or executed notebook
                 -> artifacts/
-                -> build_report.py
-                -> reports/milestone_1_analytical_report.pdf
+                -> build_report.py        -> reports/milestone_1_analytical_report.pdf
+                -> build_report_latex.py -> reports/milestone_1_analytical_report.tex
 ```
 
 ## Kaggle notebook
@@ -398,6 +418,11 @@ The first notebook cell searches `/kaggle/input` for `results.csv`. All analysis
 9. The split is complete, has no race in two splits, and is strictly ordered in time.
 10. Imputation fill values are training medians and only training is centred by the scaler.
 11. At least two preprocessing-order experiments are reported, and zero-fill order changes the filled value as expected.
+12. The mechanical-status list follows the instructor ruling: tyre, puncture, tyre puncture, fire, and safety belt count; refuelling does not.
+13. Every model's current and starting settings are inside the hyperparameter grid, so "used" is one of the candidates.
+14. Alternative validation windows end before the test seasons and train only on earlier seasons.
+15. Sprint results end before the race but have no training rows, and no sprint column is a feature.
+16. The grid-0 audit covers every row, and drivers who did not qualify never podium and appear only in training.
 
 ## Verified headline results
 
@@ -405,11 +430,47 @@ The first notebook cell searches `/kaggle/input` for `results.csv`. All analysis
 - 12.7% overall podium rate.
 - Zero null or duplicated audited primary keys.
 - Zero orphan values in the audited foreign-key relationships.
-- The shallow neural network has the highest validation PR-AUC and remains slightly first on the unseen test set.
+- The shallow neural network has the highest validation PR-AUC and remains slightly first on the unseen test set, but the lead is not significant. A bootstrap over the 39 validation races puts the network minus logistic regression difference at about +0.011, with an interval that includes zero. Averaged over three seeds the network scores slightly below logistic regression on validation.
 - Grid is the most important feature group under ablation, permutation importance, and SHAP.
-- The random forest shows the largest training-to-validation performance drop.
+- The random forest's first settings memorized the training seasons (training PR-AUC 0.92 against 0.70 on validation). After the validation search, its training score is 0.65 and its test PR-AUC rose from 0.689 to 0.713.
 
 Exact scores, thresholds, plots, and sample sizes are stored in the executed notebook and analytical report rather than duplicated here.
+
+## Piazza clarifications and how we responded
+
+The instructor answered the Milestone 1 questions on Piazza (folder `ms1`, posts @6 to @15). The general rule in almost every answer is the same: the choice is ours, but each one needs a justification backed by evidence, not "it felt right". This section records what was said, what we did about it, and what is still open, so anyone can answer the evaluator.
+
+### Ruled on, and handled
+
+| Post | Instructor ruling | What we did |
+| --- | --- | --- |
+| @9 Front-row question | The note about qualifying versus grid only reminds us the two do not map 1 to 1. The question is about the **grid** starting position. | Question 1 uses the final `grid`. Qualifying position stays a separate feature and is never used to define a front-row start. No change needed. |
+| @10 Mechanical retirements | Count Puncture, Tyre, Tyre puncture, Fire, and Safety belt as mechanical, but not Refuelling. | **Changed.** `Tyre puncture`, `Fire`, and `Safety belt` were missing from `MECHANICAL_TERMS` and were added; `Puncture` and `Tyre` were already there; `Refuelling` stays out. A test now locks this in. We regenerated every output. None of the three new statuses occurs in 2014-2024, so the answer to Question 3 did not move (329 failures in 2014-2021, 83 in 2022-2024). |
+| @12 Shared drives | Mixing pre-race fields from one row with the result of another uses post-race information to fill a gap, which is leakage. | No mixing. We keep one real row per `(raceId, driverId)`: the car that started (`grid > 0`), then the better classification, then the lowest `resultId`. The better-classification step does look at a post-race column, but only to break a tie between rows that both started, so it never fills a pre-race field from another row. |
+| @7 GitHub repository | Download the notebook and upload it to GitHub. | The executed notebook is in `notebooks/`, next to the tested source. |
+| @14 Report format | LaTeX or Word, exported as PDF, alongside the notebook. | `scripts/build_report_latex.py` renders the report as LaTeX (`reports/milestone_1_analytical_report.tex`) for Overleaf, and the PDF compiled from it is the submission. The ReportLab PDF in `reports/` carries the same content. |
+
+### Ruled on, and now backed by evidence
+
+These answers said the decision is ours. Each one now has an experiment in the pipeline, shown in the notebook (sections 8.1, 10.1, 11.1, 13.1, and 14.1) and in the report.
+
+| Post | Instructor ruling | What we did |
+| --- | --- | --- |
+| @6 and @8 Split | The intro split (`<= 2019`) was only a naive example. Assess whether it is the best choice. A time split is not mandatory, but must be justified, and leakage must be handled. | We keep the chronological split: train 1950-2019, validation 2020-2021, test 2022-2024. `split_strategy_experiment` shows that random splits leak same-race and future information. `split_window_experiment` scores four validation windows that all end before the test seasons: the 2020-2021 window sits at the top of the range, so validation scores are somewhat optimistic. `validation_uncertainty` bootstraps the 39 races and shows that the differences between the models are inside the noise. |
+| @11 and @13 Missing values | Null values can hurt the model. Experiment thoroughly with imputation (and which method) versus dropping (and which rows). Justify the result. | `missing_value_experiments` compares four imputers, dropping the sparse columns, dropping the missing flag, and dropping rows. Median imputation with the `qualifying_missing` flag is best or tied for best, and it keeps all 24,529 training rows. Dropping rows keeps only 7,374 to 8,356 and lowers both models. |
+| @6 Neural network and baseline | Linear regression is not a classifier. The network must not be a deliberately weak model; we must actually try to improve it. | Logistic regression is the baseline. `hyperparameter_search` tries 8 settings for logistic regression, 9 for the forest, and 12 for the network (one and two layers of 8 to 64 units, two regularization strengths, three seeds), on validation only. The forest improved: its first settings memorized the training seasons, and depth 12 with 30 rows per leaf replaced them (test PR-AUC 0.689 to 0.713). The network's starting setting was already the best, so it was confirmed rather than changed. Averaged over seeds, the network is not ahead of logistic regression. |
+| @6 Sprint races | Decide whether sprints create a leakage problem, give the reason, and say how it is fixed. | `sprint_weekend_check` shows every sprint ends one day before the race, so it is not post-race information. We still leave it out: sprints exist only from 2021, so training has 0 sprint rows, and in 2021-2022 the sprint set the grid, which the grid features already contain. The hazard is a join on `raceId`, because sprint positions and points belong to a different race. |
+| @15 Non-starters (no reply yet) | None. Asks whether `F` and `W` rows can be dropped and whether grid 0 means a pit-lane start. | `non_starter_audit` shows 1,346 of the 1,635 grid-0 rows are drivers who did not qualify, only 87 are real pit-lane starts, and all `F` rows are in 1952-2012 and in training. Dropping them changes validation PR-AUC by less than 0.003, so we keep every row. A `W` code cannot be shown to be known before the start. The caveat is that in training `pit_lane_start` is mostly a did-not-qualify marker. If the instructor rules that they did not enter the race, dropping the `F` rows is a one-line change. |
+| @6 Feature justification | EDA can justify a feature up front, but can hide an effect that appears in the model. Evidence matters, not a gut feeling. | `feature_eda` gives every one of the 17 features a table row and a panel (notebook section 10.2, report section 5.3), computed on training seasons only. It also shows which features are weak on their own (`field_size`, `driver_age`, `qualifying_time_seconds`, the two flags, and especially `round` and `year`), so the claim for them rests on the ablation and the era-control argument, not on a single-feature signal. |
+
+### Still open
+
+- @6 Team renames: features and Question 3 key on `constructorId`, so a renamed team (for example Toro Rosso and AlphaTauri) starts with fresh history. This is listed under known limitations, but we have not tested merging them.
+
+### Questions we did not need to act on
+
+- @6 tyre compounds and the pre-1990s qualifying era: anything not in the dataset needs no feature, and what to do with old seasons is our choice (see missing values above).
+- @14 ResNet50: image-oriented, optional, and would need a justification, so we do not use it.
 
 ## Known limitations
 
@@ -417,7 +478,7 @@ Exact scores, thresholds, plots, and sample sizes are stored in the executed not
 - Formula 1 regulations, field sizes, reliability, and competitive structure change over time.
 - Constructor identifiers do not necessarily preserve history across team renames.
 - The home-country analysis uses a documented but incomplete nationality-to-country mapping.
-- Mechanical-status classification is rules-based and may miss rare ambiguous failures.
+- Mechanical-status classification is rules-based and may miss rare ambiguous failures. Engine fire and Heat shield fire are not on the list because the instructor only named plain Fire.
 - The validation set contains only 39 races from 2020-2021.
 - Model probabilities were evaluated for ranking and threshold performance, not formal calibration.
 - Permutation importance and SHAP explain associations inside fitted models, not causes of podium finishes.
@@ -528,7 +589,7 @@ Key points for Rana:
 - Why all models use identical rows and features.
 - Why PR-AUC is primary and ROC-AUC is secondary.
 - Precision, recall, F1, ROC-AUC, PR-AUC, and validation-only threshold selection.
-- Why the random forest shows overfitting.
+- Why the first random forest overfit, and how the validation search fixed it.
 - Why test data cannot be used for model, hyperparameter, or threshold selection.
 - Why permutation importance and SHAP can disagree.
 - How local LIME explains one prediction and why local SHAP is kept as a cross-check.

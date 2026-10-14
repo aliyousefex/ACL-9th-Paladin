@@ -74,11 +74,12 @@ export function Classification() {
       </ol>
       {split === "train" && metric === "PR-AUC" && (
         <Prose>
-          This is the warning. The forest's training PR-AUC is {num(metricAt("Random forest", "train", "PR-AUC"))},
-          then {num(metricAt("Random forest", "validation", "PR-AUC"))} on validation. Logistic
-          regression and the network do not show that collapse. Their training scores sit
-          below validation, partly because the training podium rate is lower and qualifying
-          is mostly missing. We do not read that rise as the model getting better after 2019.
+          Training scores sit below validation for all three models. The forest is there on
+          purpose: its first version memorised 1950-2019, and a validation search capped its
+          depth and leaf size. Its training PR-AUC is now {num(metricAt("Random forest", "train", "PR-AUC"))},
+          against {num(metricAt("Random forest", "validation", "PR-AUC"))} on validation. The rise is partly the
+          higher podium rate and the near-complete qualifying record in recent seasons. We do
+          not read it as the model getting better after 2019.
         </Prose>
       )}
       <Prose>
@@ -141,15 +142,17 @@ export function Classification() {
         />
       </div>
       <Prose>
-        Both put grid position first, by a wide margin. SHAP then ranks recent form. Permutation
-        says shuffling driver form does not help, and constructor form barely moves the score.
-        A reasonable reading is that form repeats information the grid and the standings already
-        carry. We treat the shared finding as the reliable one.
+        Both put grid position first, by a wide margin, and both put constructor form second.
+        They differ below that. SHAP gives year a sizeable push, while permutation puts it at
+        zero, and driver points rank higher under permutation than under SHAP. A reasonable
+        reading is that year, form, and the standings overlap with each other and with the
+        grid, so destroying one column alone barely moves the score. We treat the shared
+        finding as the reliable one.
       </Prose>
       <Takeaway>
         The network is slightly ahead on the score we chose, and the test seasons still place
-        it first. The forest gives back a large training advantage. Grid position is the input
-        both the ablation and the two explanations agree on.
+        it first, but a 39-race validation set cannot separate the three models. Grid position
+        is the input both the ablation and the two explanations agree on.
       </Takeaway>
     </Section>
   );

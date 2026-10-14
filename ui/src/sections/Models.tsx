@@ -19,8 +19,8 @@ const MODELS = [
     short: "240 branching decision trees",
     learns: "Each tree repeatedly splits the rows, for example by grid position and recent form. Their probabilities are averaged.",
     strength: "Captures nonlinear thresholds and interactions without requiring us to write them by hand.",
-    caution: "Its very high training score does not carry into validation, so it has the clearest overfitting risk.",
-    body: "240 trees, at least four training rows in every leaf, no scaling. A tree can ask for a strong recent record and a poor grid in the same path. This is the model that memorises 1950-2019, and the only model we explain with permutation importance and SHAP.",
+    caution: "Left unconstrained it memorises the training years, so its depth and leaf size had to be limited using validation.",
+    body: "240 trees, depth capped at 12, at least 30 training rows in every leaf, no scaling. Those limits won a validation search. The first version, with no depth cap and four rows per leaf, memorised 1950-2019. A tree can ask for a strong recent record and a poor grid in the same path. This is the only model we explain with permutation importance and SHAP.",
   },
   {
     name: "Shallow neural network",
@@ -28,7 +28,7 @@ const MODELS = [
     learns: "The 17 inputs pass through 32 hidden units, then 12, before one podium probability is produced.",
     strength: "Learns smooth combinations of grid, form, standings, and context. It leads validation PR-AUC.",
     caution: "Its internal weights are harder to interpret, and its raw probability scale differs from the other models.",
-    body: "Two hidden layers, 32 units then 12, with early stopping. The settings were fixed. We did not search them. Its probabilities sit lower than the other two, which is why the cutoff is near 0.24 rather than 0.65. We selected it because it led validation PR-AUC. The case-file probabilities come from this network.",
+    body: "Two hidden layers, 32 units then 12, with early stopping. We searched one and two hidden layers of 8 to 64 units, with two regularisation strengths, on validation and averaged three random seeds. 32 then 12 was best, so we kept it. Its probabilities sit lower than the other two, which is why the cutoff is near 0.24 rather than 0.65. We selected it because it led validation PR-AUC, by less than the seed-to-seed spread. The case-file probabilities come from this network.",
   },
 ];
 
@@ -55,8 +55,8 @@ export function Models() {
     <Section id="models" title="Inside the ML pipeline">
       <PipelineMap />
       <Prose>
-        All three see the same training rows and the same 17 features. Nothing was tuned
-        except the F1 cutoff on 2020-2021. A cutoff of {num(thresholdAt("Shallow neural network"))} on the
+        All three see the same training rows and the same 17 features. Every setting and
+        cutoff was chosen on 2020-2021 only. A cutoff of {num(thresholdAt("Shallow neural network"))} on the
         network is not automatically more aggressive than {num(thresholdAt("Logistic regression"))} on
         the logistic model. Precision and recall, in the next section, show what each cutoff
         actually does.
@@ -124,7 +124,7 @@ export function Models() {
         </div>
       </article>
       <Takeaway>
-        The network wins model selection on validation PR-AUC. The forest remains the
+        The network wins model selection on validation PR-AUC, by less than the noise of a 39-race validation set. The forest remains the
         explainability model, so its SHAP and permutation results must not be presented as
         explanations of the selected network.
       </Takeaway>

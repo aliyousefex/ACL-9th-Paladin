@@ -20,7 +20,8 @@ import seaborn as sns
 from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.impute import SimpleImputer
+from sklearn.experimental import enable_iterative_imputer  # noqa: F401  (activates IterativeImputer)
+from sklearn.impute import IterativeImputer, KNNImputer, SimpleImputer
 from sklearn.inspection import permutation_importance
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.metrics import (
@@ -327,10 +328,16 @@ def _pipeline(model: Any, scale: bool = True, strategy: str = "median") -> Pipel
 
 
 def model_definitions(random_state: int = 42) -> dict[str, Pipeline]:
-    """Return the three candidate models with reproducible settings."""
+    """Return the three candidate models with reproducible settings.
+
+    The forest uses the settings that won ``hyperparameter_search`` on validation
+    (depth 12, leaf size 30). Its starting settings, an unlimited depth with leaf size 4,
+    memorized the training seasons. Logistic regression and the network kept theirs
+    because the search confirmed them.
+    """
     return {
         "Logistic regression": _pipeline(LogisticRegression(max_iter=2000, solver="liblinear", class_weight="balanced", random_state=random_state)),
-        "Random forest": _pipeline(RandomForestClassifier(n_estimators=240, min_samples_leaf=4, class_weight="balanced_subsample", n_jobs=1, random_state=random_state), scale=False),
+        "Random forest": _pipeline(RandomForestClassifier(n_estimators=240, max_depth=12, min_samples_leaf=30, class_weight="balanced_subsample", n_jobs=1, random_state=random_state), scale=False),
         "Shallow neural network": _pipeline(MLPClassifier(hidden_layer_sizes=(32, 12), alpha=0.002, early_stopping=True, max_iter=300, random_state=random_state)),
     }
 
@@ -610,6 +617,345 @@ def ablation_experiments(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def _feature_bins(values: pd.Series) -> pd.Series:
+    """Return a bin code per row: the value itself for flags, else five equal-count bins.
+
+    Ranking first splits tied values (for example many zero form rates) across bins, so
+    every bin is populated; tied rows then share the same rate, which is correct.
+    """
+    observed = values.dropna()
+    if observed.nunique() <= 2:
+        return values
+    return pd.qcut(observed.rank(method="first"), q=5, labels=False).reindex(values.index)
+
+
+def feature_eda(frame: pd.DataFrame) -> pd.DataFrame:
+    """Give every model feature its own exploratory evidence, using training rows only.
+
+    For each feature: how much is missing, how the podium rate changes between its low
+    and high values, and a one-feature ROC-AUC (above 0.5 means a higher value goes with
+    more podiums). The same one-feature AUC on validation shows whether the pattern
+    holds in later seasons. Missing cells are excluded from the AUC and from the bins.
+    """
+    splits = split_by_time(frame)
+    train, val = splits["train"], splits["validation"]
+    rows = []
+    for group, columns in FEATURE_GROUPS.items():
+        for feature in columns:
+            observed = train[[feature, "podium"]].dropna()
+            observed_val = val[[feature, "podium"]].dropna()
+            bins = _feature_bins(observed[feature])
+            rates = observed.podium.groupby(bins, observed=True).mean()
+            auc_train = float(roc_auc_score(observed.podium, observed[feature]))
+            auc_val = (float(roc_auc_score(observed_val.podium, observed_val[feature]))
+                       if observed_val.podium.nunique() == 2 else np.nan)
+            missing = train.loc[train[feature].isna(), "podium"]
+            rows.append({
+                "group": group, "feature": feature,
+                "missing_share_train": float(train[feature].isna().mean()),
+                "podium_rate_when_missing": float(missing.mean()) if len(missing) else np.nan,
+                "podium_rate_lowest_bin": float(rates.iloc[0]), "podium_rate_highest_bin": float(rates.iloc[-1]),
+                "bins": int(len(rates)),
+                "auc_train": auc_train, "auc_validation": auc_val,
+                "direction": "higher value, more podiums" if auc_train >= 0.5 else "lower value, more podiums",
+                "signal_strength": abs(auc_train - 0.5) * 2,
+                "same_direction_in_validation": bool(np.isnan(auc_val) or (auc_val - 0.5) * (auc_train - 0.5) > 0),
+            })
+    return pd.DataFrame(rows)
+
+
+def feature_eda_panels(frame: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    """Return the bars behind each feature panel: labels, podium rates, and which bar is 'missing'."""
+    train = split_by_time(frame)["train"]
+    summary = feature_eda(frame).set_index("feature")
+    panels = {}
+    for feature in FEATURES:
+        observed = train[[feature, "podium"]].dropna()
+        bins = _feature_bins(observed[feature])
+        rates = observed.podium.groupby(bins, observed=True).mean()
+        # Label each bin by the median feature value inside it.
+        labels = [f"{observed[feature][bins == code].median():.4g}" for code in rates.index]
+        heights = [float(v) for v in rates.values]
+        has_missing = bool(summary.loc[feature, "missing_share_train"] > 0)
+        if has_missing:
+            heights.append(float(summary.loc[feature, "podium_rate_when_missing"])); labels.append("missing")
+        panels[feature] = {"labels": labels, "heights": heights, "has_missing_bar": has_missing,
+                           "auc": float(summary.loc[feature, "auc_train"]),
+                           "missing_share": float(summary.loc[feature, "missing_share_train"])}
+    return panels
+
+
+def feature_eda_plot(frame: pd.DataFrame, out_dir: str | Path) -> str:
+    """Draw one small panel per feature: podium rate by feature bin, training rows only."""
+    out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    sns.set_theme(style="whitegrid", context="notebook")
+    panels = feature_eda_panels(frame)
+    fig, axes = plt.subplots(4, 5, figsize=(17, 11))
+    for ax, (feature, panel) in zip(axes.ravel(), panels.items()):
+        colors = ["#264653"] * len(panel["heights"])
+        if panel["has_missing_bar"]:
+            colors[-1] = "#e76f51"
+        ax.bar(range(len(panel["heights"])), panel["heights"], color=colors)
+        ax.set_xticks(range(len(panel["heights"]))); ax.set_xticklabels(panel["labels"], rotation=45, ha="right", fontsize=8)
+        ax.set_title(f"{feature}\nAUC {panel['auc']:.2f}, {panel['missing_share']:.0%} missing", fontsize=9)
+        ax.set_ylim(0, 1); ax.set_ylabel("podium rate" if ax in axes[:, 0] else "")
+    for ax in axes.ravel()[len(FEATURES):]:
+        ax.axis("off")
+    fig.suptitle("Podium rate by feature value, training seasons 1950-2019 (orange = rows where the feature is missing)")
+    fig.tight_layout(); path = out / "feature_eda.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight"); plt.close(fig)
+    return str(path)
+
+
+def _validation_scores(train: pd.DataFrame, val: pd.DataFrame, features: list[str],
+                       preprocessor: Pipeline, random_state: int = 42) -> dict[str, dict[str, float]]:
+    """Fit a preprocessor on ``train`` once, then score logistic regression and the MLP on ``val``."""
+    base = model_definitions(random_state)
+    preprocessor = clone(preprocessor).fit(train[features])
+    X_train, X_val = preprocessor.transform(train[features]), preprocessor.transform(val[features])
+    scores = {}
+    for name in ["Logistic regression", "Shallow neural network"]:
+        model = clone(base[name].named_steps["model"]).fit(X_train, train.podium)
+        p = model.predict_proba(X_val)[:, 1]
+        scores[name] = {"PR-AUC": float(average_precision_score(val.podium, p)),
+                        "ROC-AUC": float(roc_auc_score(val.podium, p))}
+    return scores
+
+
+def missing_value_experiments(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
+    """Compare ways of handling missing values, scored on validation only.
+
+    About two thirds of training rows have no qualifying record. Each variant either
+    fills those cells (four imputers), drops the sparse columns, drops the rows, or
+    removes the missing-indicator flag, so the choice is backed by a score instead of
+    a preference. Every variant is scored on the same 2020-2021 validation rows.
+    """
+    splits = split_by_time(frame)
+    train, val = splits["train"], splits["validation"]
+    first_qualifying_year = int(frame.loc[frame.qualifying_position.notna(), "year"].min())
+    sparse = [f for f in FEATURES if train[f].isna().mean() > 0.5 and not f.endswith("_missing")]
+    median = Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())])
+    # KNN and iterative imputation use the other columns, so they work on scaled inputs.
+    knn = Pipeline([("scaler", StandardScaler()), ("imputer", KNNImputer(n_neighbors=5))])
+    iterative = Pipeline([("scaler", StandardScaler()),
+                          ("imputer", IterativeImputer(max_iter=10, random_state=random_state))])
+    mean = Pipeline([("imputer", SimpleImputer(strategy="mean")), ("scaler", StandardScaler())])
+    variants = [
+        ("median imputation (used)", "impute", FEATURES, train, median),
+        ("mean imputation", "impute", FEATURES, train, mean),
+        ("KNN imputation (k=5)", "impute", FEATURES, train, knn),
+        ("iterative (regression) imputation", "impute", FEATURES, train, iterative),
+        ("median, without the qualifying_missing flag", "flag", [f for f in FEATURES if f != "qualifying_missing"], train, median),
+        (f"drop the sparse columns ({', '.join(sparse)})", "drop columns", [f for f in FEATURES if f not in sparse], train, median),
+        (f"drop training rows with no qualifying (keeps {first_qualifying_year}+)", "drop rows", FEATURES, train[train.qualifying_position.notna()], median),
+        ("drop training rows with any missing feature", "drop rows", FEATURES, train.dropna(subset=FEATURES), median),
+    ]
+    rows = []
+    for name, kind, features, train_part, pre in variants:
+        for model, score in _validation_scores(train_part, val, features, pre, random_state).items():
+            rows.append({"variant": name, "approach": kind, "train_rows": int(len(train_part)),
+                         "features": len(features), "model": model,
+                         "validation_PR-AUC": score["PR-AUC"], "validation_ROC-AUC": score["ROC-AUC"]})
+    result = pd.DataFrame(rows)
+    used = result[result.variant.eq("median imputation (used)")].set_index("model")["validation_PR-AUC"]
+    result["PR-AUC_change_vs_used"] = result["validation_PR-AUC"] - result["model"].map(used)
+    return result
+
+
+SEARCH_SPACE = {
+    "Logistic regression": [{"C": c, "penalty": p} for p in ("l1", "l2") for c in (0.01, 0.1, 1.0, 10.0)],
+    "Random forest": [{"max_depth": d, "min_samples_leaf": leaf} for d in (6, 12, None) for leaf in (4, 12, 30)],
+    "Shallow neural network": [{"hidden_layer_sizes": h, "alpha": a}
+                               for h in [(8,), (16,), (32,), (64,), (32, 12), (64, 32)] for a in (0.002, 0.02)],
+}
+SEARCH_SEEDS = {"Logistic regression": (42,), "Random forest": (42,), "Shallow neural network": (42, 43, 44)}
+
+
+def _model_from_params(name: str, params: dict[str, Any], seed: int) -> Pipeline:
+    """Build one candidate with the fixed settings plus the searched ``params``."""
+    if name == "Logistic regression":
+        return _pipeline(LogisticRegression(max_iter=2000, solver="liblinear", class_weight="balanced", random_state=seed, **params))
+    if name == "Random forest":
+        return _pipeline(RandomForestClassifier(n_estimators=240, class_weight="balanced_subsample", n_jobs=1, random_state=seed, **params), scale=False)
+    return _pipeline(MLPClassifier(early_stopping=True, max_iter=300, random_state=seed, **params))
+
+
+# The settings we started with, before the search. The forest was changed to the
+# validation winner; the other two models kept their starting settings.
+INITIAL_SETTINGS = {
+    "Logistic regression": {"C": 1.0, "penalty": "l2"},
+    "Random forest": {"max_depth": None, "min_samples_leaf": 4},
+    "Shallow neural network": {"hidden_layer_sizes": (32, 12), "alpha": 0.002},
+}
+
+
+def _current_params(name: str) -> dict[str, Any]:
+    """Return the searched settings of the model currently used in ``model_definitions``."""
+    model = model_definitions()[name].named_steps["model"]
+    params = {key: model.get_params()[key] for key in SEARCH_SPACE[name][0]}
+    # Newer scikit-learn reports the default penalty as 'deprecated'; it is still L2.
+    if params.get("penalty") not in (None, "l1", "l2"):
+        params["penalty"] = "l2"
+    return params
+
+
+def hyperparameter_search(frame: pd.DataFrame) -> pd.DataFrame:
+    """Search each model's settings on validation only; the test seasons are never touched.
+
+    Every setting is trained on 1950-2019 and scored on 2020-2021. The network is
+    averaged over three seeds because its score moves with the random initialization,
+    and the spread is reported so a gain smaller than the noise is not mistaken for progress.
+    """
+    splits = split_by_time(frame)
+    train, val = splits["train"], splits["validation"]
+    rows = []
+    for name, grid in SEARCH_SPACE.items():
+        current = _current_params(name)
+        for params in grid:
+            pr, roc, train_pr = [], [], []
+            for seed in SEARCH_SEEDS[name]:
+                model = _model_from_params(name, params, seed).fit(train[FEATURES], train.podium)
+                p = model.predict_proba(val[FEATURES])[:, 1]
+                pr.append(average_precision_score(val.podium, p)); roc.append(roc_auc_score(val.podium, p))
+                train_pr.append(average_precision_score(train.podium, model.predict_proba(train[FEATURES])[:, 1]))
+            rows.append({"model": name, "settings": str(params), "is_current": params == current,
+                         "is_initial": params == INITIAL_SETTINGS[name],
+                         "seeds": len(pr), "validation_PR-AUC": float(np.mean(pr)),
+                         "validation_PR-AUC_std": float(np.std(pr)), "validation_ROC-AUC": float(np.mean(roc)),
+                         "train_PR-AUC": float(np.mean(train_pr))})
+    result = pd.DataFrame(rows)
+    result["rank_within_model"] = result.groupby("model")["validation_PR-AUC"].rank(ascending=False, method="min").astype(int)
+    result["selected"] = result.rank_within_model.eq(1)
+    return result.sort_values(["model", "rank_within_model"]).reset_index(drop=True)
+
+
+def split_window_experiment(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
+    """Score the same two models on four validation windows that all precede the test seasons.
+
+    Each window trains on every earlier season. If the 2020-2021 choice were unusual,
+    its score would stand apart from the others; the spread also shows how much a
+    validation score of about 40 races can move.
+    """
+    rows = []
+    windows = [(2014, 2015), (2016, 2017), (2018, 2019), (2020, 2021)]
+    pre = Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())])
+    for start, end in windows:
+        train, val = frame[frame.year < start], frame[frame.year.between(start, end)]
+        scores = _validation_scores(train, val, FEATURES, pre, random_state)
+        rows.append({"validation_window": f"{start}-{end}" + (" (used)" if start == 2020 else ""),
+                     "train_years": f"1950-{start - 1}", "train_rows": int(len(train)),
+                     "validation_rows": int(len(val)), "validation_races": int(val.raceId.nunique()),
+                     "validation_podium_rate": float(val.podium.mean()),
+                     "Logistic regression PR-AUC": scores["Logistic regression"]["PR-AUC"],
+                     "Shallow neural network PR-AUC": scores["Shallow neural network"]["PR-AUC"]})
+    return pd.DataFrame(rows)
+
+
+def validation_uncertainty(frame: pd.DataFrame, trained: dict[str, Pipeline],
+                           n_boot: int = 1000, random_state: int = 42) -> pd.DataFrame:
+    """Bootstrap whole validation races to show how uncertain the validation PR-AUC is."""
+    val = split_by_time(frame)["validation"].reset_index(drop=True)
+    probabilities = {name: m.predict_proba(val[FEATURES])[:, 1] for name, m in trained.items()}
+    by_race = [index.to_numpy() for _, index in val.groupby("raceId").groups.items()]
+    rng = np.random.default_rng(random_state)
+    draws = {name: [] for name in probabilities}
+    for _ in range(n_boot):
+        rows = np.concatenate([by_race[i] for i in rng.integers(0, len(by_race), len(by_race))])
+        for name, p in probabilities.items():
+            draws[name].append(average_precision_score(val.podium.to_numpy()[rows], p[rows]))
+    draws = {name: np.array(v) for name, v in draws.items()}
+    out = []
+    for name, v in draws.items():
+        out.append({"comparison": name, "validation_PR-AUC": float(average_precision_score(val.podium, probabilities[name])),
+                    "ci_low_2.5%": float(np.percentile(v, 2.5)), "ci_high_97.5%": float(np.percentile(v, 97.5)),
+                    "races": len(by_race)})
+    for name in ["Random forest", "Shallow neural network"]:
+        diff = draws[name] - draws["Logistic regression"]
+        out.append({"comparison": f"{name} minus Logistic regression",
+                    "validation_PR-AUC": float(average_precision_score(val.podium, probabilities[name])
+                                               - average_precision_score(val.podium, probabilities["Logistic regression"])),
+                    "ci_low_2.5%": float(np.percentile(diff, 2.5)), "ci_high_97.5%": float(np.percentile(diff, 97.5)),
+                    "races": len(by_race)})
+    return pd.DataFrame(out)
+
+
+def sprint_weekend_check(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """Decide the sprint leakage question with evidence, one row per sprint season.
+
+    Sprint results are joined only to answer it; they never enter ``FEATURES``. The
+    table shows when a sprint ends relative to the race, whether it sets the main-race
+    grid (it did in 2021-2022), and how many sprint rows each split would contain.
+    """
+    races = tables["races"][["raceId", "year", "date", "sprint_date"]].copy()
+    races["date"] = pd.to_datetime(races["date"]); races["sprint_date"] = pd.to_datetime(races["sprint_date"])
+    sprint = tables["sprint_results"][["raceId", "driverId", "grid", "positionOrder"]].rename(
+        columns={"grid": "sprint_grid", "positionOrder": "sprint_finish"})
+    weekend = frame.merge(sprint, on=["raceId", "driverId"], how="inner").merge(
+        races[["raceId", "sprint_date"]], on="raceId", how="left")
+    rows = []
+    for year, part in weekend.groupby("year"):
+        rows.append({
+            "season": int(year), "sprint_races": int(part.raceId.nunique()), "driver_rows": int(len(part)),
+            "split": next(name for name, (a, b) in SPLIT_YEARS.items() if a <= year <= b),
+            "sprint_ends_before_race_share": float((part.sprint_date < part.date).mean()),
+            "days_before_race": float((part.date - part.sprint_date).dt.days.median()),
+            # Rank correlation between the main-race grid and each earlier session.
+            "grid_vs_sprint_finish": float(part.grid_position.corr(part.sprint_finish, method="spearman")),
+            "grid_vs_qualifying": float(part.grid_position.corr(part.qualifying_position, method="spearman")),
+        })
+    result = pd.DataFrame(rows)
+    # A sprint feature would be empty for every training row: sprints start in 2021.
+    result["sprint_rows_in_training"] = int(weekend.year.le(SPLIT_YEARS["train"][1]).sum())
+    return result
+
+
+def non_starter_audit(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """Describe who has grid 0, so the pit-lane flag is not mistaken for a pit-lane start."""
+    status = tables["status"].set_index("statusId")["status"]
+    f = frame.assign(status_text=frame.statusId.map(status))
+    f["group"] = np.select(
+        [f.positionText.eq("F"), f.positionText.eq("W"), f.grid.eq(0)],
+        ["F: did not qualify, prequalify, or pass 107%", "W: withdrew", "grid 0 but raced (pit-lane or exceptional start)"],
+        default="regular grid start")
+    rows = []
+    for group, part in f.groupby("group"):
+        rows.append({
+            "group": group, "rows": int(len(part)), "share_of_rows": float(len(part) / len(f)),
+            "grid_zero_share": float(part.grid.eq(0).mean()), "podium_rate": float(part.podium.mean()),
+            "first_year": int(part.year.min()), "last_year": int(part.year.max()),
+            "rows_in_training": int(part.year.le(2019).sum()),
+            "rows_in_validation": int(part.year.between(2020, 2021).sum()),
+            "rows_in_test": int(part.year.ge(2022).sum()),
+            "main_statuses": "; ".join(f"{k} ({v})" for k, v in part.status_text.value_counts().head(3).items()),
+        })
+    order = {"regular grid start": 0, "grid 0 but raced (pit-lane or exceptional start)": 1,
+             "W: withdrew": 2, "F: did not qualify, prequalify, or pass 107%": 3}
+    return pd.DataFrame(rows).sort_values("group", key=lambda s: s.map(order)).reset_index(drop=True)
+
+
+def non_starter_experiment(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
+    """Train with and without the drivers who never started, scored on the same validation rows."""
+    splits = split_by_time(frame)
+    train, val = splits["train"], splits["validation"]
+    pre = Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())])
+    variants = [
+        ("keep every row (used)", train),
+        ("drop F rows (did not qualify) from training", train[~train.positionText.eq("F")]),
+        ("drop F and W rows from training", train[~train.positionText.isin(["F", "W"])]),
+    ]
+    rows = []
+    for name, part in variants:
+        for model, score in _validation_scores(part, val, FEATURES, pre, random_state).items():
+            rows.append({"variant": name, "train_rows": int(len(part)),
+                         "train_podium_rate": float(part.podium.mean()),
+                         "train_pit_lane_share": float(part.pit_lane_start.mean()),
+                         "model": model, "validation_PR-AUC": score["PR-AUC"], "validation_ROC-AUC": score["ROC-AUC"]})
+    result = pd.DataFrame(rows)
+    used = result[result.variant.eq("keep every row (used)")].set_index("model")["validation_PR-AUC"]
+    result["PR-AUC_change_vs_used"] = result["validation_PR-AUC"] - result["model"].map(used)
+    return result
+
+
 MECHANICAL_TERMS = {
     "Engine", "Gearbox", "Transmission", "Clutch", "Hydraulics", "Electrical", "Suspension",
     "Brakes", "Differential", "Overheating", "Mechanical", "Tyre", "Puncture", "Driveshaft",
@@ -618,6 +964,9 @@ MECHANICAL_TERMS = {
     "Technical", "Electronics", "Battery", "Alternator", "Spark plugs", "Fuel system",
     "Power loss", "Wheel", "Exhaust", "Undertray", "Wheel nut", "Front wing", "Rear wing",
     "Fuel leak", "Vibrations", "Drivetrain", "Brake duct", "Cooling system", "Water pump",
+    # The instructor (Piazza @10) said to count these as mechanical for simplicity.
+    # "Refuelling" is the one listed status that is deliberately left out.
+    "Tyre puncture", "Fire", "Safety belt",
 }
 
 # Exclude recorded non-starters from the mechanical-failure denominator.
@@ -833,10 +1182,18 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     order_experiments = preprocessing_order_experiments(frame)
     splits_table, integrity = split_summary(frame), split_integrity(frame)
     split_strategies = split_strategy_experiment(frame)
+    split_windows = split_window_experiment(frame)
+    uncertainty = validation_uncertainty(frame, trained)
+    missing_experiments = missing_value_experiments(frame)
+    tuning = hyperparameter_search(frame)
+    sprint_check = sprint_weekend_check(frame, tables)
+    non_starters, non_starter_runs = non_starter_audit(frame, tables), non_starter_experiment(frame)
+    feature_summary = feature_eda(frame)
     ablations = ablation_experiments(frame)
     plots = create_plots(frame, cleaning, answers, metrics, ablations, trained, out / "figures")
     plots.update(preprocessing_plots(frame, effects, out / "figures"))
     plots["chronological_split"] = split_plot(frame, out / "figures")
+    plots["feature_eda"] = feature_eda_plot(frame, out / "figures")
     shap_global, shap_local = shap_explanations(frame, trained, out / "figures")
     lime_local = lime_explanation(frame, trained, out / "figures")
 
@@ -850,6 +1207,14 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     order_experiments.to_csv(out / "preprocessing_order_experiments.csv", index=False)
     splits_table.to_csv(out / "split_summary.csv", index=False); integrity.to_csv(out / "split_integrity.csv", index=False)
     split_strategies.to_csv(out / "split_strategy_experiment.csv", index=False)
+    split_windows.to_csv(out / "split_window_experiment.csv", index=False)
+    uncertainty.to_csv(out / "validation_uncertainty.csv", index=False)
+    missing_experiments.to_csv(out / "missing_value_experiments.csv", index=False)
+    tuning.to_csv(out / "hyperparameter_search.csv", index=False)
+    sprint_check.to_csv(out / "sprint_weekend_check.csv", index=False)
+    non_starters.to_csv(out / "non_starter_audit.csv", index=False)
+    feature_summary.to_csv(out / "feature_eda.csv", index=False)
+    non_starter_runs.to_csv(out / "non_starter_experiment.csv", index=False)
     ablations.to_csv(out / "ablation_results.csv", index=False)
     for name, answer in answers.items(): answer.to_csv(out / f"{name}.csv", index=False)
     # Check a complete historical row and an intentionally partial input using the
@@ -873,6 +1238,9 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
             "preprocessing": preprocessing, "preprocessing_effects": effects,
             "feature_engineering_effects": engineering_effects, "preprocessing_order": order_experiments,
             "split_summary": splits_table, "split_integrity": integrity, "split_strategies": split_strategies,
+            "split_windows": split_windows, "validation_uncertainty": uncertainty,
+            "missing_experiments": missing_experiments, "tuning": tuning, "sprint_check": sprint_check,
+            "non_starters": non_starters, "non_starter_experiment": non_starter_runs, "feature_eda": feature_summary,
             "ablations": ablations, "cleaning_eda": cleaning, "plots": plots,
             "shap_global": shap_global, "shap_local": shap_local, "lime_local": lime_local,
             "summary": summary}

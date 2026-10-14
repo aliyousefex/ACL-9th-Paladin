@@ -124,6 +124,19 @@ md("""
 Cleaning reaches exactly one row per `(raceId, driverId)` without materially changing the target or starting-position distributions. Qualifying coverage is sparse in older seasons, so we retain an explicit missingness flag and use final grid as the historically broader pre-race signal rather than discarding early history.
 """)
 
+md("""
+### 8.1 Who has grid 0? Non-starters, withdrawals, and the pit-lane flag
+""")
+code("""
+display(results["non_starters"].round(3))
+display(results["non_starter_experiment"].round(4))
+""")
+md("""
+**What the audit shows.** 6.1% of rows have grid 0, and the flag name `pit_lane_start` makes them sound like pit-lane starts. They are mostly not. Of the 1,635 grid-0 rows, 1,346 are drivers who never raced (positionText `F`: did not qualify, did not prequalify, or failed the 107% rule), 202 are withdrawals, and only 87 are real pit-lane or exceptional starts. All 1,366 `F` rows are in 1952-2012, all are in training, and none finished on the podium. Validation and test contain no `F` rows.
+
+**Decision: keep every row.** The experiment trains with and without these rows and scores the same 2020-2021 validation rows. Dropping the `F` rows changes validation PR-AUC by +0.0003 for logistic regression and -0.0027 for the network, which is within noise, so there is nothing to gain. Dropping the `W` rows as well cost the network about 0.05. Two further reasons: the evaluation seasons are unchanged either way, and a `W` row cannot be shown to be known before the start, because the same code covers 227 recorded withdrawals and drivers who started and then retired. We therefore keep the table as the unique driver-race table the brief describes and record the caveat: in training, `pit_lane_start` is mostly a did-not-qualify marker, and only from 2013 onward does it mean a true pit-lane start. Dropping the `F` rows is a reasonable alternative if the instructor rules that a driver who did not qualify did not enter the race.
+""")
+
 md("## 9. Answers to the three data-engineering questions")
 code("""
 for key, table in results["answers"].items():
@@ -152,6 +165,37 @@ md("""
 Every selected feature is known after qualifying and before the start. Driver form shifts before rolling, constructor outcomes are aggregated by race before shifting, and standings attach only to the following race. Current-race position, points, status, laps, pit stops, and fastest-lap information never enter `FEATURES`.
 """)
 
+md("""
+### 10.1 Sprint races: a leakage judgement call
+""")
+code('display(results["sprint_check"].round(3))')
+md("""
+**Question.** Does the sprint create a leakage problem? A sprint is a separate short race on the same weekend, with its own result in `sprint_results`.
+
+**Timing.** Every sprint ends one day before the main race (`sprint_ends_before_race_share` is 1.0 in every season), so a sprint result is known before the lights go out. It is not post-race information, and using it would not break the cutoff by time.
+
+**Why we still do not use it.** First, sprints exist only from 2021, so there are 0 sprint rows in training (1950-2019). A sprint feature would be empty for every row the model learns from. Second, in 2021-2022 the sprint set the main-race grid: the rank correlation between grid and sprint finish is 0.89 and 0.99, against 0.83 and 0.72 with qualifying. The grid features already carry that information. In 2023-2024 the sprint stopped setting the grid (grid follows qualifying at 0.99 and 0.96) and adds a separate signal for only 12 weekends. We therefore exclude sprint columns from `FEATURES` by design, not because they leak.
+
+**The real hazard.** Sprint finishing position and sprint points sit under the same `raceId` as the main race. Joining them by `raceId` would look harmless, but their meaning is a different race's result. Standings are already moved to the following race, so sprint points reach the features only through the previous round, never the current one.
+""")
+
+md("""
+### 10.2 Exploratory evidence for every individual feature
+""")
+code("""
+display(results["feature_eda"].drop(columns=["bins"]).round(3))
+display(Image(filename=str(OUT / "figures" / "feature_eda.png")))
+""")
+md("""
+The table and figure use **training seasons only**. For each of the 17 features they show the share of missing cells, the podium rate in its lowest and highest bin, and a one-feature ROC-AUC (above 0.5 means a higher value goes with more podiums, below 0.5 the reverse). The same AUC on validation checks that the pattern still holds in later seasons. Missing cells are left out of the AUC and the bins, and the orange bar in the figure shows the podium rate of the rows where the feature is missing.
+
+**Strong single signals.** Position features carry the most: `qualifying_position` (AUC 0.09, so lower is better, measured on the 34% of rows that have it) and `grid_position` (0.12). The podium rate falls from about 45-50% in the best bin to under 1% in the worst. The standings ranks (0.15 and 0.16), form rates (0.82 and 0.83), and points (0.79 and 0.80) are next, and `front_row` (0.67) and `driver_races_before` (0.67) are clear but smaller. All of these keep the same direction on validation, with similar or slightly stronger AUCs (for example 0.09 for grid and 0.84-0.85 for form).
+
+**Weak single signals, kept for a different reason.** `field_size` (0.44), `driver_age` (0.55), `qualifying_time_seconds` (0.45), `pit_lane_start` (0.46), and `qualifying_missing` (0.48) are close to 0.5 on their own. The qualifying time is not comparable across circuits and eras, so a raw time says little without the rest of the row. The two flags are indicators: the missing-value experiment in section 13.1 shows removing `qualifying_missing` costs the network 0.041 PR-AUC, and rows with no grid position (drivers who never started) never podium, while rows with no qualifying record podium at about the average rate (11.8% against 12.5%). `round` (0.50) and `year` (0.51) have essentially no single-feature signal, and `field_size`, `round`, and `year` are flat or constant on validation (every 2020-2021 race has 20 starters). We keep them as context and era controls, and the ablation shows the whole context group adds the least of the five (0.004 PR-AUC). We have not shown that `round` or `year` help on their own, so they are the first candidates to remove.
+
+**What this evidence does and does not show.** A one-feature AUC ignores the other 16 features, so a feature that looks weak here can still help in combination, and a strong feature can add little once the grid is present (the ablation shows qualifying adds only 0.005 on top of the grid). The AUCs describe association in past races and are not causal effects.
+""")
+
 md("## 11. Proper train / validation / test split")
 code("""
 display(results["split_summary"])
@@ -167,6 +211,19 @@ md("""
 **Why not random.** The strategy experiment holds out the same number of rows three ways. A random-row split puts the teammates and rivals from the same race in training for almost every held-out row, and nearly all held-out rows have later seasons in training. That would let the model learn from the future and from the same race. A random-race split removes same-race leakage but still trains on later seasons. Random splits also mix every era into the held-out set, so their score answers a different question from "how well do we predict the next seasons?". Only the chronological split has zero same-race and zero future leakage.
 
 **Shift between splits.** Training has far more missing qualifying and larger fields, so its podium rate is lower. That shift is real and is the reason for a separate recent validation period rather than validating on old seasons.
+""")
+
+md("""
+### 11.1 Is 2019 the right boundary? Other validation windows and uncertainty
+""")
+code("""
+display(results["split_windows"].round(4))
+display(results["validation_uncertainty"].round(4))
+""")
+md("""
+The first table keeps the same two models and scores four validation windows, each training on all earlier seasons and each ending before the test seasons, so the test set is never used. The score depends on the window: logistic regression ranges from 0.689 to 0.728 PR-AUC and the network from 0.668 to 0.739. The 2020-2021 window we use is at the top of both ranges, so validation scores are somewhat optimistic and should not be read as the expected test score. The test seasons, which were never used for a decision, score lower for both models (0.70 and 0.72).
+
+The second table bootstraps whole validation races. With only 39 races, each model's PR-AUC has a 95% interval about 0.2 wide (for example 0.62-0.84 for logistic regression). The difference between the network and logistic regression is +0.011 with an interval of -0.011 to +0.031, and for the forest it is -0.010 with an interval of -0.044 to +0.028. Both intervals include zero, so the data do not show that any model is better than the baseline. We keep the chronological split because it is the only one with no same-race or future leakage, but we report the model ranking as a tie within validation uncertainty.
 """)
 
 md("""
@@ -214,6 +271,26 @@ The first table compares preprocessing **strategies** (median with and without s
 We keep split → median imputation → scaling for the linear model and the MLP, and median imputation without scaling for the forest.
 """)
 
+md("""
+### 13.1 Missing values: impute, drop columns, or drop rows?
+
+About two thirds of training rows have no qualifying record, and standings and form are missing on a driver's first race. Instead of choosing by preference, each approach below is scored on the same 2020-2021 validation rows.
+""")
+code("""
+missing = results["missing_experiments"]
+display(missing.round(4))
+display(missing.pivot_table(index=["approach", "variant"], columns="model", values="PR-AUC_change_vs_used").round(4))
+""")
+md("""
+**Imputers.** Mean, k-nearest-neighbour, and iterative regression imputation all land within 0.005 PR-AUC of median imputation for logistic regression (KNN is +0.0022, the largest gain). For the network every alternative is worse, by 0.015 for mean and about 0.045 for KNN and iterative. The network's seed-to-seed spread is about 0.016 (see section 14.1), so the mean difference is within noise but the KNN and iterative drops are not.
+
+**Dropping columns.** Removing the two columns with more than 50% missing values (`qualifying_position` and `qualifying_time_seconds`) costs 0.005 for logistic regression and 0.035 for the network. Removing the `qualifying_missing` flag instead costs the network 0.041, so the flag carries real information.
+
+**Dropping rows.** Keeping only training rows with qualifying data (1994 onward) leaves 8,356 of 24,529 rows and lowers the score by 0.002 (logistic regression) and 0.023 (network). Keeping only complete rows leaves 7,374 and lowers it by 0.004 and 0.047. Dropping rows throws away about two thirds of the history, including most of the long driver and team form.
+
+**Decision.** Median imputation plus the missing-indicator flag, fitted on training rows only, is the best or tied for best for both models. It keeps all 24,529 training rows. We keep it. None of the alternatives helped, so leaving the nulls, dropping columns, and dropping rows were all tested against it and rejected on evidence.
+""")
+
 md("## 14. Model comparison: train, validation, and unseen test")
 code("""
 display(results["metrics"])
@@ -224,7 +301,27 @@ print("Validation-only model selection ranking:")
 display(validation_ranking)
 """)
 md("""
-Logistic regression is the statistical baseline, random forest captures nonlinear interactions, and the two-hidden-layer MLP is the shallow neural network. PR-AUC is the selection metric because the positive class is uncommon. Model-specific thresholds maximize validation F1 and are frozen before test scoring. Training-to-validation differences, especially for the forest, reveal overfitting and historical distribution shift.
+Logistic regression is the statistical baseline, random forest captures nonlinear interactions, and the two-hidden-layer MLP is the shallow neural network. PR-AUC is the selection metric because the positive class is uncommon. Model-specific thresholds maximize validation F1 and are frozen before test scoring. All three models score lower on training than on validation, which reflects historical distribution shift (a lower podium rate and far more missing qualifying in the training years). The forest only behaves this way because its depth and leaf size were limited by the validation search in section 14.1; its first settings memorized the training seasons.
+""")
+
+md("""
+### 14.1 Hyperparameter search and an honest improvement attempt for each model
+
+Every setting was trained on 1950-2019 and scored on 2020-2021 only; the test seasons were not touched. The network is averaged over three random seeds, because its score changes with the initialization.
+""")
+code("""
+tuning = results["tuning"]
+display(tuning[["model", "settings", "is_initial", "is_current", "validation_PR-AUC", "validation_PR-AUC_std",
+                "validation_ROC-AUC", "train_PR-AUC", "rank_within_model"]].round(4))
+""")
+md("""
+**Random forest: improved.** The starting forest (unlimited depth, leaf size 4) scored 0.702 on validation but 0.919 on training, a memorized fit. The search ranked it 7th of 9. Depth 12 with leaf size 30 scores 0.717 on validation, and its training PR-AUC falls from 0.919 to 0.647, so it no longer memorizes the training seasons. We adopted it, and test PR-AUC rose from 0.689 to 0.713 without the test set influencing the choice.
+
+**Shallow neural network: confirmed, not improved.** We tried one hidden layer of 8, 16, 32, and 64 units and two layers (32, 12) and (64, 32), each with two regularization strengths. The starting (32, 12) with alpha 0.002 was best at 0.7248 averaged over three seeds. Wider and deeper networks did not help, so we kept it. The network is not a deliberately weak model. Smaller ones are worse and larger ones are no better.
+
+**Logistic regression: insensitive.** L1 and L2 penalties and C from 0.01 to 10 all fall between 0.713 and 0.728. C = 1 with L2 ties for best, so we keep it.
+
+**A caution about the headline number.** The network's 0.7385 validation score comes from seed 42. Averaged over three seeds it is 0.7248, with a seed standard deviation of 0.016, which is slightly below logistic regression's 0.7276. Differences between the three models are smaller than that spread, as the bootstrap in section 11.1 also shows.
 """)
 
 md("## 15. Feature-group ablation")

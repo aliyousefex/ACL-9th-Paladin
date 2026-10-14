@@ -11,18 +11,26 @@ import pandas as pd
 
 from f1podium.pipeline import (
     FEATURES,
+    MECHANICAL_TERMS,
     NON_START_STATUSES,
+    INITIAL_SETTINGS,
+    SEARCH_SPACE,
+    feature_eda,
+    _current_params,
     _time_to_seconds,
     build_modeling_table,
     clean_results,
     cleaning_eda,
     engineering_answers,
     load_raw_tables,
+    non_starter_audit,
     preprocessing_effects,
     preprocessing_order_experiments,
     split_by_time,
     split_integrity,
     split_summary,
+    split_window_experiment,
+    sprint_weekend_check,
 )
 
 # These tests focus on mistakes that can make the final scores look believable
@@ -117,6 +125,15 @@ def test_mechanical_rate_denominator_contains_race_starts_only():
     assert not modern.loc[modern.status_text.isin(NON_START_STATUSES), "status_text"].empty
 
 
+def test_mechanical_statuses_follow_instructor_ruling():
+    """Piazza @10: tyre, puncture, fire and safety-belt statuses count; refuelling does not."""
+    status = load_raw_tables("data/raw")["status"]["status"]
+    for term in ["Puncture", "Tyre", "Tyre puncture", "Fire", "Safety belt"]:
+        assert term in set(status), f"{term} is not a real status label"
+        assert term in MECHANICAL_TERMS
+    assert "Refuelling" not in MECHANICAL_TERMS
+
+
 def test_current_race_result_cannot_change_its_own_features():
     """Changing today's result may change the label, but never today's inputs."""
     tables = load_raw_tables("data/raw")
@@ -184,3 +201,51 @@ def test_preprocessing_order_experiments_report_two_or_more_orders():
     train = split_by_time(frame)["train"]
     assert np.isclose(rows.loc["scale -> zero-fill", "missing_grid_position_becomes"], train.grid_position.mean())
 
+
+def test_hyperparameter_search_includes_the_settings_we_use():
+    """The tuning grid must contain each model's current settings, so 'used' is one candidate."""
+    for name, grid in SEARCH_SPACE.items():
+        assert _current_params(name) in grid, name
+        assert INITIAL_SETTINGS[name] in grid, name
+
+
+def test_validation_windows_never_reach_the_test_seasons():
+    """Every alternative validation window ends before 2022 and trains only on earlier seasons."""
+    frame, _ = build_modeling_table(load_raw_tables("data/raw"))
+    windows = split_window_experiment(frame)
+    assert (windows.validation_window.str[5:9].astype(int) <= 2021).all()
+    assert (windows.train_years.str[-4:].astype(int) < windows.validation_window.str[:4].astype(int)).all()
+
+
+def test_sprint_results_end_before_the_race_and_are_absent_from_training():
+    """Sprints are known before lights out, but no training row has one, so they are not features."""
+    tables = load_raw_tables("data/raw")
+    frame, _ = build_modeling_table(tables)
+    check = sprint_weekend_check(frame, tables)
+    assert (check.sprint_ends_before_race_share == 1).all()
+    assert (check.sprint_rows_in_training == 0).all()
+    assert not any("sprint" in feature for feature in FEATURES)
+
+
+def test_non_starter_audit_covers_every_row_and_never_podiums():
+    """Grid-0 drivers who failed to qualify are in the table, never podium, and only in training."""
+    tables = load_raw_tables("data/raw")
+    frame, _ = build_modeling_table(tables)
+    audit = non_starter_audit(frame, tables).set_index("group")
+    assert audit.rows.sum() == len(frame)
+    failed = audit.loc[audit.index.str.startswith("F:")].iloc[0]
+    assert failed.podium_rate == 0
+    assert failed.rows_in_validation == 0 and failed.rows_in_test == 0
+
+
+def test_every_model_feature_has_its_own_eda_row_from_training_only():
+    """Each of the 17 features gets evidence, and its AUC is computed on training seasons."""
+    frame, _ = build_modeling_table(load_raw_tables("data/raw"))
+    summary = feature_eda(frame)
+    assert list(summary.feature) == FEATURES
+    assert summary.auc_train.between(0, 1).all()
+    assert summary.missing_share_train.between(0, 1).all()
+    # Grid and qualifying position are the strongest single signals; lower positions podium more.
+    top = summary.sort_values("signal_strength", ascending=False).iloc[0]
+    assert top.feature in {"grid_position", "qualifying_position"}
+    assert summary.set_index("feature").loc["grid_position", "signal_strength"] > 0.7
