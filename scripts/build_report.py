@@ -430,7 +430,8 @@ def main():
     assert losses.idxmin() == "without grid", "grid is no longer the largest ablation loss"
     assert losses.abs().idxmin() == "without context", "context is no longer the smallest ablation loss"
     assert miss_change("median, without", NN) < 0, "removing the missing flag no longer hurts the network"
-    assert tuned(RF, "current")["rank_within_model"] == 1, "the adopted forest is no longer the top-ranked setting"
+    # The adopted forest is no longer rank 1 after the round-1 standings fix. Section 7.1 now
+    # reports its rank and the small gap to the best setting instead of claiming it ranks first.
     assert tuned(NN, "current")["rank_within_model"] == 1, "the adopted network is no longer the top-ranked setting"
     val_pr = metrics[metrics.split.eq("validation")].set_index("model")["PR-AUC"]
     assert val_pr.idxmax() == NN, "the network no longer leads validation PR-AUC; rewrite the selection text"
@@ -836,7 +837,10 @@ def main():
         + ", ".join(summary["mechanical_statuses"])
         + ". Rare wordings that are not on this list are counted as non-mechanical. That "
         "choice can miss an ambiguous failure, and it can also avoid treating a collision "
-        "as a broken part. We would rather under-count borderline cases than inflate the rate.",
+        "as a broken part. We would rather under-count borderline cases than inflate the rate. "
+        "Engine fire and engine misfire are counted as mechanical because they are engine "
+        "failures; heat shield fire is not counted. None of these "
+        "statuses occur in 2014-2024, so this choice does not change the rates.",
         "Small",
     ))
     add_figure(
@@ -932,9 +936,9 @@ def main():
         "Constructor form is averaged across both cars first, so one teammate cannot see "
         "the other teammate's result from the same race. Championship points and rank are "
         "taken from the previous race in the same season, because a standings row describes "
-        "the table after a race. The first race of a season, and a driver's first race, "
-        "therefore have missing history, and we leave those values missing rather than "
-        "filling them with the future."
+        "the table after a race. Before a driver's or team's first race of a season nothing "
+        "has been scored yet, so points and rank are set to 0 there. Form before a driver's "
+        "first race has no history, and we leave it missing rather than filling it with the future."
     ))
     add_table(
         story,
@@ -1195,7 +1199,7 @@ def main():
     # Settle preprocessing on validation data before comparing model families.
     h1(story, "6. Feature engineering and preprocessing: strategy, effect on the values, and order")
     story.append(P(
-        "Missing qualifying and missing early-season standings have to be filled inside "
+        "Missing qualifying, grid, and form values have to be filled inside "
         "the model pipeline, using training rows only. We compare three settings of "
         "logistic regression on the validation seasons: median imputation with scaling, "
         "median imputation without scaling, and filling missing values with zero before "
@@ -1234,8 +1238,12 @@ def main():
         "so the minimum is 1, and the pit-lane flag carries the information instead. Qualifying "
         "strings become seconds; after the join to every driver-race row, "
         f"{pct(eng.loc['qualifying_time_seconds (joined)', 'missing_share'])} of rows have no "
-        "qualifying time. Shifted form and previous-race standings are missing on a first race "
-        "or first round, because nothing earlier exists. These gaps are what the imputer fills next."
+        "qualifying time. Shifted form is missing on a driver's first race, because nothing earlier "
+        "exists, and that gap is what the imputer fills next. Previous-race standings are not "
+        "imputed. Before a driver's or team's first race of a season they used to be empty, and the "
+        "median imputer filled them with about 3 points and rank 13, points nobody had scored. They "
+        "are now set to 0 points and rank 0. Extra flags marking these rows gave no validation gain, "
+        "so the model keeps its 17 features."
     ))
     add_table(
         story,
@@ -1551,6 +1559,7 @@ def main():
     )
     sizes = tuning.groupby("model").size()
     rf0, rf1 = tuned(RF, "initial"), tuned(RF, "current")
+    rf_best = tuning[tuning.model.eq(RF) & tuning.rank_within_model.eq(1)].iloc[0]
     nn0, nn1 = tuned(NN, "initial"), tuned(NN, "current")
     lr_all, lr1, lr_best = tuning[tuning.model.eq(LR)], tuned(LR, "current"), tuned(LR, "best")
     nn_others = tuning[tuning.model.eq(NN) & ~tuning.settings.str.contains(r"\(32, 12\)")]
@@ -1564,9 +1573,14 @@ def main():
         f"<b>Random forest: improved.</b> The starting forest (no depth limit, 4 rows per leaf) ranked "
         f"{ordinal(int(rf0.rank_within_model))} of {int(sizes[RF])}. It scored {float(rf0['validation_PR-AUC']):.3f} on "
         f"validation but {float(rf0['train_PR-AUC']):.3f} on training, a memorized fit. A depth limit of 12 with "
-        f"30 rows per leaf ranks first at {float(rf1['validation_PR-AUC']):.3f} and cuts the training score to "
-        f"{float(rf1['train_PR-AUC']):.3f}, so it no longer memorizes the training seasons. We adopted it, with no "
-        "test season taking part in the choice. "
+        f"30 rows per leaf scores {float(rf1['validation_PR-AUC']):.3f} and ranks "
+        f"{ordinal(int(rf1.rank_within_model))} of {int(sizes[RF])}. The best setting "
+        f"({esc(rf_best.settings.strip('{}').replace(chr(39), ''))}) is only "
+        f"{float(rf_best['validation_PR-AUC'] - rf1['validation_PR-AUC']):.3f} higher, far inside the validation "
+        "noise in Section 7.2, so we keep the depth limit as the more constrained model. It cuts the training "
+        f"score to {float(rf1['train_PR-AUC']):.3f}, so it no longer memorizes the training seasons. No test "
+        "season took part in the choice. "
+
         "<b>Shallow network: improved slightly.</b> One layer of 8, 16, 32, or 64 units and two layers of 32 and 12 "
         "or 64 and 32, each with two regularization strengths, were all tried. Two layers of 32 and 12 with the "
         f"stronger penalty (alpha 0.02) rank first at {float(nn1['validation_PR-AUC']):.4f} over three seeds, ahead of "
@@ -1582,6 +1596,9 @@ def main():
 
     h2(story, "7.2 How much the validation score can be trusted")
     windows, uncertainty = data["windows"], data["uncertainty"]
+    used = windows.validation_window.str.contains("used")
+    lr_rank = int(windows["Logistic regression PR-AUC"].rank(ascending=False)[used].iloc[0])
+    nn_rank = int(windows["Shallow neural network PR-AUC"].rank(ascending=False)[used].iloc[0])
     story.append(P(
         "We also asked whether 2019 is a good boundary. The same two models were scored on "
         "four validation windows that all end before the test seasons, each training on every "
@@ -1589,8 +1606,10 @@ def main():
         f"logistic regression ranges from {num(windows['Logistic regression PR-AUC'].min())} to "
         f"{num(windows['Logistic regression PR-AUC'].max())}, and the network from "
         f"{num(windows['Shallow neural network PR-AUC'].min())} to "
-        f"{num(windows['Shallow neural network PR-AUC'].max())}. The window we use is at the "
-        "top of both ranges, so validation scores are somewhat optimistic."
+        f"{num(windows['Shallow neural network PR-AUC'].max())}. The 2020-2021 window we use ranks "
+        f"{ordinal(lr_rank)} of {len(windows)} for logistic regression and {ordinal(nn_rank)} of "
+        f"{len(windows)} for the network, so it sits near the top of both ranges and validation "
+        "scores are somewhat optimistic."
     ))
     add_table(
         story,
@@ -1911,9 +1930,12 @@ def main():
     # Check inference with both a complete row and a partially filled record.
     h1(story, "10. Two predictions from the selected network")
     demo = summary["inference_demos"]
-    # The text below says neither demo record is predicted to podium. Fail loudly if that changes.
-    assert not demo["complete_record"]["predicted_podium"] and not demo["partial_record"]["predicted_podium"], \
-        "The report text assumes both demo records fall below the cutoff; rewrite it."
+
+    # The text below says the complete record is predicted to podium (a false alarm) and the
+    # partial record is not. Fail loudly if that changes.
+    assert demo["complete_record"]["predicted_podium"] and not demo["partial_record"]["predicted_podium"], \
+        "The report text assumes only the complete demo record is above the cutoff; rewrite it."
+    
     story.append(P(
         f"The examples use the {demo['model'].lower()}, because it had the best validation "
         f"PR-AUC. Its frozen cutoff is {num(demo['complete_record']['threshold'])}. Missing "
@@ -1921,21 +1943,24 @@ def main():
         "complete historical row and one partial record that was never a real entry."
     ))
     story.append(P(
-        "The complete row is Lewis Hamilton, Mercedes, 2022 Saudi Arabian Grand Prix, round "
-        "2. He qualified 16th and started 15th in a field of 20. His previous five starts "
-        "in this table were all podiums (driver rate 1.0), the constructor's recent podium "
-        "rate was 0.7, he was third in the championship on 15 points, and Mercedes was "
-        "second on 27 points. The network gives this row a podium probability of "
-        f"{demo['complete_record']['podium_probability']:.3f}. That is below {num(demo['complete_record']['threshold'])}, so the "
-        "predicted label is not a podium. The actual result was not a podium. Strong recent "
-        "form and a high championship position did not overcome 15th on the grid, either "
-        "in the race or in the model."
+        "The complete row is Lewis Hamilton, Mercedes, 2022 Bahrain Grand Prix, round 1. "
+        "He qualified 5th and started 5th in a field of 20. His previous five starts in "
+        "this table were all podiums (driver rate 1.0) and the constructor's recent podium "
+        "rate was 0.7. Because it is the first race of the season, his and Mercedes' "
+        "championship points and rank are both 0. The network gives this row a podium "
+        f"probability of {demo['complete_record']['podium_probability']:.3f}. That is above "
+        f"{num(demo['complete_record']['threshold'])}, so the predicted label is a podium. "
+        "The actual result was third, a podium, so the prediction is correct. A fifth-place "
+        "start and a perfect recent podium run were enough to lift the probability over the cutoff. "
+        "The row is picked automatically as the first complete 2022 row. Before the round-1 "
+        "standings fix, round-1 rows had empty standings and were skipped, so the example used "
+        "to be the 2022 Saudi Arabian Grand Prix."
     ))
     story.append(P(
         "The partial record supplies only what we chose to type in: grid position 3, not a "
         "pit-lane start, not a front-row start, a field of 20, season 2024, round 5. Every "
         "other feature is missing and is replaced with the training median. The network "
-        f"returns {demo['partial_record']['podium_probability']:.3f}, also below the cutoff, "
+        f"returns {demo['partial_record']['podium_probability']:.3f}, below the cutoff, "
         "so the predicted label is again not a podium. This record has no true result, "
         "because it is not a driver who started a race."
     ))
@@ -1948,8 +1973,8 @@ def main():
         "missing fields. It is not evidence about the front of the grid."
     ))
     story.append(P(
-        "<b>Takeaway.</b> On a real 2022 row, the selected model correctly stayed below "
-        "its cutoff for a 15th-place start despite a perfect recent podium run. On a "
+        "<b>Takeaway.</b> On a real 2022 row, the selected model correctly predicted a podium "
+        "for a fifth-place start backed by a perfect recent podium run. On a "
         "synthetic partial row, the number is an imputed profile, and we do not interpret "
         "it as a base rate.",
         "Takeaway",
@@ -2022,8 +2047,8 @@ def main():
         "Ablation, permutation, and SHAP agree that grid position carries the prediction, and "
         "permutation and SHAP also agree that constructor form comes second. They differ on the "
         "smaller features, and we do not force them to agree. The Hamilton "
-        "example is the same story in one row: a recent run of podiums, from 15th on the "
-        "grid, was not enough."
+        "example fits this picture in one row: a fifth-place start backed by a recent run of "
+        "podiums lifted him over the cutoff, and he finished third."
     ))
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
