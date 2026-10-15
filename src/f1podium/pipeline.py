@@ -1058,6 +1058,11 @@ MECHANICAL_TERMS = {
     # The instructor (Piazza @10) said to count these as mechanical for simplicity.
     # "Refuelling" is the one listed status that is deliberately left out.
     "Tyre puncture", "Fire", "Safety belt",
+    # Engine fire and engine misfire are engine failures, so they count as mechanical.
+    # Heat shield fire is left out, following TA feedback. None of these statuses
+    # occur in 2014-2024, so this choice does not change the Question 3 results.
+    "Engine fire", "Engine misfire",
+    
 }
 
 # Exclude recorded non-starters from the mechanical-failure denominator. The F rows are
