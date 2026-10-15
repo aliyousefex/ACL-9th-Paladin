@@ -2,6 +2,8 @@
 
 Every model input is available after qualifying and before the race starts. Post-race
 columns are only used for the target, lagged history, and the descriptive questions.
+The one post-race column that also filters rows is ``positionText == "F"``, which the
+instructor ruled is known before the race (see ``DID_NOT_ENTER_CODE``).
 """
 
 from __future__ import annotations
@@ -39,6 +41,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 SENTINEL = "\\N"
+
+# Piazza ruling on removing rows: ``positionText == "F"`` marks a driver who did not
+# qualify, did not prequalify, or failed the 107% rule. That is settled before the race
+# starts, so the driver never entered it and the row may be removed. ``W`` (withdrew) rows
+# may NOT be removed: the code is only known after the race, and grid 0 can also be a
+# real pit-lane start. The rows are dropped before any feature is built, so a skipped
+# weekend never counts as a race in the form windows or in the field size.
+DID_NOT_ENTER_CODE = "F"
 
 FEATURE_GROUPS = {
     "grid": ["grid_position", "pit_lane_start", "front_row", "field_size"],
@@ -152,11 +162,21 @@ def _previous_standings(standings: pd.DataFrame, races: pd.DataFrame, entity: st
     ).assign(raceId=lambda x: x.raceId.astype(int))
 
 
-def build_modeling_table(tables: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Build one pre-race feature row per driver and return cleaning diagnostics."""
+def build_modeling_table(tables: dict[str, pd.DataFrame],
+                         drop_did_not_enter: bool = True) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Build one pre-race feature row per driver and return cleaning diagnostics.
+
+    Shared drives are resolved first, then the drivers who did not enter the race
+    (``DID_NOT_ENTER_CODE``) are removed before any feature is computed. Pass
+    ``drop_did_not_enter=False`` to keep them; the non-starter audit and experiment use that
+    version to show what the decision changes.
+    """
     races = tables["races"].copy()
     races["date"] = pd.to_datetime(races["date"], errors="coerce")
     results, duplicate_groups = clean_results(tables["results"])
+    rows_after_shared_drives = len(results)
+    if drop_did_not_enter:
+        results = results[results["positionText"].ne(DID_NOT_ENTER_CODE)].copy()
 
     # Start from cleaned race results, then add the entities needed for features
     # and the three analysis questions.
@@ -206,6 +226,8 @@ def build_modeling_table(tables: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame,
     diagnostics = {
         "raw_result_rows": int(len(tables["results"])),
         "duplicate_driver_race_groups": int(len(duplicate_groups)),
+        "rows_after_shared_drive_resolution": int(rows_after_shared_drives),
+        "did_not_enter_rows_removed": int(rows_after_shared_drives - len(results)),
         "clean_rows": int(len(base)),
         "unique_grain": bool(not base.duplicated(["raceId", "driverId"]).any()),
         "year_min": int(base.year.min()), "year_max": int(base.year.max()),
@@ -303,9 +325,17 @@ def split_strategy_experiment(frame: pd.DataFrame, random_state: int = 42) -> pd
 
 
 def cleaning_eda(raw_results: pd.DataFrame, cleaned: pd.DataFrame) -> pd.DataFrame:
-    """Compare row counts and key rates before and after duplicate cleaning."""
+    """Compare row counts and key rates at each cleaning stage.
+
+    Three stages show what each step does on its own: the raw results, the table after
+    shared drives are resolved (the grain fix), and the final modeling table after the
+    drivers who did not enter the race are removed.
+    """
     raw = raw_results.copy()
-    stages = [("Raw results", raw), ("Cleaned modeling table", cleaned)]
+    deduplicated, _ = clean_results(raw_results)
+    stages = [("Raw results", raw),
+              ("Shared drives resolved", deduplicated),
+              ("Modeling table (F rows removed)", cleaned)]
     rows = []
     for stage, data in stages:
         podium = data["positionOrder"].le(3)
@@ -333,15 +363,16 @@ def _pipeline(model: Any, scale: bool = True, strategy: str = "median") -> Pipel
 def model_definitions(random_state: int = 42) -> dict[str, Pipeline]:
     """Return the three candidate models with reproducible settings.
 
-    The forest uses the settings that won ``hyperparameter_search`` on validation
-    (depth 12, leaf size 30). Its starting settings, an unlimited depth with leaf size 4,
-    memorized the training seasons. Logistic regression and the network kept theirs
-    because the search confirmed them.
+    The forest and the network use the settings that won ``hyperparameter_search`` on
+    validation: depth 12 with leaf size 30 for the forest (its starting settings, an
+    unlimited depth with leaf size 4, memorized the training seasons), and a stronger
+    regularization of 0.02 for the network (the starting 0.002 ranked second). Logistic
+    regression kept its starting settings because the top three tie within 0.0001.
     """
     return {
         "Logistic regression": _pipeline(LogisticRegression(max_iter=2000, solver="liblinear", class_weight="balanced", random_state=random_state)),
         "Random forest": _pipeline(RandomForestClassifier(n_estimators=240, max_depth=12, min_samples_leaf=30, class_weight="balanced_subsample", n_jobs=1, random_state=random_state), scale=False),
-        "Shallow neural network": _pipeline(MLPClassifier(hidden_layer_sizes=(32, 12), alpha=0.002, early_stopping=True, max_iter=300, random_state=random_state)),
+        "Shallow neural network": _pipeline(MLPClassifier(hidden_layer_sizes=(32, 12), alpha=0.02, early_stopping=True, max_iter=300, random_state=random_state)),
     }
 
 
@@ -875,9 +906,16 @@ def split_window_experiment(frame: pd.DataFrame, random_state: int = 42) -> pd.D
 
 
 def validation_uncertainty(frame: pd.DataFrame, trained: dict[str, Pipeline],
-                           n_boot: int = 1000, random_state: int = 42) -> pd.DataFrame:
-    """Bootstrap whole validation races to show how uncertain the validation PR-AUC is."""
-    val = split_by_time(frame)["validation"].reset_index(drop=True)
+                           n_boot: int = 1000, random_state: int = 42,
+                           split: str = "validation") -> pd.DataFrame:
+    """Bootstrap whole races to show how uncertain a split's PR-AUC is.
+
+    The default is the validation split, where the choices are made. ``split="test"`` gives the
+    same interval for the unseen seasons. It only resamples predictions that already exist, so
+    the test seasons are not scored again and nothing is chosen with it.
+    """
+    val = split_by_time(frame)[split].reset_index(drop=True)
+    score = f"{split}_PR-AUC"
     probabilities = {name: m.predict_proba(val[FEATURES])[:, 1] for name, m in trained.items()}
     by_race = [index.to_numpy() for _, index in val.groupby("raceId").groups.items()]
     rng = np.random.default_rng(random_state)
@@ -889,14 +927,14 @@ def validation_uncertainty(frame: pd.DataFrame, trained: dict[str, Pipeline],
     draws = {name: np.array(v) for name, v in draws.items()}
     out = []
     for name, v in draws.items():
-        out.append({"comparison": name, "validation_PR-AUC": float(average_precision_score(val.podium, probabilities[name])),
+        out.append({"comparison": name, score: float(average_precision_score(val.podium, probabilities[name])),
                     "ci_low_2.5%": float(np.percentile(v, 2.5)), "ci_high_97.5%": float(np.percentile(v, 97.5)),
                     "races": len(by_race)})
     for name in ["Random forest", "Shallow neural network"]:
         diff = draws[name] - draws["Logistic regression"]
         out.append({"comparison": f"{name} minus Logistic regression",
-                    "validation_PR-AUC": float(average_precision_score(val.podium, probabilities[name])
-                                               - average_precision_score(val.podium, probabilities["Logistic regression"])),
+                    score: float(average_precision_score(val.podium, probabilities[name])
+                                 - average_precision_score(val.podium, probabilities["Logistic regression"])),
                     "ci_low_2.5%": float(np.percentile(diff, 2.5)), "ci_high_97.5%": float(np.percentile(diff, 97.5)),
                     "races": len(by_race)})
     return pd.DataFrame(out)
@@ -933,17 +971,28 @@ def sprint_weekend_check(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) -
 
 
 def non_starter_audit(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """Describe who has grid 0, so the pit-lane flag is not mistaken for a pit-lane start."""
+    """Describe who has grid 0 and what we do with each group.
+
+    ``frame`` must be built with ``drop_did_not_enter=False``, so it still holds the F rows
+    that the modeling table removes. The ``treatment`` column records the decision per group.
+    """
     status = tables["status"].set_index("statusId")["status"]
     f = frame.assign(status_text=frame.statusId.map(status))
     f["group"] = np.select(
         [f.positionText.eq("F"), f.positionText.eq("W"), f.grid.eq(0)],
         ["F: did not qualify, prequalify, or pass 107%", "W: withdrew", "grid 0 but raced (pit-lane or exceptional start)"],
         default="regular grid start")
+    treatment = {
+        "regular grid start": "kept",
+        "grid 0 but raced (pit-lane or exceptional start)": "kept",
+        "W: withdrew": "kept (the code is only known after the race)",
+        "F: did not qualify, prequalify, or pass 107%": "removed before features (known before the race)",
+    }
     rows = []
     for group, part in f.groupby("group"):
         rows.append({
-            "group": group, "rows": int(len(part)), "share_of_rows": float(len(part) / len(f)),
+            "group": group, "treatment": treatment[group],
+            "rows": int(len(part)), "share_of_rows": float(len(part) / len(f)),
             "grid_zero_share": float(part.grid.eq(0).mean()), "podium_rate": float(part.podium.mean()),
             "first_year": int(part.year.min()), "last_year": int(part.year.max()),
             "rows_in_training": int(part.year.le(2019).sum()),
@@ -957,25 +1006,35 @@ def non_starter_audit(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> p
 
 
 @_quiet
-def non_starter_experiment(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
-    """Train with and without the drivers who never started, scored on the same validation rows."""
-    splits = split_by_time(frame)
-    train, val = splits["train"], splits["validation"]
+def non_starter_experiment(with_f: pd.DataFrame, frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
+    """Score the decision about F rows on the same validation rows.
+
+    ``with_f`` is the table built with ``drop_did_not_enter=False`` and ``frame`` is the
+    modeling table with the F rows removed before features. No F row is in the validation
+    seasons, so every variant is scored on the same 780 validation rows. The last variant
+    shows what removing W rows would do; the instructor does not allow it.
+    """
+    all_train, all_val = split_by_time(with_f)["train"], split_by_time(with_f)["validation"]
+    used = split_by_time(frame)
     pre = Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())])
     variants = [
-        ("keep every row (used)", train),
-        ("drop F rows (did not qualify) from training", train[~train.positionText.eq("F")]),
-        ("drop F and W rows from training", train[~train.positionText.isin(["F", "W"])]),
+        ("drop F rows before features (used)", used["train"], used["validation"]),
+        ("keep F rows in the history and in training", all_train, all_val),
+        ("keep F rows in the history, drop them from training only",
+         all_train[~all_train.positionText.eq(DID_NOT_ENTER_CODE)], all_val),
+        ("also drop W rows from training (not allowed)",
+         all_train[~all_train.positionText.isin([DID_NOT_ENTER_CODE, "W"])], all_val),
     ]
     rows = []
-    for name, part in variants:
+    for name, part, val in variants:
         for model, score in _validation_scores(part, val, FEATURES, pre, random_state).items():
             rows.append({"variant": name, "train_rows": int(len(part)),
                          "train_podium_rate": float(part.podium.mean()),
                          "train_pit_lane_share": float(part.pit_lane_start.mean()),
+                         "train_field_size": float(part.field_size.mean()),
                          "model": model, "validation_PR-AUC": score["PR-AUC"], "validation_ROC-AUC": score["ROC-AUC"]})
     result = pd.DataFrame(rows)
-    used = result[result.variant.eq("keep every row (used)")].set_index("model")["validation_PR-AUC"]
+    used = result[result.variant.eq("drop F rows before features (used)")].set_index("model")["validation_PR-AUC"]
     result["PR-AUC_change_vs_used"] = result["validation_PR-AUC"] - result["model"].map(used)
     return result
 
@@ -993,7 +1052,9 @@ MECHANICAL_TERMS = {
     "Tyre puncture", "Fire", "Safety belt",
 }
 
-# Exclude recorded non-starters from the mechanical-failure denominator.
+# Exclude recorded non-starters from the mechanical-failure denominator. The F rows are
+# already gone from the modeling table, so "Did not qualify" and "Did not prequalify" only
+# matter if someone builds the table with ``drop_did_not_enter=False``.
 NON_START_STATUSES = {"Withdrew", "Did not start", "Did not qualify", "Did not prequalify", "Excluded"}
 
 NATIONALITY_TO_COUNTRY = {
@@ -1049,16 +1110,16 @@ def create_plots(frame: pd.DataFrame, cleaning: pd.DataFrame,
         """Apply the shared layout, save the active figure, and close it."""
         path = out / f"{name}.png"; plt.tight_layout(); plt.savefig(path, dpi=150, bbox_inches="tight"); plt.close(); paths[name] = str(path)
 
-    # Show whether duplicate removal changed the grain or important outcome rates.
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
-    counts = cleaning.melt(id_vars="stage", value_vars=["rows", "unique_driver_races"],
-                           var_name="measure", value_name="count")
+    # Show whether each cleaning step changed the grain or important outcome rates.
+    staged = cleaning.assign(stage=cleaning.stage.str.replace(" (", "\n(", regex=False))
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.4))
+    counts = staged.melt(id_vars="stage", value_vars=["rows", "unique_driver_races"],
+                         var_name="measure", value_name="count")
     sns.barplot(counts, x="stage", y="count", hue="measure", ax=axes[0])
-    axes[0].set_title("Grain before and after cleaning")
+    axes[0].set_title("Grain at each cleaning stage")
     axes[0].set_xlabel(""); axes[0].set_ylabel("Rows / unique pairs")
-    axes[0].tick_params(axis="x", rotation=10)
-    rates = cleaning.melt(id_vars="stage", value_vars=["podium_rate", "pit_lane_share", "missing_finish_share"],
-                          var_name="measure", value_name="share")
+    rates = staged.melt(id_vars="stage", value_vars=["podium_rate", "pit_lane_share", "missing_finish_share"],
+                        var_name="measure", value_name="share")
     sns.barplot(rates, x="measure", y="share", hue="stage", ax=axes[1])
     axes[1].set_title("Rates affected by row selection")
     axes[1].set_xlabel(""); axes[1].set_ylabel("Share of rows")
@@ -1208,10 +1269,13 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     split_strategies = split_strategy_experiment(frame)
     split_windows = split_window_experiment(frame)
     uncertainty = validation_uncertainty(frame, trained)
+    test_uncertainty = validation_uncertainty(frame, trained, split="test")
     missing_experiments = missing_value_experiments(frame)
     tuning = hyperparameter_search(frame)
     sprint_check = sprint_weekend_check(frame, tables)
-    non_starters, non_starter_runs = non_starter_audit(frame, tables), non_starter_experiment(frame)
+    # The audit and experiment need the table that still contains the F rows.
+    with_f, _ = build_modeling_table(tables, drop_did_not_enter=False)
+    non_starters, non_starter_runs = non_starter_audit(with_f, tables), non_starter_experiment(with_f, frame)
     feature_summary = feature_eda(frame)
     ablations = ablation_experiments(frame)
     plots = create_plots(frame, cleaning, answers, metrics, ablations, trained, out / "figures")
@@ -1233,6 +1297,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     split_strategies.to_csv(out / "split_strategy_experiment.csv", index=False)
     split_windows.to_csv(out / "split_window_experiment.csv", index=False)
     uncertainty.to_csv(out / "validation_uncertainty.csv", index=False)
+    test_uncertainty.to_csv(out / "test_uncertainty.csv", index=False)
     missing_experiments.to_csv(out / "missing_value_experiments.csv", index=False)
     tuning.to_csv(out / "hyperparameter_search.csv", index=False)
     sprint_check.to_csv(out / "sprint_weekend_check.csv", index=False)
@@ -1263,6 +1328,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
             "feature_engineering_effects": engineering_effects, "preprocessing_order": order_experiments,
             "split_summary": splits_table, "split_integrity": integrity, "split_strategies": split_strategies,
             "split_windows": split_windows, "validation_uncertainty": uncertainty,
+            "test_uncertainty": test_uncertainty,
             "missing_experiments": missing_experiments, "tuning": tuning, "sprint_check": sprint_check,
             "non_starters": non_starters, "non_starter_experiment": non_starter_runs, "feature_eda": feature_summary,
             "ablations": ablations, "cleaning_eda": cleaning, "plots": plots,

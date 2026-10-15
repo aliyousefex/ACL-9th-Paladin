@@ -55,6 +55,12 @@ def esc(value) -> str:
     )
 
 
+def ordinal(value: int) -> str:
+    """1st, 2nd, 3rd, 4th, and so on."""
+    suffix = "th" if 10 <= value % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(value % 10, "th")
+    return f"{value}{suffix}"
+
+
 def pct(value, digits: int = 1) -> str:
     """Format a proportion as a percentage."""
     return f"{100 * float(value):.{digits}f}%"
@@ -361,6 +367,7 @@ def load():
         "split_strategies": "split_strategy_experiment",
         "windows": "split_window_experiment",
         "uncertainty": "validation_uncertainty",
+        "test_uncertainty": "test_uncertainty",
         "missing": "missing_value_experiments",
         "tuning": "hyperparameter_search",
         "sprint": "sprint_weekend_check",
@@ -398,6 +405,35 @@ def main():
     preprocessing = data["preprocessing"]
     ablation = data["ablation"]
     diag = summary["diagnostics"]
+
+    # Numbers quoted in the prose are looked up here, so the text cannot drift from the tables.
+    LR, RF, NN = "Logistic regression", "Random forest", "Shallow neural network"
+
+    def abl_loss(variant: str) -> float:
+        """Size of the validation PR-AUC loss when one feature group is removed."""
+        return abs(float(ablation.loc[ablation.variant.eq(variant), "PR-AUC_change"].iloc[0]))
+
+    def miss_change(prefix: str, model: str) -> float:
+        """Validation PR-AUC change of one missing-value variant against median imputation."""
+        table = data["missing"]
+        hit = table[table.variant.str.startswith(prefix) & table.model.eq(model)]
+        return float(hit["PR-AUC_change_vs_used"].iloc[0])
+
+    def tuned(model: str, which: str) -> pd.Series:
+        """The initial, adopted, or top-ranked row of the settings search for one model."""
+        table = data["tuning"]
+        column = {"initial": "is_initial", "current": "is_current", "best": "selected"}[which]
+        return table[table.model.eq(model) & table[column]].iloc[0]
+
+    # The wording below relies on these facts. If a rerun changes one, the build stops so the text is rewritten.
+    losses = ablation.set_index("variant")["PR-AUC_change"].drop("all features")
+    assert losses.idxmin() == "without grid", "grid is no longer the largest ablation loss"
+    assert losses.abs().idxmin() == "without context", "context is no longer the smallest ablation loss"
+    assert miss_change("median, without", NN) < 0, "removing the missing flag no longer hurts the network"
+    assert tuned(RF, "current")["rank_within_model"] == 1, "the adopted forest is no longer the top-ranked setting"
+    assert tuned(NN, "current")["rank_within_model"] == 1, "the adopted network is no longer the top-ranked setting"
+    val_pr = metrics[metrics.split.eq("validation")].set_index("model")["PR-AUC"]
+    assert val_pr.idxmax() == NN, "the network no longer leads validation PR-AUC; rewrite the selection text"
 
     splits = {
         "Training": frame[frame.year <= 2019],
@@ -496,6 +532,7 @@ def main():
         "Foreign-key audit. An orphan is a child value with no matching parent key. None were found.",
         numeric_from=1,
     )
+    raw_eda, shared_eda, clean_eda = (data["cleaning"].iloc[i] for i in range(3))
     story.append(P(
         f"The results file has {integer(diag['raw_result_rows'])} rows, but it is not yet "
         "one row per driver per race. Early shared drives produce more than one result for "
@@ -503,22 +540,32 @@ def main():
         f"{integer(diag['duplicate_driver_race_groups'])} such driver-race groups. The rule "
         "we keep is deterministic: prefer the row with a real grid start (grid greater than "
         "0), then the better finishing position, then the smaller resultId. After that rule, "
-        f"{integer(diag['clean_rows'])} rows remain, each pair (raceId, driverId) appears "
-        f"once, and the seasons run from {int(diag['year_min'])} to {int(diag['year_max'])}."
+        f"{integer(diag['rows_after_shared_drive_resolution'])} rows remain and each pair "
+        "(raceId, driverId) appears once."
     ))
     story.append(P(
-        f"Grid position 0 is not a better starting spot than pole. In this table it accounts "
-        f"for {pct(frame.pit_lane_start.mean())} of rows. We keep it as a pit-lane flag and "
+        "The second step removes drivers who did not enter the race. A result row with finishing "
+        "code F belongs to a driver who did not qualify, did not prequalify, or failed the 107% "
+        "rule. That is settled before the race starts, and the instructor ruled that these rows "
+        f"may be removed. We remove {integer(diag['did_not_enter_rows_removed'])} of them before any "
+        "feature is built, so a skipped weekend never counts as a race in a driver's form window "
+        "or in the size of the field. Withdrawals (code W) stay: that code is only known after "
+        "the race, and a grid of 0 can also be a real pit-lane start. "
+        f"{integer(diag['clean_rows'])} rows remain, and the seasons run from "
+        f"{int(diag['year_min'])} to {int(diag['year_max'])}."
+    ))
+    story.append(P(
+        f"Grid position 0 is not a better starting spot than pole. It accounts for "
+        f"{pct(shared_eda.pit_lane_share)} of rows before the F rows are removed and "
+        f"{pct(frame.pit_lane_start.mean())} after. We keep it as a flag and "
         "treat the numeric grid position as missing in those rows, so the model cannot learn "
         "that 0 is the front of the field."
     ))
-    raw_eda = data["cleaning"].iloc[0]
-    clean_eda = data["cleaning"].iloc[1]
     add_figure(
         story,
         "cleaning_before_after",
-        "Programmatic EDA before and after duplicate cleaning. The left panel compares total rows with unique "
-        "driver-race pairs; the right panel checks whether row selection materially changes key rates.",
+        "Programmatic EDA at each cleaning stage. The left panel compares total rows with unique "
+        "driver-race pairs; the right panel checks whether each step materially changes key rates.",
         width=CONTENT_W * 0.96,
     )
     cleaning_rows = [
@@ -530,21 +577,27 @@ def main():
         story,
         ["Stage", "Rows", "Unique pairs", "Duplicate rows", "Podiums", "Grid 0", "Missing finish", "Median grid"],
         cleaning_rows,
-        [1.25 * inch, .62 * inch, .78 * inch, .82 * inch, .62 * inch, .58 * inch, .82 * inch, .72 * inch],
-        "Before-and-after cleaning diagnostics computed from the raw results and cleaned modeling table.",
+        [1.55 * inch, .6 * inch, .72 * inch, .78 * inch, .6 * inch, .52 * inch, .75 * inch, .68 * inch],
+        "Cleaning diagnostics at each stage, computed from the raw results and the final modeling table.",
         numeric_from=1,
     )
     story.append(P(
-        f"In cleaning we remove {integer(int(raw_eda.rows - clean_eda.rows))} extra shared-drive rows. "
+        f"Resolving shared drives removes {integer(int(raw_eda.rows - shared_eda.rows))} extra rows. "
         f"Duplicate participation falls from {integer(int(raw_eda.duplicate_rows))} rows to zero, while "
-        f"the podium rate moves only from {pct(raw_eda.podium_rate)} to {pct(clean_eda.podium_rate)} and "
-        f"the median non-zero grid remains {num(clean_eda.median_grid, 1)}. So we fix the prediction "
-        "grain without materially reshaping the label or the starting-position distribution."
+        f"the podium rate moves only from {pct(raw_eda.podium_rate, 2)} to {pct(shared_eda.podium_rate, 2)} and "
+        f"the median non-zero grid remains {num(shared_eda.median_grid, 1)}. So we fix the prediction "
+        "grain without materially reshaping the label or the starting-position distribution. "
+        f"Removing the F rows takes out {integer(int(shared_eda.rows - clean_eda.rows))} more rows, and "
+        f"none of them is a podium, so the podium rate rises to {pct(clean_eda.podium_rate, 2)}. That rise is "
+        "arithmetic, not a change in what a podium means: a driver who never raced cannot finish "
+        f"in the top three. The grid-0 share falls from {pct(shared_eda.pit_lane_share)} to "
+        f"{pct(clean_eda.pit_lane_share)}."
     ))
     story.append(P(
         "<b>Takeaway.</b> The joins we rely on later are supported by the key audit, and "
-        "the modelling grain is one driver in one race. The cleaning choices are recorded "
-        "so that a shared drive cannot silently become two training rows.",
+        "the modelling grain is one driver in one race who actually entered it. The cleaning choices "
+        "are recorded so that a shared drive cannot silently become two training rows and a driver "
+        "who never raced cannot become a row of zeros.",
         "Takeaway",
     ))
 
@@ -666,7 +719,8 @@ def main():
         f"{pct(base_overall.loc['2014-2024', 'mean'])} in those same eras. A front-row car "
         "is therefore several times more likely to podium than a typical starter. The "
         "modern front row converts at a higher rate than the historical front row, while "
-        "the all-starter rate only moves from about 12% to about 15%."
+        f"the all-starter rate only moves from {pct(base_overall.loc['1950-2013', 'mean'], 0)} to "
+        f"{pct(base_overall.loc['2014-2024', 'mean'], 0)}."
     ))
     story.append(P(
         f"The ranking itself needs a sample-size caution. Istanbul Park is second in the "
@@ -1016,28 +1070,33 @@ def main():
         "sprint points reach the features only through the previous round."
     ))
 
-    h2(story, "5.2 Grid 0 is mostly drivers who never raced")
+    h2(story, "5.2 Drivers who did not enter the race")
     audit = data["non_starters"]
     runs = data["non_starter_runs"]
     failed = audit[audit.group.str.startswith("F:")].iloc[0]
+    withdrew = audit[audit.group.str.startswith("W:")].iloc[0]
+    raced_zero = audit[audit.group.str.startswith("grid 0 but raced")].iloc[0]
+    withdrew_zero = int(round(withdrew.rows * withdrew.grid_zero_share))
     story.append(P(
-        f"{pct(frame.pit_lane_start.mean())} of rows have grid 0, and the feature name suggests "
-        "a pit-lane start. Most of them are not. "
-        f"We found that {integer(failed.rows)} rows are drivers who did not qualify, did not prequalify, or "
-        "failed the 107% rule. All of them are in 1952-2012, all are in training, and none "
-        "finished on the podium. Only 87 grid-0 rows are real pit-lane or exceptional starts "
-        f"(Table {COUNTERS['tab'] + 1})."
+        f"Before this step {pct(data['cleaning'].iloc[1].pit_lane_share)} of rows have grid 0, and the feature name "
+        "suggests a pit-lane start. Most of them were not. "
+        f"{integer(failed.rows)} rows are drivers who did not qualify, did not prequalify, or "
+        f"failed the 107% rule. All of them are in {int(failed.first_year)}-{int(failed.last_year)}, all are in "
+        "training, and none finished on the podium. Only "
+        f"{integer(raced_zero.rows)} grid-0 rows are real pit-lane or exceptional starts (Table {COUNTERS['tab'] + 1}). "
+        "The instructor ruled that these F rows are known before the race and may be removed, and that withdrawals "
+        "may not, so we remove the first and keep the second."
     ))
     add_table(
         story,
-        ["Group", "Rows", "Share", "Podium rate", "Years", "In training", "In validation", "In test"],
-        [[r.group, integer(r.rows), pct(r.share_of_rows), pct(r.podium_rate),
+        ["Group", "Treatment", "Rows", "Podium rate", "Years", "In training", "In validation", "In test"],
+        [[r.group, "removed" if r.treatment.startswith("removed") else "kept", integer(r.rows), pct(r.podium_rate),
           f"{int(r.first_year)}-{int(r.last_year)}", integer(r.rows_in_training),
           integer(r.rows_in_validation), integer(r.rows_in_test)]
          for r in audit.itertuples()],
-        [2.3 * inch, 0.55 * inch, 0.55 * inch, 0.7 * inch, 0.75 * inch, 0.65 * inch, 0.7 * inch, 0.5 * inch],
-        "Who has grid 0 or a withdrawal code, by group.",
-        numeric_from=1,
+        [2.1 * inch, 0.7 * inch, 0.55 * inch, 0.7 * inch, 0.75 * inch, 0.65 * inch, 0.7 * inch, 0.5 * inch],
+        "Who has grid 0 or a withdrawal code, by group, and what we do with each group.",
+        numeric_from=2,
     )
 
     def run_change(variant, model):
@@ -1045,19 +1104,21 @@ def main():
         hit = runs[runs.variant.str.startswith(variant) & runs.model.eq(model)].iloc[0]
         return float(hit["PR-AUC_change_vs_used"])
 
+    keep, tail = "keep F rows in the history and", "keep F rows in the history, drop"
+    biggest = max(abs(run_change(v, m)) for v in (keep, tail) for m in (LR, NN))
+    seed_sd = float(tuned(NN, "current")["validation_PR-AUC_std"])
     story.append(P(
-        "We trained with and without these rows and scored the same validation seasons. "
-        f"Dropping the did-not-qualify rows changes validation PR-AUC by "
-        f"{run_change('drop F rows', 'Logistic regression'):+.4f} for logistic regression and "
-        f"{run_change('drop F rows', 'Shallow neural network'):+.4f} for the network, which is "
-        "within noise. Dropping the withdrawals as well changes it by "
-        f"{run_change('drop F and W', 'Shallow neural network'):+.4f} for the network. "
-        "<b>We keep every row.</b> Validation and test contain no did-not-qualify rows, so the "
-        "evaluation is unchanged either way. A withdrawal cannot be shown to be known before "
-        "the start, because the same code covers drivers who started and retired. The caveat "
-        "is that in training the pit-lane flag is mostly a did-not-qualify marker. Dropping "
-        "those rows is a reasonable alternative if the instructor rules that a driver who "
-        "did not qualify did not enter the race."
+        "We scored the decision on the same validation seasons. Keeping the F rows instead changes validation "
+        f"PR-AUC by {run_change(keep, LR):+.4f} for logistic regression and {run_change(keep, NN):+.4f} for the "
+        "network. Keeping them in the history but dropping them from the training rows only changes it by "
+        f"{run_change(tail, LR):+.4f} and {run_change(tail, NN):+.4f}. The largest of these changes is "
+        f"{biggest:.4f}, against a seed-to-seed spread of about {seed_sd:.3f} for the network, so the choice rests on "
+        "the ruling and on what a row means, not on a score. Removing the withdrawals as well, which the ruling "
+        f"does not allow, would change the network by {run_change('also drop W rows', NN):+.4f}. Validation and test "
+        "contain no F rows, so the same rows are scored either way. The pit-lane flag now marks "
+        f"{integer(withdrew_zero + raced_zero.rows)} rows, {integer(withdrew_zero)} withdrawals with grid 0 and "
+        f"{integer(raced_zero.rows)} drivers who raced from the pit lane or an exceptional start. It is no longer a "
+        "did-not-qualify marker, but it is still not a pure pit-lane flag."
     ))
 
     h2(story, "5.3 Evidence for each individual feature")
@@ -1095,9 +1156,12 @@ def main():
     )
     story.append(P(
         "<b>Strong single signals.</b> Position features carry the most. "
-        f"Qualifying position has an AUC of {auc('qualifying_position')} (lower is better, measured on the third of rows "
-        f"that have it) and grid position {auc('grid_position')}; the podium rate falls from about 45-50% in the best bin "
-        "to under 1% in the worst. The standings ranks "
+        f"Qualifying position has an AUC of {auc('qualifying_position')} (lower is better, measured on the "
+        f"{pct(1 - fe.loc['qualifying_position', 'missing_share_train'], 0)} of rows that have it) and grid position "
+        f"{auc('grid_position')}; the podium rate falls from {pct(fe.loc['grid_position', 'podium_rate_lowest_bin'], 0)} "
+        f"(grid) and {pct(fe.loc['qualifying_position', 'podium_rate_lowest_bin'], 0)} (qualifying) in the best bin "
+        f"to {pct(fe.loc['grid_position', 'podium_rate_highest_bin'])} and "
+        f"{pct(fe.loc['qualifying_position', 'podium_rate_highest_bin'])} in the worst. The standings ranks "
         f"({auc('driver_rank_before')} and {auc('constructor_rank_before')}), the form rates "
         f"({auc('driver_podium_rate_5')} and {auc('constructor_podium_rate_5')}), and the points "
         f"({auc('driver_points_before')} and {auc('constructor_points_before')}) come next. The front-row flag "
@@ -1110,18 +1174,21 @@ def main():
         f"the pit-lane flag ({auc('pit_lane_start')}), and the qualifying-missing flag ({auc('qualifying_missing')}) are "
         "close to 0.5 on their own. A raw qualifying time is not comparable across circuits and eras, so it says little "
         "without the rest of the row. The two flags are indicators. Removing the qualifying-missing flag costs the "
-        "network 0.041 PR-AUC (Section 6.4), and rows with no grid position, drivers who never started, never podium, "
+        f"network {abs(miss_change('median, without', NN)):.3f} PR-AUC (Section 6.4), and rows with no grid position "
+        "(withdrawals and pit-lane starts) never podium, "
         "while rows with no qualifying record podium at about the average rate "
         f"({pct(fe.loc['qualifying_position', 'podium_rate_when_missing'])} against {pct(frame.podium.mean())}). Round "
         f"({auc('round')}) and year ({auc('year')}) have essentially no single-feature signal, and field size, round, and "
         "year are flat or constant on validation, where every race has 20 starters. We keep them as context and era "
-        "controls, and the ablation shows the whole context group adds the least of the five (0.004 PR-AUC). We have not "
+        "controls, and the ablation shows the whole context group adds the least of the five "
+        f"({abl_loss('without context'):.3f} PR-AUC). We have not "
         "shown that round or year help on their own, so they are the first candidates to remove."
     ))
     story.append(P(
         "<b>What this does and does not show.</b> A one-feature AUC ignores the other 16 features. A feature that looks "
         "weak here can still help in combination, and a strong one can add little once the grid is present: the ablation "
-        "shows qualifying adds only 0.005 on top of the grid. The AUCs describe association in past races, not causes.",
+        f"shows qualifying adds only {abl_loss('without qualifying'):.3f} on top of the grid. The AUCs describe association "
+        "in past races, not causes.",
         "Takeaway",
     ))
 
@@ -1273,11 +1340,15 @@ def main():
         f"and {oget('C', 'impute -> scale', nn, 'PR-AUC_change_vs_reference', 'all'):+.4f}; "
         "small or not, it uses future data, so we never do it."
     ))
+    lr_swing = max(float(order[order.model.eq(LR)]["PR-AUC_change_vs_reference"].abs().max()), best_pr - worst_pr)
+    nn_swing = float(order[order.model.eq(NN)]["PR-AUC_change_vs_reference"].abs().max())
     story.append(P(
         "<b>Takeaway.</b> We keep split, then median imputation, then scaling, all fitted on "
         "training rows inside the model pipeline. Logistic regression is almost indifferent to "
-        "strategy and order (every change is within 0.004 PR-AUC). The network is more "
-        "sensitive, up to about 0.04 PR-AUC, so for it the order is part of the model, not a "
+        f"strategy and order (every change is within {lr_swing:.3f} PR-AUC). The network is more "
+        f"sensitive, up to {nn_swing:.3f} PR-AUC, about "
+        f"{nn_swing / float(tuned(NN, 'current')['validation_PR-AUC_std']):.1f} seed standard deviations of a "
+        "single seed, so for it the order is worth fixing explicitly rather than treating as a "
         "detail. The next sections test which information the models need.",
         "Takeaway",
     ))
@@ -1288,10 +1359,11 @@ def main():
                                values=["validation_PR-AUC", "PR-AUC_change_vs_used"], sort=False).reset_index()
     lr_name, nn_name = "Logistic regression", "Shallow neural network"
     story.append(P(
-        "About two thirds of training rows have no qualifying record, so we did not choose the "
-        "handling by preference. Each approach is scored on the same validation seasons "
+        f"About {pct(train.qualifying_missing.mean(), 0)} of training rows have no qualifying record, so we did not "
+        "choose the handling by preference. Each approach is scored on the same validation seasons "
         f"(Table {COUNTERS['tab'] + 1}). The network is run once with one seed, and its seed-to-seed "
-        "spread is about 0.016 (Section 7.1), so small network differences are noise."
+        f"spread is about {float(tuned(NN, 'current')['validation_PR-AUC_std']):.3f} (Section 7.1), so small "
+        "network differences are noise."
     ))
     add_table(
         story,
@@ -1304,14 +1376,28 @@ def main():
         "Missing-value experiments on 2020-2021. Change is against median imputation, which is used.",
         numeric_from=1,
     )
+    lr_alts = missing[missing.model.eq(LR) & ~missing.variant.str.endswith("(used)")]
+    best_alt = lr_alts.sort_values("PR-AUC_change_vs_used").iloc[-1]
+    row_counts = {v: int(missing[missing.variant.str.startswith(v)].train_rows.iloc[0])
+                  for v in ["drop training rows with no qualifying", "drop training rows with any missing"]}
+    full_rows = int(missing[missing.variant.str.endswith("(used)")].train_rows.iloc[0])
     story.append(P(
-        "For logistic regression every alternative stays within 0.005 of median imputation "
-        "(k-nearest-neighbour imputation is the best, at +0.0022). For the network every "
-        "alternative is worse, by 0.015 for mean imputation and about 0.045 for k-nearest-"
-        "neighbour and iterative imputation. Dropping the two sparse qualifying columns costs "
-        "the network 0.035, and removing the missing-value flag instead costs it 0.041, so the "
-        "flag carries real information. Dropping rows keeps only 8,356 or 7,374 of 24,529 "
-        "training rows and lowers both scores. <b>We keep median imputation with the flag</b>, "
+        f"For logistic regression every alternative stays within {float(lr_alts['PR-AUC_change_vs_used'].abs().max()):.3f} "
+        f"of median imputation (the best alternative, {esc(best_alt.variant)}, is "
+        f"{float(best_alt['PR-AUC_change_vs_used']):+.4f}). For the network, mean imputation changes the score by "
+        f"{miss_change('mean imputation', NN):+.3f}, k-nearest-neighbour imputation by "
+        f"{miss_change('KNN', NN):+.3f}, and iterative imputation by {miss_change('iterative', NN):+.3f}. "
+        "Dropping the two sparse qualifying columns changes the network by "
+        f"{miss_change('drop the sparse', NN):+.3f}, and removing the missing-value flag instead changes it by "
+        f"{miss_change('median, without', NN):+.3f}, so the network relies on the flag as well as on the values. Dropping rows keeps "
+        f"only {integer(row_counts['drop training rows with no qualifying'])} or "
+        f"{integer(row_counts['drop training rows with any missing'])} of {integer(full_rows)} "
+        "training rows and changes the scores by "
+        f"{miss_change('drop training rows with no qualifying', LR):+.3f} and "
+        f"{miss_change('drop training rows with any missing', LR):+.3f} for logistic regression, "
+        f"{miss_change('drop training rows with no qualifying', NN):+.3f} and "
+        f"{miss_change('drop training rows with any missing', NN):+.3f} for the network. "
+        "<b>We keep median imputation with the flag</b>, "
         "fitted on training rows only: it is the best or tied for best, and it keeps all the "
         "history."
     ))
@@ -1327,8 +1413,9 @@ def main():
         "units. Each model's settings were searched on validation (Section 7.1), and the "
         "probability cutoff that maximises F1 on validation is chosen last. That produces a different cutoff for each "
         "model, because the three probability scales are not the same number line. A cutoff "
-        "of 0.240 on the network is not automatically more aggressive than 0.655 on the "
-        "logistic model. Precision and recall tell us what the cutoff actually does."
+        f"of {num(summary['thresholds'][NN])} on the network is not automatically more aggressive than "
+        f"{num(summary['thresholds'][LR])} on the logistic model. Precision and recall tell us what "
+        "the cutoff actually does."
     ))
     story.append(P(
         f"Figure {COUNTERS['fig'] + 1} compares the three models on the test seasons only. "
@@ -1405,8 +1492,8 @@ def main():
         f"three. The network sits between them, with precision "
         f"{num(mget('Shallow neural network', 'test', 'Precision'))} and recall "
         f"{num(mget('Shallow neural network', 'test', 'Recall'))}. Test F1 ends up almost "
-        f"tied, from {num(mget('Random forest', 'test', 'F1'))} to "
-        f"{num(mget('Shallow neural network', 'test', 'F1'))}. Same F1, different mix of "
+        f"tied, from {num(min(mget(m, 'test', 'F1') for m in (LR, RF, NN)))} to "
+        f"{num(max(mget(m, 'test', 'F1') for m in (LR, RF, NN)))}. Same F1, different mix of "
         "missed podiums and false podiums."
     ))
     story.append(P(
@@ -1414,7 +1501,8 @@ def main():
         f"PR-AUC below their validation score: {num(mget('Logistic regression', 'train', 'PR-AUC'))} "
         f"for logistic regression, {num(mget('Random forest', 'train', 'PR-AUC'))} for the "
         f"forest, and {num(mget('Shallow neural network', 'train', 'PR-AUC'))} for the network. "
-        "That was not true of the first forest, which scored 0.919 on training and 0.702 on "
+        f"That was not true of the first forest, which scored {float(tuned(RF, 'initial')['train_PR-AUC']):.3f} on "
+        f"training and {float(tuned(RF, 'initial')['validation_PR-AUC']):.3f} on "
         "validation because it had no depth limit and four rows per leaf. The validation "
         "search in Section 7.1 limited it. We do not read the higher validation score as the "
         "model improving after 2019. Training has a lower podium rate and far more missing "
@@ -1441,11 +1529,12 @@ def main():
             return "adopted"
         if r.is_initial:
             return "starting"
-        return "best of grid (tie)"
+        return "top of grid"
 
     story.append(P(
         "We trained each model on 1950-2019 and scored it on 2020-2021 for every setting in a "
-        "small grid. Our grid held 8 settings for logistic regression, 9 for the forest, and 12 "
+        f"small grid. Our grid held {int(tuning.groupby('model').size()[LR])} settings for logistic regression, "
+        f"{int(tuning.groupby('model').size()[RF])} for the forest, and {int(tuning.groupby('model').size()[NN])} "
         "for the network. We averaged the network over three seeds because its score depends "
         "on the initialization. We did not use the test seasons "
         f"(Table {COUNTERS['tab'] + 1})."
@@ -1460,17 +1549,35 @@ def main():
         "Search results for the starting settings, the adopted settings, and the top of each grid.",
         numeric_from=3,
     )
+    sizes = tuning.groupby("model").size()
+    rf0, rf1 = tuned(RF, "initial"), tuned(RF, "current")
+    nn0, nn1 = tuned(NN, "initial"), tuned(NN, "current")
+    lr_all, lr1, lr_best = tuning[tuning.model.eq(LR)], tuned(LR, "current"), tuned(LR, "best")
+    nn_others = tuning[tuning.model.eq(NN) & ~tuning.settings.str.contains(r"\(32, 12\)")]
+    assert nn_others["validation_PR-AUC"].max() < nn1["validation_PR-AUC"], \
+        "another network architecture now beats the adopted one; rewrite the network paragraph"
+    assert 0 < nn1["validation_PR-AUC"] - nn0["validation_PR-AUC"] < nn1["validation_PR-AUC_std"], \
+        "the network's gain over its starting setting is no longer inside the seed spread; rewrite the paragraph"
+    lr_gap_value = float(lr_best["validation_PR-AUC"] - lr1["validation_PR-AUC"])
+    lr_gap = "ties for best (within 0.0005)" if lr_gap_value < 5e-4 else f"is within {lr_gap_value:.4f} of the best"
     story.append(P(
-        "<b>Random forest: improved.</b> The starting forest ranked 7th of 9. A depth limit of 12 "
-        "with 30 rows per leaf raises validation PR-AUC from 0.702 to 0.717 and cuts the training "
-        "score from 0.919 to 0.647, so it no longer memorizes the training seasons. We adopted it, "
-        "and test PR-AUC rose from 0.689 to 0.712 without the test set taking part in the choice. "
-        "<b>Shallow network: confirmed, not improved.</b> One layer of 8, 16, 32, or 64 units and "
-        "two layers of 32 and 12 or 64 and 32, each with two regularization strengths, were all "
-        "tried. The starting 32 and 12 was best, at 0.7248 over three seeds, so the network is "
-        "not a deliberately weak choice: smaller ones are worse and larger ones are no better. "
-        "<b>Logistic regression</b> is insensitive: L1 and L2 penalties and C from 0.01 to 10 all "
-        "fall between 0.713 and 0.728, and C = 1 with L2 ties for best."
+        f"<b>Random forest: improved.</b> The starting forest (no depth limit, 4 rows per leaf) ranked "
+        f"{ordinal(int(rf0.rank_within_model))} of {int(sizes[RF])}. It scored {float(rf0['validation_PR-AUC']):.3f} on "
+        f"validation but {float(rf0['train_PR-AUC']):.3f} on training, a memorized fit. A depth limit of 12 with "
+        f"30 rows per leaf ranks first at {float(rf1['validation_PR-AUC']):.3f} and cuts the training score to "
+        f"{float(rf1['train_PR-AUC']):.3f}, so it no longer memorizes the training seasons. We adopted it, with no "
+        "test season taking part in the choice. "
+        "<b>Shallow network: improved slightly.</b> One layer of 8, 16, 32, or 64 units and two layers of 32 and 12 "
+        "or 64 and 32, each with two regularization strengths, were all tried. Two layers of 32 and 12 with the "
+        f"stronger penalty (alpha 0.02) rank first at {float(nn1['validation_PR-AUC']):.4f} over three seeds, ahead of "
+        f"the starting alpha of 0.002 ({float(nn0['validation_PR-AUC']):.4f}). That gap of "
+        f"{float(nn1['validation_PR-AUC'] - nn0['validation_PR-AUC']):.4f} is inside the seed spread of about "
+        f"{float(nn1['validation_PR-AUC_std']):.3f}, but the stronger penalty is also the simpler model, so we adopted "
+        "it. Every other architecture scores lower, so the network is not a deliberately weak choice: smaller ones "
+        "are worse and larger ones are no better. "
+        f"<b>Logistic regression</b> is insensitive: L1 and L2 penalties and C from 0.01 to 10 all fall between "
+        f"{float(lr_all['validation_PR-AUC'].min()):.3f} and {float(lr_all['validation_PR-AUC'].max()):.3f}, and the "
+        f"starting C = 1 with L2 {lr_gap}, so we kept it."
     ))
 
     h2(story, "7.2 How much the validation score can be trusted")
@@ -1494,10 +1601,14 @@ def main():
         "Validation PR-AUC on four windows that precede the test seasons.",
         numeric_from=2,
     )
+    ci_width = float((uncertainty.iloc[:3]["ci_high_97.5%"] - uncertainty.iloc[:3]["ci_low_2.5%"]).mean())
+    # The wording below says every model-minus-baseline interval includes zero. Fail loudly if that changes.
+    assert all(r["ci_low_2.5%"] <= 0 <= r["ci_high_97.5%"] for _, r in uncertainty.iloc[3:].iterrows()), \
+        "The report text assumes both model-minus-baseline intervals include zero; rewrite it."
     story.append(P(
         "To measure the uncertainty directly we resampled whole validation races "
         f"(Table {COUNTERS['tab'] + 1}). With 39 races, each model's PR-AUC has a 95% interval "
-        "about 0.2 wide. The difference between the network and logistic regression is "
+        f"about {ci_width:.1f} wide. The difference between the network and logistic regression is "
         f"{uncertainty.iloc[4]['validation_PR-AUC']:+.3f} with an interval from "
         f"{uncertainty.iloc[4]['ci_low_2.5%']:+.3f} to {uncertainty.iloc[4]['ci_high_97.5%']:+.3f}, "
         "and the forest's difference also includes zero. The data therefore do not show that any "
@@ -1512,6 +1623,34 @@ def main():
          for _, r in uncertainty.iterrows()],
         [3.1 * inch, 1.3 * inch, 1.0 * inch, 1.0 * inch],
         "Bootstrap over the 39 validation races. The last two rows are differences from logistic regression.",
+        numeric_from=1,
+    )
+    test_unc = data["test_uncertainty"]
+    test_pr = {m: mget(m, "test", "PR-AUC") for m in (LR, RF, NN)}
+    # The closing paragraphs say the forest and network are level and both include zero. Fail loudly if that changes.
+    assert all(r["ci_low_2.5%"] <= 0 <= r["ci_high_97.5%"] for _, r in test_unc.iloc[3:].iterrows()), \
+        "A test-season model-minus-baseline interval excludes zero; rewrite the report text."
+    assert test_pr[LR] < min(test_pr[RF], test_pr[NN]) and abs(test_pr[RF] - test_pr[NN]) < 0.005, \
+        "The test ranking changed; rewrite the report text."
+    test_ci_width = float((test_unc.iloc[:3]["ci_high_97.5%"] - test_unc.iloc[:3]["ci_low_2.5%"]).mean())
+    story.append(P(
+        "We repeated the resampling on the unseen test seasons. It resamples predictions we already had and "
+        "chooses nothing, and we ran it after every choice was frozen "
+        f"(Table {COUNTERS['tab'] + 1}). With {int(test_unc.races.iloc[0])} races each model's interval is about "
+        f"{test_ci_width:.2f} wide. The forest minus logistic regression difference is "
+        f"{test_unc.iloc[3]['test_PR-AUC']:+.4f} ({test_unc.iloc[3]['ci_low_2.5%']:+.3f} to "
+        f"{test_unc.iloc[3]['ci_high_97.5%']:+.3f}), and for the network it is {test_unc.iloc[4]['test_PR-AUC']:+.4f} "
+        f"({test_unc.iloc[4]['ci_low_2.5%']:+.3f} to {test_unc.iloc[4]['ci_high_97.5%']:+.3f}). Both intervals include "
+        "zero, so the test seasons do not separate the models either, even though logistic regression scores "
+        f"{num(min(test_pr[RF], test_pr[NN]) - test_pr[LR])} lower."
+    ))
+    add_table(
+        story,
+        ["Comparison", "Test PR-AUC", "95% low", "95% high"],
+        [[r.comparison, num(r["test_PR-AUC"], 4), num(r["ci_low_2.5%"], 4), num(r["ci_high_97.5%"], 4)]
+         for _, r in test_unc.iterrows()],
+        [3.1 * inch, 1.3 * inch, 1.0 * inch, 1.0 * inch],
+        f"Bootstrap over the {int(test_unc.races.iloc[0])} test races. The last two rows are differences from logistic regression.",
         numeric_from=1,
     )
 
@@ -1772,6 +1911,9 @@ def main():
     # Check inference with both a complete row and a partially filled record.
     h1(story, "10. Two predictions from the selected network")
     demo = summary["inference_demos"]
+    # The text below says neither demo record is predicted to podium. Fail loudly if that changes.
+    assert not demo["complete_record"]["predicted_podium"] and not demo["partial_record"]["predicted_podium"], \
+        "The report text assumes both demo records fall below the cutoff; rewrite it."
     story.append(P(
         f"The examples use the {demo['model'].lower()}, because it had the best validation "
         f"PR-AUC. Its frozen cutoff is {num(demo['complete_record']['threshold'])}. Missing "
@@ -1784,7 +1926,7 @@ def main():
         "in this table were all podiums (driver rate 1.0), the constructor's recent podium "
         "rate was 0.7, he was third in the championship on 15 points, and Mercedes was "
         "second on 27 points. The network gives this row a podium probability of "
-        f"{demo['complete_record']['podium_probability']:.3f}. That is below 0.240, so the "
+        f"{demo['complete_record']['podium_probability']:.3f}. That is below {num(demo['complete_record']['threshold'])}, so the "
         "predicted label is not a podium. The actual result was not a podium. Strong recent "
         "form and a high championship position did not overcome 15th on the grid, either "
         "in the race or in the model."
@@ -1798,7 +1940,7 @@ def main():
         "because it is not a driver who started a race."
     ))
     story.append(P(
-        "We should not read 0.032 as the historical podium rate of cars that start third. "
+        f"We should not read {demo['partial_record']['podium_probability']:.3f} as the historical podium rate of cars that start third. "
         "Section 4.2 puts that rate near 55% for grid positions 1-3. The partial row is a "
         "third-place start glued onto a median historical driver, and the median driver in "
         "a 1950-2019 training set is not a podium contender. The low probability is what "
@@ -1840,8 +1982,14 @@ def main():
     story.append(P(
         "Validation is 39 races. We used it to pick a cutoff and a model, which is what a "
         "held-out test set requires, and we do not pretend it can rank effects of a few "
-        "thousandths. A bootstrap over those races gives each PR-AUC an interval about 0.2 "
-        "wide, and the differences between the models fall inside it. On the unseen test seasons PR-AUC is 0.703 for logistic regression, 0.712 for the forest and 0.716 for the network, a spread smaller than the network's seed-to-seed variation of about 0.016. We therefore do not claim that the more complex models are better. We treat the three as tied in ranking quality and keep logistic regression as the readable baseline. Regulation changes in 2014 and 2022 sit inside the eras we compared. "
+        f"thousandths. A bootstrap over those races gives each PR-AUC an interval about {ci_width:.1f} "
+        "wide, and the differences between the models fall inside it. On the unseen test seasons PR-AUC is "
+        f"{num(mget(LR, 'test', 'PR-AUC'))} for logistic regression, {num(mget(RF, 'test', 'PR-AUC'))} for the forest "
+        f"and {num(mget(NN, 'test', 'PR-AUC'))} for the network. Logistic regression is "
+        f"{num(min(test_pr[RF], test_pr[NN]) - test_pr[LR])} behind, but a bootstrap over the {int(test_unc.races.iloc[0])} "
+        "test races puts both differences from it inside an interval that includes zero (Section 7.2). We therefore do "
+        "not claim that the more complex models are better. We treat the three as tied in ranking quality and keep "
+        "logistic regression as the readable baseline. Regulation changes in 2014 and 2022 sit inside the eras we compared. "
         "The models are associating historical patterns. They do not tell a team what would "
         "happen if it started one place further forward, and a probability is not a guarantee "
         "about the next race."
@@ -1850,7 +1998,8 @@ def main():
     # Close by connecting the cleaning, modeling, and explanation evidence.
     h1(story, "12. What the evidence supports")
     story.append(P(
-        "The tables join, and after 85 shared-drive groups are resolved we have one row "
+        f"The tables join, and after {integer(diag['duplicate_driver_race_groups'])} shared-drive groups are resolved "
+        f"and {integer(diag['did_not_enter_rows_removed'])} did-not-enter rows are removed we have one row "
         f"per driver per race, {integer(diag['clean_rows'])} of them, with a podium rate of "
         f"{pct(frame.podium.mean())}. Qualifying is missing for most of the early history "
         "and nearly complete from 2003, so the grid is the starting-order feature we can "
@@ -1866,9 +2015,10 @@ def main():
     story.append(P(
         "Predictively, logistic regression, a random forest, and a shallow network all "
         "clear the PR-AUC baseline of the recent seasons by a wide margin. The network is "
-        "the one we select from the validation scores, and the untouched test seasons "
-        "still place it slightly first, although the three models are within validation "
-        "uncertainty of each other. "
+        "the one we select from the validation scores. The untouched test seasons put it level with "
+        f"the forest ({num(test_pr[NN])} and {num(test_pr[RF])}) and ahead of logistic regression "
+        f"({num(test_pr[LR])}), although the three models are within bootstrap uncertainty of each other "
+        "on both validation and test. "
         "Ablation, permutation, and SHAP agree that grid position carries the prediction, and "
         "permutation and SHAP also agree that constructor form comes second. They differ on the "
         "smaller features, and we do not force them to agree. The Hamilton "

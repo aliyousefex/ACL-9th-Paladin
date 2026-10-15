@@ -100,7 +100,7 @@ Rana Tamer Elsayed & 58-6459 &  & T-13 \\
 In this report we ask a narrow question. After qualifying, and before the race starts, can we tell which drivers will finish in the top three? We use the Formula 1 World Championship tables from 1950 to 2024. The prediction cutoff matters. Anything that is only known once the race is underway, such as the finishing order, the points scored that day, the retirement reason, the pit stops, or the fastest lap, is not allowed into the model as an input for that same race.
 
 
-The cleaned table has 26,668 driver-race rows, and 12.7\% of them are podiums. That rate is the reason we do not treat every metric as equal. A ranking that ignores the features would score a PR-AUC near 0.127 on the full table, and near 0.150 on the 2022-2024 seasons, because that is simply the share of positive rows. ROC-AUC answers a different question: if we pick one driver who podiumed and one who did not, how often does the model give the podium driver the higher probability? A coin-flip ranking sits near 0.500. We use PR-AUC as the main score and ROC-AUC as the secondary score. F1, precision, and recall are reported at one cutoff, and that cutoff is chosen only on 2020-2021.
+The cleaned table has 25,302 driver-race rows, and 13.4\% of them are podiums. That rate is the reason we do not treat every metric as equal. A ranking that ignores the features would score a PR-AUC near 0.134 on the full table, and near 0.150 on the 2022-2024 seasons, because that is simply the share of positive rows. ROC-AUC answers a different question: if we pick one driver who podiumed and one who did not, how often does the model give the podium driver the higher probability? A coin-flip ranking sits near 0.500. We use PR-AUC as the main score and ROC-AUC as the secondary score. F1, precision, and recall are reported at one cutoff, and that cutoff is chosen only on 2020-2021.
 
 
 \begin{takeaway}
@@ -169,51 +169,56 @@ constructor\_standings.raceId $\rightarrow$ races.raceId & 13,391 & 0 \\
 \end{table}
 
 
-The results file has 26,759 rows, but it is not yet one row per driver per race. Early shared drives produce more than one result for the same driver in the same race. We found 85 such driver-race groups. The rule we keep is deterministic: prefer the row with a real grid start (grid greater than 0), then the better finishing position, then the smaller resultId. After that rule, 26,668 rows remain, each pair (raceId, driverId) appears once, and the seasons run from 1950 to 2024.
+The results file has 26,759 rows, but it is not yet one row per driver per race. Early shared drives produce more than one result for the same driver in the same race. We found 85 such driver-race groups. The rule we keep is deterministic: prefer the row with a real grid start (grid greater than 0), then the better finishing position, then the smaller resultId. After that rule, 26,668 rows remain and each pair (raceId, driverId) appears once.
 
 
-Grid position 0 is not a better starting spot than pole. In this table it accounts for 6.1\% of rows. We keep it as a pit-lane flag and treat the numeric grid position as missing in those rows, so the model cannot learn that 0 is the front of the field.
+The second step removes drivers who did not enter the race. A result row with finishing code F belongs to a driver who did not qualify, did not prequalify, or failed the 107\% rule. That is settled before the race starts, and the instructor ruled that these rows may be removed. We remove 1,366 of them before any feature is built, so a skipped weekend never counts as a race in a driver's form window or in the size of the field. Withdrawals (code W) stay: that code is only known after the race, and a grid of 0 can also be a real pit-lane start. 25,302 rows remain, and the seasons run from 1950 to 2024.
+
+
+Grid position 0 is not a better starting spot than pole. It accounts for 6.1\% of rows before the F rows are removed and 1.1\% after. We keep it as a flag and treat the numeric grid position as missing in those rows, so the model cannot learn that 0 is the front of the field.
 
 
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
 \begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.7cm}, width=0.384\linewidth, height=5.2cm, ymajorgrids, enlarge x limits=0.35]
-\nextgroupplot[ybar, bar width=11pt, title={Grain before and after cleaning}, ylabel={Rows / unique pairs}, xtick={0,1}, xticklabels={Raw results,Cleaned table}, ymin=0, ymax=42000, scaled y ticks=false, legend pos=north east]
-\addplot[fill=modelA, draw=none] coordinates {(0,26759) (1,26668)};
-\addplot[fill=modelB, draw=none] coordinates {(0,26668) (1,26668)};
+\nextgroupplot[ybar, bar width=9pt, title={Grain at each cleaning stage}, ylabel={Rows / unique pairs}, xtick={0,1,2}, xticklabels={Raw,Shared drives resolved,F rows removed}, xticklabel style={font=\tiny, text width=1.5cm, align=center}, ymin=0, ymax=42000, scaled y ticks=false, legend pos=north east]
+\addplot[fill=modelA, draw=none] coordinates {(0,26759) (1,26668) (2,25302)};
+\addplot[fill=modelB, draw=none] coordinates {(0,26668) (1,26668) (2,25302)};
 \legend{rows, unique driver-race pairs}
-\nextgroupplot[ybar, bar width=11pt, title={Rates affected by row selection}, ylabel={Share of rows}, xtick={0,1,2}, xticklabels={podium,grid 0,missing finish}, ymin=0, legend pos=north east]
+\nextgroupplot[ybar, bar width=7pt, title={Rates affected by row selection}, ylabel={Share of rows}, xtick={0,1,2}, xticklabels={podium,grid 0,missing finish}, ymin=0, legend pos=north east]
 \addplot[fill=modelA, draw=none] coordinates {(0,0.126948) (1,0.061213) (2,0)};
 \addplot[fill=modelB, draw=none] coordinates {(0,0.127306) (1,0.0613094) (2,0)};
-\legend{Raw results, Cleaned table}
+\addplot[fill=modelC, draw=none] coordinates {(0,0.134179) (1,0.011422) (2,0)};
+\legend{Raw, Shared drives resolved, F rows removed}
 \end{groupplot}
 \end{tikzpicture}
-\caption{Programmatic EDA before and after duplicate cleaning. The left panel compares total rows with unique driver-race pairs; the right panel checks whether row selection materially changes key rates.}
+\caption{Programmatic EDA at each cleaning stage. The left panel compares total rows with unique driver-race pairs; the right panel checks whether each step materially changes key rates.}
 \end{figure}
 
 
 \begin{table}[H]
 \centering
-\caption{Before-and-after cleaning diagnostics computed from the raw results and cleaned modeling table.}
+\caption{Cleaning diagnostics at each stage, computed from the raw results and the final modeling table.}
 {\footnotesize\rowcolors{2}{white}{zebra}
-\begin{tabular}{>{\raggedright\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*201/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*100/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*126/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*132/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*100/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*93/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*132/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*116/1000\relax}}
+\begin{tabular}{>{\raggedright\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*250/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*97/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*116/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*126/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*97/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*84/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*121/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*110/1000\relax}}
 \toprule
 \rowcolor{navy}
 \textcolor{white}{\textbf{Stage}} & \textcolor{white}{\textbf{Rows}} & \textcolor{white}{\textbf{Unique pairs}} & \textcolor{white}{\textbf{Duplicate rows}} & \textcolor{white}{\textbf{Podiums}} & \textcolor{white}{\textbf{Grid 0}} & \textcolor{white}{\textbf{Missing finish}} & \textcolor{white}{\textbf{Median grid}} \\
 \midrule
 Raw results & 26,759 & 26,668 & 176 & 12.7\% & 6.1\% & 0.0\% & 12.0 \\
-Cleaned modeling table & 26,668 & 26,668 & 0 & 12.7\% & 6.1\% & 0.0\% & 12.0 \\
+Shared drives resolved & 26,668 & 26,668 & 0 & 12.7\% & 6.1\% & 0.0\% & 12.0 \\
+Modeling table (F rows removed) & 25,302 & 25,302 & 0 & 13.4\% & 1.1\% & 0.0\% & 12.0 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-In cleaning we remove 91 extra shared-drive rows. Duplicate participation falls from 176 rows to zero, while the podium rate moves only from 12.7\% to 12.7\% and the median non-zero grid remains 12.0. So we fix the prediction grain without materially reshaping the label or the starting-position distribution.
+Resolving shared drives removes 91 extra rows. Duplicate participation falls from 176 rows to zero, while the podium rate moves only from 12.69\% to 12.73\% and the median non-zero grid remains 12.0. So we fix the prediction grain without materially reshaping the label or the starting-position distribution. Removing the F rows takes out 1,366 more rows, and none of them is a podium, so the podium rate rises to 13.42\%. That rise is arithmetic, not a change in what a podium means: a driver who never raced cannot finish in the top three. The grid-0 share falls from 6.1\% to 1.1\%.
 
 
 \begin{takeaway}
-\textbf{Takeaway.} The joins we rely on later are supported by the key audit, and the modelling grain is one driver in one race. The cleaning choices are recorded so that a shared drive cannot silently become two training rows.
+\textbf{Takeaway.} The joins we rely on later are supported by the key audit, and the modelling grain is one driver in one race who actually entered it. The cleaning choices are recorded so that a shared drive cannot silently become two training rows and a driver who never raced cannot become a row of zeros.
 \end{takeaway}
 
 
@@ -228,14 +233,14 @@ Qualifying position is an obvious pre-race feature, but it is not recorded for m
 \centering
 \begin{tikzpicture}
 \begin{axis}[width=0.883\linewidth, height=5.2cm, xlabel={Season}, ylabel={Qualifying coverage}, ymin=0, ymax=1.05, xmin=1950, xmax=2024, ymajorgrids, scaled ticks=false, xtick distance=10]
-\addplot[navy, thick] coordinates {(1950,0) (1951,0) (1952,0) (1953,0) (1954,0) (1955,0) (1956,0) (1957,0) (1958,0) (1959,0) (1960,0) (1961,0) (1962,0) (1963,0) (1964,0) (1965,0) (1966,0) (1967,0) (1968,0) (1969,0) (1970,0) (1971,0) (1972,0) (1973,0) (1974,0) (1975,0) (1976,0) (1977,0) (1978,0) (1979,0) (1980,0) (1981,0) (1982,0) (1983,0) (1984,0) (1985,0) (1986,0) (1987,0) (1988,0) (1989,0) (1990,0) (1991,0) (1992,0) (1993,0) (1994,0.882883) (1995,1) (1996,0.435294) (1997,0.585106) (1998,0.438395) (1999,0.184659) (2000,0.235925) (2001,0.0588235) (2002,0.116022) (2003,1) (2004,1) (2005,1) (2006,1) (2007,1) (2008,1) (2009,1) (2010,1) (2011,0.991228) (2012,0.991667) (2013,1) (2014,0.995086) (2015,0.989418) (2016,0.989177) (2017,0.995) (2018,1) (2019,0.995238) (2020,1) (2021,0.997727) (2022,1) (2023,1) (2024,1)};
+\addplot[navy, thick] coordinates {(1950,0) (1951,0) (1952,0) (1953,0) (1954,0) (1955,0) (1956,0) (1957,0) (1958,0) (1959,0) (1960,0) (1961,0) (1962,0) (1963,0) (1964,0) (1965,0) (1966,0) (1967,0) (1968,0) (1969,0) (1970,0) (1971,0) (1972,0) (1973,0) (1974,0) (1975,0) (1976,0) (1977,0) (1978,0) (1979,0) (1980,0) (1981,0) (1982,0) (1983,0) (1984,0) (1985,0) (1986,0) (1987,0) (1988,0) (1989,0) (1990,0) (1991,0) (1992,0) (1993,0) (1994,0.935252) (1995,1) (1996,0.446483) (1997,0.588235) (1998,0.440922) (1999,0.185185) (2000,0.235925) (2001,0.0589812) (2002,0.117318) (2003,1) (2004,1) (2005,1) (2006,1) (2007,1) (2008,1) (2009,1) (2010,1) (2011,0.991189) (2012,0.991632) (2013,1) (2014,0.995086) (2015,0.989418) (2016,0.989177) (2017,0.995) (2018,1) (2019,0.995238) (2020,1) (2021,0.997727) (2022,1) (2023,1) (2024,1)};
 \end{axis}
 \end{tikzpicture}
 \caption{Share of driver-race rows with a recorded qualifying position, by season. Coverage is essentially zero until the mid-1990s, unstable until 2003, and then close to complete.}
 \end{figure}
 
 
-In our modelling table, coverage is 0\% in 1950 and still 0\% in 1993. It jumps to 88.3\% in 1994 and 100\% in 1995, then falls again. The low point of that second gap is 5.9\% in 2001. From 2003 onwards the line sits on or next to 100\%, and 2024 is 100\%. Averaged over seasons, coverage is 7.1\% before 2000 and 89.4\% from 2000 on. At row level, 60.6\% of all driver-races have no qualifying position.
+In our modelling table, coverage is 0\% in 1950 and still 0\% in 1993. It jumps to 93.5\% in 1994 and 100\% in 1995, then falls again. The low point of that second gap is 5.9\% in 2001. From 2003 onwards the line sits on or next to 100\%, and 2024 is 100\%. Averaged over seasons, coverage is 7.2\% before 2000 and 89.4\% from 2000 on. At row level, 58.6\% of all driver-races have no qualifying position.
 
 
 We observe two different regimes, not a smooth rise. The early championship has almost no qualifying rows in this snapshot. The seasons from 1994 to 2002 are patchy. The seasons we later use for validation and test are essentially complete. Dropping the early years would throw away most of the history, and it would also make the training set look more like the test set than it really is. We keep every season, store an explicit missingness flag, and treat grid position as the starting-order feature that exists throughout. The flag lets the model see that a qualifying value was absent, rather than hiding that fact inside a filled-in number.
@@ -304,7 +309,7 @@ A front-row start means grid position 1 or 2 on the final grid. We do not use qu
 What we see is a shift in level, not just a change of leader. Across circuits that pass the ten-start rule, the median front-row podium rate is 56.8\% in 1950-2013 and 77.8\% in 2014-2024. The early range runs from 28.6\% at Detroit Street Circuit (14 starts) up to 80.6\% at Magny-Cours (36 starts). The modern range runs from 59.1\% at Hungaroring (22 starts) up to 88.9\% at Suzuka (18 starts).
 
 
-If we ignore the circuit filter and use every front-row start in the modelling table, the rate is 56.0\% of 1,789 starts before 2014, and 76.0\% of 454 starts from 2014 on. The podium rate among all starters, not just the front row, is 12.3\% and 14.8\% in those same eras. A front-row car is therefore several times more likely to podium than a typical starter. The modern front row converts at a higher rate than the historical front row, while the all-starter rate only moves from about 12\% to about 15\%.
+If we ignore the circuit filter and use every front-row start in the modelling table, the rate is 56.0\% of 1,789 starts before 2014, and 76.0\% of 454 starts from 2014 on. The podium rate among all starters, not just the front row, is 13.1\% and 14.8\% in those same eras. A front-row car is therefore several times more likely to podium than a typical starter. The modern front row converts at a higher rate than the historical front row, while the all-starter rate only moves from 13\% to 15\%.
 
 
 The ranking itself needs a sample-size caution. Istanbul Park is second in the early list at 78.6\%, but that is 14 starts. Dijon-Prenois and Bremgarten sit near the top with 12 and 10 starts. Magny-Cours (36 starts) and Sepang (30 starts) are firmer early observations. The next early circuit, Suzuka, is also at 70\%, and it has 50 starts, so that rate is not carried only by Bremgarten. In 2014-2024 the leading circuits each have between 18 and 22 starts, so the order is less sensitive to one or two races, but Suzuka's 88.9\% is still 18 starts, not a long census. We can say the leaders change with the era. We cannot say that a circuit causes the conversion rate. The front row is already occupied by the fastest cars.
@@ -326,8 +331,8 @@ The second question is whether drivers do better at a home race. We map national
 \centering
 \begin{tikzpicture}
 \begin{axis}[width=0.590\linewidth, height=5.4cm, xlabel={Starting-grid band}, ylabel={Podium rate}, xtick={0,1,2,3,4}, xticklabels={1-3,4-6,7-10,11-15,16+}, ymin=0, ymajorgrids, legend pos=north east, enlarge x limits=0.1]
-\addplot[modelA, thick, mark=*] coordinates {(0,0.556536) (1,0.263263) (2,0.0954887) (3,0.0308129) (4,0.00753187)};
-\addplot[modelB, thick, mark=*] coordinates {(0,0.549242) (1,0.246154) (2,0.0878553) (3,0.0341151) (4,0.00747863)};
+\addplot[modelA, thick, mark=*] coordinates {(0,0.556536) (1,0.263263) (2,0.0954887) (3,0.0308129) (4,0.00755046)};
+\addplot[modelB, thick, mark=*] coordinates {(0,0.549242) (1,0.246154) (2,0.0878553) (3,0.0341151) (4,0.00750268)};
 \legend{Other races, Home races}
 \end{axis}
 \end{tikzpicture}
@@ -348,13 +353,13 @@ The second question is whether drivers do better at a home race. We map national
 4-6 & 26.3\% & 3,016 & 24.6\% & 260 & $-$1.7 pp \\
 7-10 & 9.5\% & 3,990 & 8.8\% & 387 & $-$0.8 pp \\
 11-15 & 3.1\% & 4,933 & 3.4\% & 469 & +0.3 pp \\
-16+ & 0.8\% & 6,904 & 0.7\% & 936 & $-$0.0 pp \\
+16+ & 0.8\% & 6,887 & 0.8\% & 933 & $-$0.0 pp \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-What we find in Figure 4 and Table 5 is the grid, not the passport. Away drivers podium 55.7\% of the time from positions 1-3 (3,060 starts), 26.3\% from 4-6, 9.5\% from 7-10, 3.1\% from 11-15, and 0.8\% from 16th or worse. Home drivers track those rates: 54.9\%, 24.6\%, 8.8\%, 3.4\%, and 0.7\%.
+What we find in Figure 4 and Table 5 is the grid, not the passport. Away drivers podium 55.7\% of the time from positions 1-3 (3,060 starts), 26.3\% from 4-6, 9.5\% from 7-10, 3.1\% from 11-15, and 0.8\% from 16th or worse. Home drivers track those rates: 54.9\%, 24.6\%, 8.8\%, 3.4\%, and 0.8\%.
 
 
 The home-minus-away gaps we measure are $-$0.7, $-$1.7, $-$0.8, +0.3, and $-$0.0 percentage points. Four of the five bands are slightly negative. The only positive gap is positions 11-15, and it is +0.3 percentage points.
@@ -475,7 +480,7 @@ We split by season, not at random. A random split would let 2023 teach the model
 \rowcolor{navy}
 \textcolor{white}{\textbf{Split}} & \textcolor{white}{\textbf{Seasons}} & \textcolor{white}{\textbf{Rows}} & \textcolor{white}{\textbf{Races}} & \textcolor{white}{\textbf{Starters / race}} & \textcolor{white}{\textbf{Podium rate}} & \textcolor{white}{\textbf{Qualifying missing}} \\
 \midrule
-Training & 1950-2019 & 24,529 & 1,018 & 24.1 & 12.5\% & 65.9\% \\
+Training & 1950-2019 & 23,163 & 1,018 & 22.8 & 13.3\% & 64.0\% \\
 Validation & 2020-2021 & 780 & 39 & 20.0 & 15.0\% & 0.1\% \\
 Test & 2022-2024 & 1,359 & 68 & 20.0 & 15.0\% & 0.0\% \\
 \bottomrule
@@ -483,7 +488,7 @@ Test & 2022-2024 & 1,359 & 68 & 20.0 & 15.0\% & 0.0\% \\
 \end{table}
 
 
-Our training seasons have 24,529 rows and 1,018 races, but 65.9\% of those rows have no qualifying result. Validation has only 780 rows and 39 races, and the test set has 1,359 rows and 68 races. Qualifying is almost complete in both recent splits (0.1\% missing in validation, 0\% in test). The podium rate rises from 12.5\% in training to 15.0\% and 15.0\% later. That matches the field size: training averages 24.1 starters per race, against 20.0 in validation. There are still three podium places, shared across fewer cars.
+Our training seasons have 23,163 rows and 1,018 races, but 64.0\% of those rows have no qualifying result. Validation has only 780 rows and 39 races, and the test set has 1,359 rows and 68 races. Qualifying is almost complete in both recent splits (0.1\% missing in validation, 0\% in test). The podium rate rises from 13.3\% in training to 15.0\% and 15.0\% later. That matches the field size: training averages 22.8 starters per race, against 20.0 in validation. There are still three podium places, shared across fewer cars.
 
 
 All 7 of our split checks pass: every row is assigned once, no race appears in two splits, and the last training race is before the first validation race, which is before the first test race. Figure 6 shows the split on the season axis together with the two quantities that drift across it.
@@ -494,18 +499,18 @@ All 7 of our split checks pass: every row is assigned once, no race appears in t
 \begin{tikzpicture}
 \begin{groupplot}[group style={group size=3 by 1, horizontal sep=1.35cm}, width=0.300\linewidth, height=4.4cm, ymajorgrids, xmin=1948, xmax=2026]
 \nextgroupplot[title={Driver-race rows}, xlabel={Season}, ymin=0, ymax=900, xtick={1950,1975,2000}, scaled ticks=false, area legend, legend pos=north west]
-\addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitA, draw=none] coordinates {(1950,156) (1951,175) (1952,212) (1953,230) (1954,213) (1955,162) (1956,178) (1957,163) (1958,238) (1959,195) (1960,222) (1961,218) (1962,222) (1963,254) (1964,206) (1965,205) (1966,166) (1967,205) (1968,233) (1969,177) (1970,294) (1971,263) (1972,309) (1973,357) (1974,436) (1975,363) (1976,434) (1977,477) (1978,470) (1979,403) (1980,383) (1981,449) (1982,465) (1983,424) (1984,430) (1985,406) (1986,412) (1987,419) (1988,495) (1989,620) (1990,542) (1991,539) (1992,478) (1993,412) (1994,444) (1995,418) (1996,340) (1997,376) (1998,349) (1999,352) (2000,373) (2001,374) (2002,362) (2003,320) (2004,360) (2005,376) (2006,396) (2007,374) (2008,368) (2009,340) (2010,456) (2011,456) (2012,480) (2013,418) (2014,407) (2015,378) (2016,462) (2017,400) (2018,420) (2019,420)};
+\addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitA, draw=none] coordinates {(1950,156) (1951,175) (1952,201) (1953,230) (1954,212) (1955,159) (1956,177) (1957,158) (1958,224) (1959,181) (1960,214) (1961,213) (1962,204) (1963,242) (1964,197) (1965,192) (1966,164) (1967,201) (1968,229) (1969,177) (1970,267) (1971,257) (1972,305) (1973,357) (1974,387) (1975,346) (1976,399) (1977,405) (1978,391) (1979,362) (1980,336) (1981,361) (1982,401) (1983,385) (1984,414) (1985,400) (1986,407) (1987,415) (1988,421) (1989,418) (1990,419) (1991,416) (1992,419) (1993,404) (1994,417) (1995,418) (1996,327) (1997,374) (1998,347) (1999,351) (2000,373) (2001,373) (2002,358) (2003,320) (2004,360) (2005,376) (2006,396) (2007,374) (2008,368) (2009,340) (2010,456) (2011,454) (2012,478) (2013,418) (2014,407) (2015,378) (2016,462) (2017,400) (2018,420) (2019,420)};
 \addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitB, draw=none] coordinates {(2020,340) (2021,440)};
 \addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitC, draw=none] coordinates {(2022,440) (2023,440) (2024,479)};
 \legend{train, validation, test}
 
 \nextgroupplot[title={Podium rate}, xlabel={Season}, ymin=0, ymax=0.25, xtick={1950,1975,2000}, scaled ticks=false, area legend, legend pos=north west]
-\addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitA, draw=none] coordinates {(1950,0.141026) (1951,0.16) (1952,0.113208) (1953,0.126087) (1954,0.13615) (1955,0.154321) (1956,0.162921) (1957,0.153374) (1958,0.138655) (1959,0.138462) (1960,0.13964) (1961,0.110092) (1962,0.121622) (1963,0.11811) (1964,0.145631) (1965,0.146341) (1966,0.162651) (1967,0.160976) (1968,0.154506) (1969,0.186441) (1970,0.132653) (1971,0.125475) (1972,0.116505) (1973,0.12605) (1974,0.103211) (1975,0.115702) (1976,0.110599) (1977,0.106918) (1978,0.102128) (1979,0.111663) (1980,0.109661) (1981,0.100223) (1982,0.103226) (1983,0.106132) (1984,0.111628) (1985,0.118227) (1986,0.116505) (1987,0.114558) (1988,0.0969697) (1989,0.0774194) (1990,0.0885609) (1991,0.0890538) (1992,0.100418) (1993,0.116505) (1994,0.108108) (1995,0.12201) (1996,0.141176) (1997,0.135638) (1998,0.137536) (1999,0.136364) (2000,0.136729) (2001,0.136364) (2002,0.140884) (2003,0.15) (2004,0.15) (2005,0.151596) (2006,0.136364) (2007,0.136364) (2008,0.146739) (2009,0.15) (2010,0.125) (2011,0.125) (2012,0.125) (2013,0.136364) (2014,0.140049) (2015,0.150794) (2016,0.136364) (2017,0.15) (2018,0.15) (2019,0.15)};
+\addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitA, draw=none] coordinates {(1950,0.141026) (1951,0.16) (1952,0.119403) (1953,0.126087) (1954,0.136792) (1955,0.157233) (1956,0.163842) (1957,0.158228) (1958,0.147321) (1959,0.149171) (1960,0.14486) (1961,0.112676) (1962,0.132353) (1963,0.123967) (1964,0.152284) (1965,0.15625) (1966,0.164634) (1967,0.164179) (1968,0.157205) (1969,0.186441) (1970,0.146067) (1971,0.128405) (1972,0.118033) (1973,0.12605) (1974,0.116279) (1975,0.121387) (1976,0.120301) (1977,0.125926) (1978,0.122762) (1979,0.124309) (1980,0.125) (1981,0.124654) (1982,0.119701) (1983,0.116883) (1984,0.115942) (1985,0.12) (1986,0.117936) (1987,0.115663) (1988,0.114014) (1989,0.114833) (1990,0.114558) (1991,0.115385) (1992,0.114558) (1993,0.118812) (1994,0.115108) (1995,0.12201) (1996,0.146789) (1997,0.136364) (1998,0.138329) (1999,0.136752) (2000,0.136729) (2001,0.136729) (2002,0.142458) (2003,0.15) (2004,0.15) (2005,0.151596) (2006,0.136364) (2007,0.136364) (2008,0.146739) (2009,0.15) (2010,0.125) (2011,0.125551) (2012,0.125523) (2013,0.136364) (2014,0.140049) (2015,0.150794) (2016,0.136364) (2017,0.15) (2018,0.15) (2019,0.15)};
 \addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitB, draw=none] coordinates {(2020,0.15) (2021,0.15)};
 \addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitC, draw=none] coordinates {(2022,0.15) (2023,0.15) (2024,0.150313)};
 
 \nextgroupplot[title={Qualifying missing}, xlabel={Season}, ymin=0, ymax=1.05, xtick={1950,1975,2000}, scaled ticks=false, area legend, legend pos=north west]
-\addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitA, draw=none] coordinates {(1950,1) (1951,1) (1952,1) (1953,1) (1954,1) (1955,1) (1956,1) (1957,1) (1958,1) (1959,1) (1960,1) (1961,1) (1962,1) (1963,1) (1964,1) (1965,1) (1966,1) (1967,1) (1968,1) (1969,1) (1970,1) (1971,1) (1972,1) (1973,1) (1974,1) (1975,1) (1976,1) (1977,1) (1978,1) (1979,1) (1980,1) (1981,1) (1982,1) (1983,1) (1984,1) (1985,1) (1986,1) (1987,1) (1988,1) (1989,1) (1990,1) (1991,1) (1992,1) (1993,1) (1994,0.117117) (1995,0) (1996,0.564706) (1997,0.414894) (1998,0.561605) (1999,0.815341) (2000,0.764075) (2001,0.941176) (2002,0.883978) (2003,0) (2004,0) (2005,0) (2006,0) (2007,0) (2008,0) (2009,0) (2010,0) (2011,0.00877193) (2012,0.00833333) (2013,0) (2014,0.004914) (2015,0.010582) (2016,0.0108225) (2017,0.005) (2018,0) (2019,0.0047619)};
+\addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitA, draw=none] coordinates {(1950,1) (1951,1) (1952,1) (1953,1) (1954,1) (1955,1) (1956,1) (1957,1) (1958,1) (1959,1) (1960,1) (1961,1) (1962,1) (1963,1) (1964,1) (1965,1) (1966,1) (1967,1) (1968,1) (1969,1) (1970,1) (1971,1) (1972,1) (1973,1) (1974,1) (1975,1) (1976,1) (1977,1) (1978,1) (1979,1) (1980,1) (1981,1) (1982,1) (1983,1) (1984,1) (1985,1) (1986,1) (1987,1) (1988,1) (1989,1) (1990,1) (1991,1) (1992,1) (1993,1) (1994,0.0647482) (1995,0) (1996,0.553517) (1997,0.411765) (1998,0.559078) (1999,0.814815) (2000,0.764075) (2001,0.941019) (2002,0.882682) (2003,0) (2004,0) (2005,0) (2006,0) (2007,0) (2008,0) (2009,0) (2010,0) (2011,0.00881057) (2012,0.0083682) (2013,0) (2014,0.004914) (2015,0.010582) (2016,0.0108225) (2017,0.005) (2018,0) (2019,0.0047619)};
 \addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitB, draw=none] coordinates {(2020,0) (2021,0.00227273)};
 \addplot[ybar, bar shift=0pt, bar width=1.6pt, fill=splitC, draw=none] coordinates {(2022,0) (2023,0) (2024,0)};
 \end{groupplot}
@@ -514,7 +519,7 @@ All 7 of our split checks pass: every row is assigned once, no race appears in t
 \end{figure}
 
 
-To check our choice, Table 9 holds out the same number of rows three ways, and we train the logistic baseline on the rest. With a random-row split, 100.0\% of held-out rows have their own race in training, and 97.8\% have later seasons in training. A random-race split removes the first problem but not the second. The chronological split has zero of both. Random hold-outs also mix every era, so their score (0.564 PR-AUC for random rows, against 0.728 on 2020-2021) answers a different question from predicting the next seasons.
+To check our choice, Table 9 holds out the same number of rows three ways, and we train the logistic baseline on the rest. With a random-row split, 100.0\% of held-out rows have their own race in training, and 98.2\% have later seasons in training. A random-race split removes the first problem but not the second. The chronological split has zero of both. Random hold-outs also mix every era, so their score (0.571 PR-AUC for random rows, against 0.729 on 2020-2021) answers a different question from predicting the next seasons.
 
 
 \begin{table}[H]
@@ -526,9 +531,9 @@ To check our choice, Table 9 holds out the same number of rows three ways, and w
 \rowcolor{navy}
 \textcolor{white}{\textbf{Strategy}} & \textcolor{white}{\textbf{Held-out years}} & \textcolor{white}{\textbf{Podium rate}} & \textcolor{white}{\textbf{Same race in train}} & \textcolor{white}{\textbf{Later seasons in train}} & \textcolor{white}{\textbf{PR-AUC}} & \textcolor{white}{\textbf{ROC-AUC}} \\
 \midrule
-chronological (used) & 2020-2021 & 15.0\% & 0.0\% & 0.0\% & 0.728 & 0.926 \\
-random races & 1952-2023 & 12.4\% & 0.0\% & 100.0\% & 0.601 & 0.924 \\
-random rows & 1950-2024 & 14.5\% & 100.0\% & 97.8\% & 0.564 & 0.903 \\
+chronological (used) & 2020-2021 & 15.0\% & 0.0\% & 0.0\% & 0.729 & 0.926 \\
+random races & 1952-2023 & 13.3\% & 0.0\% & 100.0\% & 0.619 & 0.922 \\
+random rows & 1950-2024 & 11.0\% & 100.0\% & 98.2\% & 0.571 & 0.901 \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -571,31 +576,31 @@ In 2023-2024 the sprint stopped setting the grid, which follows qualifying again
 
 
 
-\subsection{Grid 0 is mostly drivers who never raced}
+\subsection{Drivers who did not enter the race}
 
 
-6.1\% of rows have grid 0, and the feature name suggests a pit-lane start. Most of them are not. We found that 1,366 rows are drivers who did not qualify, did not prequalify, or failed the 107\% rule. All of them are in 1952-2012, all are in training, and none finished on the podium. Only 87 grid-0 rows are real pit-lane or exceptional starts (Table 11).
+Before this step 6.1\% of rows have grid 0, and the feature name suggests a pit-lane start. Most of them were not. 1,366 rows are drivers who did not qualify, did not prequalify, or failed the 107\% rule. All of them are in 1952-2012, all are in training, and none finished on the podium. Only 87 grid-0 rows are real pit-lane or exceptional starts (Table 11). The instructor ruled that these F rows are known before the race and may be removed, and that withdrawals may not, so we remove the first and keep the second.
 
 
 \begin{table}[H]
 \centering
-\caption{Who has grid 0 or a withdrawal code, by group.}
+\caption{Who has grid 0 or a withdrawal code, by group, and what we do with each group.}
 {\footnotesize\rowcolors{2}{white}{zebra}
-\begin{tabular}{>{\raggedright\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*343/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*82/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*82/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*104/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*112/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*97/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*104/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*75/1000\relax}}
+\begin{tabular}{>{\raggedright\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*316/1000\relax}>{\raggedright\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*105/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*83/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*105/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*113/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*98/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*105/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-16\tabcolsep)*75/1000\relax}}
 \toprule
 \rowcolor{navy}
-\textcolor{white}{\textbf{Group}} & \textcolor{white}{\textbf{Rows}} & \textcolor{white}{\textbf{Share}} & \textcolor{white}{\textbf{Podium rate}} & \textcolor{white}{\textbf{Years}} & \textcolor{white}{\textbf{In training}} & \textcolor{white}{\textbf{In validation}} & \textcolor{white}{\textbf{In test}} \\
+\textcolor{white}{\textbf{Group}} & \textcolor{white}{\textbf{Treatment}} & \textcolor{white}{\textbf{Rows}} & \textcolor{white}{\textbf{Podium rate}} & \textcolor{white}{\textbf{Years}} & \textcolor{white}{\textbf{In training}} & \textcolor{white}{\textbf{In validation}} & \textcolor{white}{\textbf{In test}} \\
 \midrule
-regular grid start & 24,880 & 93.3\% & 13.6\% & 1950-2024 & 22,806 & 759 & 1,315 \\
-grid 0 but raced (pit-lane or exceptional start) & 87 & 0.3\% & 0.0\% & 1981-2024 & 34 & 16 & 37 \\
-W: withdrew & 335 & 1.3\% & 0.0\% & 1950-2024 & 323 & 5 & 7 \\
-F: did not qualify, prequalify, or pass 107\% & 1,366 & 5.1\% & 0.0\% & 1952-2012 & 1,366 & 0 & 0 \\
+regular grid start & kept & 24,880 & 13.6\% & 1950-2024 & 22,806 & 759 & 1,315 \\
+grid 0 but raced (pit-lane or exceptional start) & kept & 87 & 0.0\% & 1981-2024 & 34 & 16 & 37 \\
+W: withdrew & kept & 335 & 0.0\% & 1950-2024 & 323 & 5 & 7 \\
+F: did not qualify, prequalify, or pass 107\% & removed & 1,366 & 0.0\% & 1952-2012 & 1,366 & 0 & 0 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-We trained with and without these rows and scored the same validation seasons. Dropping the did-not-qualify rows changes validation PR-AUC by +0.0003 for logistic regression and $-$0.0027 for the network, which is within noise. Dropping the withdrawals as well changes it by $-$0.0491 for the network. \textbf{We keep every row.} Validation and test contain no did-not-qualify rows, so the evaluation is unchanged either way. A withdrawal cannot be shown to be known before the start, because the same code covers drivers who started and retired. The caveat is that in training the pit-lane flag is mostly a did-not-qualify marker. Dropping those rows is a reasonable alternative if the instructor rules that a driver who did not qualify did not enter the race.
+We scored the decision on the same validation seasons. Keeping the F rows instead changes validation PR-AUC by $-$0.0012 for logistic regression and $-$0.0038 for the network. Keeping them in the history but dropping them from the training rows only changes it by $-$0.0008 and $-$0.0010. The largest of these changes is 0.0038, against a seed-to-seed spread of about 0.007 for the network, so the choice rests on the ruling and on what a row means, not on a score. Removing the withdrawals as well, which the ruling does not allow, would change the network by $-$0.0457. Validation and test contain no F rows, so the same rows are scored either way. The pit-lane flag now marks 289 rows, 202 withdrawals with grid 0 and 87 drivers who raced from the pit lane or an exceptional start. It is no longer a did-not-qualify marker, but it is still not a pure pit-lane flag.
 
 
 
@@ -610,49 +615,49 @@ The group-level ablation in Section 8 says what a whole group adds to the model.
 \resizebox{\linewidth}{!}{%
 \begin{tikzpicture}
 \begin{groupplot}[group style={group size=5 by 4, horizontal sep=0.9cm, vertical sep=1.5cm}, width=3.6cm, height=2.8cm, ymajorgrids, tick label style={font=\tiny}, label style={font=\tiny}]
-\nextgroupplot[ybar, bar width=7pt, title={grid\_position\\AUC 0.12, 6\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={3,7,12,16,21,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15, ylabel={podium rate}]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.470921) (1,0.139434) (2,0.0420479) (3,0.0119826) (4,0.00522876)};
+\nextgroupplot[ybar, bar width=7pt, title={grid\_position\\AUC 0.12, 1\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={3,7,12,16,21,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15, ylabel={podium rate}]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.471114) (1,0.139773) (2,0.0420846) (3,0.011993) (4,0.00523332)};
 \addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0)};
-\nextgroupplot[ybar, bar width=7pt, title={pit\_lane\_start\\AUC 0.46, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1}, xticklabels={0,1}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.133938) (1,0)};
+\nextgroupplot[ybar, bar width=7pt, title={pit\_lane\_start\\AUC 0.49, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1}, xticklabels={0,1}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.134054) (1,0)};
 \nextgroupplot[ybar, bar width=7pt, title={front\_row\\AUC 0.67, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1}, xticklabels={0,1}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0838704) (1,0.584729)};
-\nextgroupplot[ybar, bar width=7pt, title={field\_size\\AUC 0.44, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4}, xticklabels={20,22,24,27,32}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.158785) (1,0.139013) (2,0.125994) (3,0.110681) (4,0.0921321)};
-\nextgroupplot[ybar, bar width=7pt, title={qualifying\_position\\AUC 0.09, 66\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={3,7,11,16,20,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.524522) (1,0.120886) (2,0.0293238) (3,0.0131658) (4,0.00658288)};
-\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.118284)};
-\nextgroupplot[ybar, bar width=7pt, title={qualifying\_time\_seconds\\AUC 0.45, 66\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={74.6,80.9,87.25,94.56,104.7,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15, ylabel={podium rate}]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.170821) (1,0.144769) (2,0.144161) (3,0.133212) (4,0.107664)};
-\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.117856)};
-\nextgroupplot[ybar, bar width=7pt, title={qualifying\_missing\\AUC 0.48, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1}, xticklabels={0,1}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.138942) (1,0.118284)};
-\nextgroupplot[ybar, bar width=7pt, title={driver\_podium\_rate\_5\\AUC 0.82, 3\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={0,0,0,0.2,0.4,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0542537) (1,0.0280828) (2,0.0344172) (3,0.114443) (4,0.413342)};
-\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.0247934)};
-\nextgroupplot[ybar, bar width=7pt, title={constructor\_podium\_rate\_5\\AUC 0.83, 1\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={0,0,0,0.14,0.4,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.034105) (1,0.0175692) (2,0.0359727) (3,0.150682) (4,0.393758)};
-\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.0470588)};
-\nextgroupplot[ybar, bar width=7pt, title={driver\_races\_before\\AUC 0.67, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4}, xticklabels={3,17,39,76,149}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0430086) (1,0.0786792) (2,0.119878) (3,0.167754) (4,0.217285)};
-\nextgroupplot[ybar, bar width=7pt, title={driver\_points\_before\\AUC 0.80, 14\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={0,0,3,11,42,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15, ylabel={podium rate}]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0371783) (1,0.0181125) (2,0.0745949) (3,0.17898) (4,0.352002)};
-\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.0848126)};
-\nextgroupplot[ybar, bar width=7pt, title={driver\_rank\_before\\AUC 0.15, 14\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={3,8,13,18,26,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.429695) (1,0.142278) (2,0.0479028) (3,0.0233556) (4,0.0176358)};
-\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.0848126)};
-\nextgroupplot[ybar, bar width=7pt, title={constructor\_points\_before\\AUC 0.79, 14\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={0,2,9,24,79,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0153992) (1,0.0350628) (2,0.0777251) (3,0.174366) (4,0.327411)};
-\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.121168)};
-\nextgroupplot[ybar, bar width=7pt, title={constructor\_rank\_before\\AUC 0.16, 14\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={2,4,6,9,12,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.379294) (1,0.175551) (2,0.0417062) (3,0.0187159) (4,0.0146885)};
-\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.121168)};
-\nextgroupplot[ybar, bar width=7pt, title={driver\_age\\AUC 0.55, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4}, xticklabels={23.81,27.1,29.58,32.44,36.78}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0847941) (1,0.118834) (2,0.13211) (3,0.157766) (4,0.133102)};
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0892916) (1,0.584729)};
+\nextgroupplot[ybar, bar width=7pt, title={field\_size\\AUC 0.45, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4}, xticklabels={20,22,23,26,26}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.161019) (1,0.141839) (2,0.130801) (3,0.118955) (4,0.110943)};
+\nextgroupplot[ybar, bar width=7pt, title={qualifying\_position\\AUC 0.09, 64\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={3,7,11,16,20,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.524551) (1,0.121031) (2,0.0299401) (3,0.0131815) (4,0.00658683)};
+\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.129126)};
+\nextgroupplot[ybar, bar width=7pt, title={qualifying\_time\_seconds\\AUC 0.45, 65\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={74.59,80.9,87.24,94.56,104.7,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15, ylabel={podium rate}]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.171029) (1,0.144857) (2,0.14364) (3,0.133901) (4,0.10773)};
+\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.128579)};
+\nextgroupplot[ybar, bar width=7pt, title={qualifying\_missing\\AUC 0.49, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1}, xticklabels={0,1}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.139075) (1,0.129126)};
+\nextgroupplot[ybar, bar width=7pt, title={driver\_podium\_rate\_5\\AUC 0.81, 3\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={0,0,0,0.2,0.6,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0583501) (1,0.0357782) (2,0.0321932) (3,0.131261) (4,0.424771)};
+\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.0275)};
+\nextgroupplot[ybar, bar width=7pt, title={constructor\_podium\_rate\_5\\AUC 0.83, 1\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={0,0,0,0.2,0.4333,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0374261) (1,0.0210112) (2,0.0459619) (3,0.16218) (4,0.402714)};
+\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.0503145)};
+\nextgroupplot[ybar, bar width=7pt, title={driver\_races\_before\\AUC 0.66, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4}, xticklabels={3,17,40,77,150}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0468379) (1,0.0857081) (2,0.130153) (3,0.177893) (4,0.222966)};
+\nextgroupplot[ybar, bar width=7pt, title={driver\_points\_before\\AUC 0.79, 14\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={0,0,4,12,44,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15, ylabel={podium rate}]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0419703) (1,0.0221161) (2,0.0852187) (3,0.188238) (4,0.359387)};
+\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.0920771)};
+\nextgroupplot[ybar, bar width=7pt, title={driver\_rank\_before\\AUC 0.16, 14\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={3,7,12,17,24,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.439055) (1,0.156823) (2,0.0502765) (3,0.0289017) (4,0.0218648)};
+\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.0920771)};
+\nextgroupplot[ybar, bar width=7pt, title={constructor\_points\_before\\AUC 0.78, 14\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={0,3,10,26,83,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0170811) (1,0.0447124) (2,0.089676) (3,0.185129) (4,0.331324)};
+\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.127379)};
+\nextgroupplot[ybar, bar width=7pt, title={constructor\_rank\_before\\AUC 0.17, 14\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4,5}, xticklabels={2,4,6,8,11,missing}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.39588) (1,0.181864) (2,0.0509922) (3,0.0211002) (4,0.0180859)};
+\addplot[ybar, bar shift=0pt, fill=modelB, draw=none] coordinates {(5,0.127379)};
+\nextgroupplot[ybar, bar width=7pt, title={driver\_age\\AUC 0.55, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4}, xticklabels={23.77,27.09,29.61,32.51,36.83}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.0893589) (1,0.126943) (2,0.14073) (3,0.167746) (4,0.138787)};
 \nextgroupplot[ybar, bar width=7pt, title={round\\AUC 0.50, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4}, xticklabels={2,5,8,11,15}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15, ylabel={podium rate}]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.127191) (1,0.126172) (2,0.125178) (3,0.119649) (4,0.128414)};
-\nextgroupplot[ybar, bar width=7pt, title={year\\AUC 0.51, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4}, xticklabels={1962,1978,1989,2001,2014}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
-\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.13881) (1,0.108439) (2,0.101121) (3,0.138606) (4,0.139625)};
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.134902) (1,0.134715) (2,0.132312) (3,0.128454) (4,0.133175)};
+\nextgroupplot[ybar, bar width=7pt, title={year\\AUC 0.50, 0\% missing}, title style={align=center, font=\tiny}, xtick={0,1,2,3,4}, xticklabels={1962,1978,1990,2002,2014}, xticklabel style={rotate=45, anchor=east, font=\tiny}, ymin=0, ymax=1, ytick={0,0.5,1}, enlarge x limits=0.15]
+\addplot[ybar, bar shift=0pt, fill=splitA, draw=none] coordinates {(0,0.144183) (1,0.121546) (2,0.116987) (3,0.141623) (4,0.139219)};
 \end{groupplot}
 \end{tikzpicture}}
 \caption{Podium rate by feature value on the training seasons. Each bar is one of five equal-count bins (labelled by its median value; tied values are split across bins, so a label can repeat), flags show 0 and 1, and the orange bar is the podium rate of the rows where the feature is missing.}
@@ -668,32 +673,32 @@ The group-level ablation in Section 8 says what a whole group adds to the model.
 \rowcolor{navy}
 \textcolor{white}{\textbf{Feature}} & \textcolor{white}{\textbf{Group}} & \textcolor{white}{\textbf{Missing}} & \textcolor{white}{\textbf{Lowest bin}} & \textcolor{white}{\textbf{Highest bin}} & \textcolor{white}{\textbf{AUC train}} & \textcolor{white}{\textbf{AUC valid.}} \\
 \midrule
-grid\_position & grid & 6\% & 47.1\% & 0.5\% & 0.12 & 0.09 \\
-pit\_lane\_start & grid & 0\% & 13.4\% & 0.0\% & 0.46 & 0.49 \\
-front\_row & grid & 0\% & 8.4\% & 58.5\% & 0.67 & 0.73 \\
-field\_size & grid & 0\% & 15.9\% & 9.2\% & 0.44 & 0.50 \\
-qualifying\_position & qualifying & 66\% & 52.5\% & 0.7\% & 0.09 & 0.08 \\
-qualifying\_time\_seconds & qualifying & 66\% & 17.1\% & 10.8\% & 0.45 & 0.46 \\
-qualifying\_missing & qualifying & 0\% & 13.9\% & 11.8\% & 0.48 & 0.50 \\
-driver\_podium\_rate\_5 & form & 3\% & 5.4\% & 41.3\% & 0.82 & 0.84 \\
-constructor\_podium\_rate\_5 & form & 1\% & 3.4\% & 39.4\% & 0.83 & 0.85 \\
-driver\_races\_before & form & 0\% & 4.3\% & 21.7\% & 0.67 & 0.70 \\
-driver\_points\_before & standings & 14\% & 3.7\% & 35.2\% & 0.80 & 0.83 \\
-driver\_rank\_before & standings & 14\% & 43.0\% & 1.8\% & 0.15 & 0.11 \\
-constructor\_points\_before & standings & 14\% & 1.5\% & 32.7\% & 0.79 & 0.82 \\
-constructor\_rank\_before & standings & 14\% & 37.9\% & 1.5\% & 0.16 & 0.12 \\
-driver\_age & context & 0\% & 8.5\% & 13.3\% & 0.55 & 0.60 \\
-round & context & 0\% & 12.7\% & 12.8\% & 0.50 & 0.50 \\
-year & context & 0\% & 13.9\% & 14.0\% & 0.51 & 0.50 \\
+grid\_position & grid & 1\% & 47.1\% & 0.5\% & 0.12 & 0.09 \\
+pit\_lane\_start & grid & 0\% & 13.4\% & 0.0\% & 0.49 & 0.49 \\
+front\_row & grid & 0\% & 8.9\% & 58.5\% & 0.67 & 0.73 \\
+field\_size & grid & 0\% & 16.1\% & 11.1\% & 0.45 & 0.50 \\
+qualifying\_position & qualifying & 64\% & 52.5\% & 0.7\% & 0.09 & 0.08 \\
+qualifying\_time\_seconds & qualifying & 65\% & 17.1\% & 10.8\% & 0.45 & 0.46 \\
+qualifying\_missing & qualifying & 0\% & 13.9\% & 12.9\% & 0.49 & 0.50 \\
+driver\_podium\_rate\_5 & form & 3\% & 5.8\% & 42.5\% & 0.81 & 0.84 \\
+constructor\_podium\_rate\_5 & form & 1\% & 3.7\% & 40.3\% & 0.83 & 0.85 \\
+driver\_races\_before & form & 0\% & 4.7\% & 22.3\% & 0.66 & 0.70 \\
+driver\_points\_before & standings & 14\% & 4.2\% & 35.9\% & 0.79 & 0.83 \\
+driver\_rank\_before & standings & 14\% & 43.9\% & 2.2\% & 0.16 & 0.11 \\
+constructor\_points\_before & standings & 14\% & 1.7\% & 33.1\% & 0.78 & 0.82 \\
+constructor\_rank\_before & standings & 14\% & 39.6\% & 1.8\% & 0.17 & 0.12 \\
+driver\_age & context & 0\% & 8.9\% & 13.9\% & 0.55 & 0.60 \\
+round & context & 0\% & 13.5\% & 13.3\% & 0.50 & 0.50 \\
+year & context & 0\% & 14.4\% & 13.9\% & 0.50 & 0.50 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-\textbf{Strong single signals.} Position features carry the most. Qualifying position has an AUC of 0.09 (lower is better, measured on the third of rows that have it) and grid position 0.12; the podium rate falls from about 45-50\% in the best bin to under 1\% in the worst. The standings ranks (0.15 and 0.16), the form rates (0.82 and 0.83), and the points (0.80 and 0.79) come next. The front-row flag (0.67) and prior starts (0.67) are clear but smaller. All of these keep their direction on validation, with similar or slightly stronger AUCs.
+\textbf{Strong single signals.} Position features carry the most. Qualifying position has an AUC of 0.09 (lower is better, measured on the 36\% of rows that have it) and grid position 0.12; the podium rate falls from 47\% (grid) and 52\% (qualifying) in the best bin to 0.5\% and 0.7\% in the worst. The standings ranks (0.16 and 0.17), the form rates (0.81 and 0.83), and the points (0.79 and 0.78) come next. The front-row flag (0.67) and prior starts (0.66) are clear but smaller. All of these keep their direction on validation, with similar or slightly stronger AUCs.
 
 
-\textbf{Weak single signals, kept for another reason.} Field size (0.44), driver age (0.55), qualifying time (0.45), the pit-lane flag (0.46), and the qualifying-missing flag (0.48) are close to 0.5 on their own. A raw qualifying time is not comparable across circuits and eras, so it says little without the rest of the row. The two flags are indicators. Removing the qualifying-missing flag costs the network 0.041 PR-AUC (Section 6.4), and rows with no grid position, drivers who never started, never podium, while rows with no qualifying record podium at about the average rate (11.8\% against 12.7\%). Round (0.50) and year (0.51) have essentially no single-feature signal, and field size, round, and year are flat or constant on validation, where every race has 20 starters. We keep them as context and era controls, and the ablation shows the whole context group adds the least of the five (0.004 PR-AUC). We have not shown that round or year help on their own, so they are the first candidates to remove.
+\textbf{Weak single signals, kept for another reason.} Field size (0.45), driver age (0.55), qualifying time (0.45), the pit-lane flag (0.49), and the qualifying-missing flag (0.49) are close to 0.5 on their own. A raw qualifying time is not comparable across circuits and eras, so it says little without the rest of the row. The two flags are indicators. Removing the qualifying-missing flag costs the network 0.032 PR-AUC (Section 6.4), and rows with no grid position (withdrawals and pit-lane starts) never podium, while rows with no qualifying record podium at about the average rate (12.9\% against 13.4\%). Round (0.50) and year (0.50) have essentially no single-feature signal, and field size, round, and year are flat or constant on validation, where every race has 20 starters. We keep them as context and era controls, and the ablation shows the whole context group adds the least of the five (0.004 PR-AUC). We have not shown that round or year help on their own, so they are the first candidates to remove.
 
 
 \begin{takeaway}
@@ -717,22 +722,22 @@ Missing qualifying and missing early-season standings have to be filled inside t
 \rowcolor{navy}
 \textcolor{white}{\textbf{Preprocessing}} & \textcolor{white}{\textbf{Validation ROC-AUC}} & \textcolor{white}{\textbf{Validation PR-AUC}} \\
 \midrule
-median + scaling & 0.926 & 0.728 \\
-median, no scaling & 0.924 & 0.724 \\
-zero + scaling & 0.927 & 0.725 \\
+median + scaling & 0.926 & 0.729 \\
+median, no scaling & 0.925 & 0.725 \\
+zero + scaling & 0.927 & 0.726 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-We can see that the three PR-AUC values sit between 0.724 and 0.728. The gap is 0.004. Median imputation with scaling is the best of the three on the metric we care about. Zero-filling with scaling is slightly higher on ROC-AUC (0.927 against 0.926). If we had followed ROC-AUC, we would have picked a different setting. The difference is small enough that we do not treat preprocessing as the main lever. We keep median imputation with scaling for the linear model and the network. The forest does not use scaling, because a tree split does not depend on the units of a feature.
+We can see that the three PR-AUC values sit between 0.725 and 0.729. The gap is 0.004. Median imputation with scaling is the best of the three on the metric we care about. Zero-filling with scaling is slightly higher on ROC-AUC (0.927 against 0.926). If we had followed ROC-AUC, we would have picked a different setting. The difference is small enough that we do not treat preprocessing as the main lever. We keep median imputation with scaling for the linear model and the network. The forest does not use scaling, because a tree split does not depend on the units of a feature.
 
 
 
 \subsection{What feature engineering does to the values}
 
 
-In Table 14 we compare each raw source column with the feature we built from it. Raw grid has a minimum of 0 and 6.1\% zeros, which would rank a pit-lane start ahead of pole. In the grid-position feature those zeros become missing, so the minimum is 1, and the pit-lane flag carries the information instead. Qualifying strings become seconds; after the join to every driver-race row, 61.2\% of rows have no qualifying time. Shifted form and previous-race standings are missing on a first race or first round, because nothing earlier exists. These gaps are what the imputer fills next.
+In Table 14 we compare each raw source column with the feature we built from it. Raw grid has a minimum of 0 and 1.1\% zeros, which would rank a pit-lane start ahead of pole. In the grid-position feature those zeros become missing, so the minimum is 1, and the pit-lane flag carries the information instead. Qualifying strings become seconds; after the join to every driver-race row, 59.2\% of rows have no qualifying time. Shifted form and previous-race standings are missing on a first race or first round, because nothing earlier exists. These gaps are what the imputer fills next.
 
 
 \begin{table}[H]
@@ -744,14 +749,14 @@ In Table 14 we compare each raw source column with the feature we built from it.
 \rowcolor{navy}
 \textcolor{white}{\textbf{Column}} & \textcolor{white}{\textbf{Missing}} & \textcolor{white}{\textbf{Zeros}} & \textcolor{white}{\textbf{Min}} & \textcolor{white}{\textbf{Median}} & \textcolor{white}{\textbf{Max}} \\
 \midrule
-grid (raw) & 0.0\% & 6.1\% & 0.00 & 11.00 & 34.00 \\
-grid\_position (0 $\rightarrow$ missing) & 6.1\% & 0.0\% & 1.00 & 12.00 & 34.00 \\
-pit\_lane\_start (grid == 0) & 0.0\% & 93.9\% & 0.00 & 0.00 & 1.00 \\
+grid (raw) & 0.0\% & 1.1\% & 0.00 & 11.00 & 34.00 \\
+grid\_position (0 $\rightarrow$ missing) & 1.1\% & 0.0\% & 1.00 & 12.00 & 34.00 \\
+pit\_lane\_start (grid == 0) & 0.0\% & 98.9\% & 0.00 & 0.00 & 1.00 \\
 q1/q2/q3 text present & 0.0\% & 1.5\% & 0.00 & 1.00 & 1.00 \\
 best qualifying seconds (parsed) & 1.5\% & 0.0\% & 53.38 & 86.69 & 1002.64 \\
-qualifying\_time\_seconds (joined) & 61.2\% & 0.0\% & 53.38 & 86.69 & 1002.64 \\
-driver\_podium\_rate\_5 (shifted) & 3.2\% & 66.3\% & 0.00 & 0.00 & 1.00 \\
-driver\_points\_before (previous race) & 13.7\% & 29.5\% & 0.00 & 4.00 & 549.00 \\
+qualifying\_time\_seconds (joined) & 59.2\% & 0.0\% & 53.38 & 86.69 & 1002.64 \\
+driver\_podium\_rate\_5 (shifted) & 3.2\% & 64.7\% & 0.00 & 0.00 & 1.00 \\
+driver\_points\_before (previous race) & 13.4\% & 27.4\% & 0.00 & 4.00 & 549.00 \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -761,7 +766,7 @@ driver\_points\_before (previous race) & 13.7\% & 29.5\% & 0.00 & 4.00 & 549.00 
 \subsection{What imputation and scaling do to the values}
 
 
-In Table 15 we measure both steps on the training rows. Median imputation writes the training median into every gap. It does not change the range, because the median is inside it, but it piles rows onto one value and shrinks the spread. qualifying\_time\_seconds is missing in 66.5\% of training rows, and its standard deviation falls by 41.9\%. The qualifying-missing flag keeps the fact that a value was filled. Scaling then puts every training feature at mean 0 and standard deviation 1. Raw ranges run from 0-1 for the flags to 722 constructor points; after scaling they share one scale, so neither the logistic penalty nor the network's gradient steps are dominated by large units. Scaling is linear, so the shape and order of values do not change.
+In Table 15 we measure both steps on the training rows. Median imputation writes the training median into every gap. It does not change the range, because the median is inside it, but it piles rows onto one value and shrinks the spread. qualifying\_time\_seconds is missing in 64.5\% of training rows, and its standard deviation falls by 40.3\%. The qualifying-missing flag keeps the fact that a value was filled. Scaling then puts every training feature at mean 0 and standard deviation 1. Raw ranges run from 0-1 for the flags to 722 constructor points; after scaling they share one scale, so neither the logistic penalty nor the network's gradient steps are dominated by large units. Scaling is linear, so the shape and order of values do not change.
 
 
 \begin{table}[H]
@@ -773,20 +778,20 @@ In Table 15 we measure both steps on the training rows. Median imputation writes
 \rowcolor{navy}
 \textcolor{white}{\textbf{Feature}} & \textcolor{white}{\textbf{Missing}} & \textcolor{white}{\textbf{Fill value}} & \textcolor{white}{\textbf{Raw range}} & \textcolor{white}{\textbf{Std change}} & \textcolor{white}{\textbf{Scaled range}} & \textcolor{white}{\textbf{Val. mean}} & \textcolor{white}{\textbf{Test mean}} \\
 \midrule
-grid\_position & 6.4\% & 12.00 & 1.0 to 34.0 & $-$3.3\% & $-$1.65 to 3.29 & $-$0.24 & $-$0.26 \\
-qualifying\_position & 65.9\% & 11.00 & 1.0 to 28.0 & $-$41.6\% & $-$2.72 to 4.53 & $-$0.17 & $-$0.17 \\
-qualifying\_time\_seconds & 66.5\% & 87.25 & 63.0 to 1002.6 & $-$41.9\% & $-$2.71 to 99.99 & $-$0.46 & $-$0.26 \\
-driver\_podium\_rate\_5 & 3.5\% & 0.00 & 0.0 to 1.0 & $-$1.2\% & $-$0.55 to 3.88 & +0.11 & +0.12 \\
-driver\_points\_before & 14.5\% & 3.00 & 0.0 to 387.0 & $-$6.7\% & $-$0.42 to 11.18 & +0.99 & +1.35 \\
-constructor\_points\_before & 14.0\% & 9.00 & 0.0 to 722.0 & $-$6.5\% & $-$0.45 to 10.76 & +1.03 & +1.39 \\
-driver\_age & 0.0\% & 29.58 & 17.5 to 58.8 & 0.0\% & $-$2.43 to 5.51 & $-$0.43 & $-$0.25 \\
-year & 0.0\% & 1989.00 & 1950.0 to 2019.0 & 0.0\% & $-$2.11 to 1.63 & +1.72 & +1.85 \\
+grid\_position & 1.0\% & 12.00 & 1.0 to 34.0 & $-$0.5\% & $-$1.60 to 3.21 & $-$0.24 & $-$0.25 \\
+qualifying\_position & 64.0\% & 11.00 & 1.0 to 26.0 & $-$39.9\% & $-$2.65 to 3.89 & $-$0.17 & $-$0.17 \\
+qualifying\_time\_seconds & 64.5\% & 87.24 & 63.0 to 1002.6 & $-$40.3\% & $-$2.63 to 97.17 & $-$0.45 & $-$0.25 \\
+driver\_podium\_rate\_5 & 3.5\% & 0.00 & 0.0 to 1.0 & $-$1.2\% & $-$0.57 to 3.77 & +0.08 & +0.08 \\
+driver\_points\_before & 14.1\% & 4.00 & 0.0 to 387.0 & $-$6.5\% & $-$0.44 to 10.90 & +0.94 & +1.29 \\
+constructor\_points\_before & 14.1\% & 10.00 & 0.0 to 722.0 & $-$6.6\% & $-$0.46 to 10.50 & +0.98 & +1.34 \\
+driver\_age & 0.0\% & 29.61 & 17.5 to 56.8 & 0.0\% & $-$2.42 to 5.09 & $-$0.43 & $-$0.25 \\
+year & 0.0\% & 1990.00 & 1950.0 to 2019.0 & 0.0\% & $-$2.09 to 1.59 & +1.67 & +1.80 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-Figure 8 shows the spike at the median and the shift of later seasons; in Figure 9 we compare raw and scaled ranges for all 17 features. Because the transform is fitted on training only, validation and test are not centred at zero: year sits at +1.72 standard deviations in validation. That is the period shift the model faces at deployment, not a bug.
+Figure 8 shows the spike at the median and the shift of later seasons; in Figure 9 we compare raw and scaled ranges for all 17 features. Because the transform is fitted on training only, validation and test are not centred at zero: year sits at +1.67 standard deviations in validation. That is the period shift the model faces at deployment, not a bug.
 
 
 \begin{figure}[H]
@@ -794,34 +799,34 @@ Figure 8 shows the spike at the median and the shift of later seasons; in Figure
 {\scriptsize Top row: \textcolor{modelB}{\rule{1.2ex}{1.2ex}} after median imputation, \textcolor{splitA}{\rule{1.2ex}{1.2ex}} observed values, dashed line = fill value. Bottom row: \textcolor{modelC}{\rule{1.2ex}{1.2ex}} training, \textcolor{splitB}{\rule{1.2ex}{1.2ex}} validation.\par}\smallskip
 \begin{tikzpicture}
 \begin{groupplot}[group style={group size=4 by 2, horizontal sep=1.1cm, vertical sep=1.5cm}, width=0.215\linewidth, height=3.6cm, ymajorgrids, tick label style={font=\tiny}]
-\nextgroupplot[title={grid\_position\\6\% missing}, ymode=log, ymin=1, ymax=100000, title style={align=center, font=\tiny}, ylabel={rows (log)}]
-\addplot[ybar interval, fill=modelB, draw=none] coordinates {(1,1017) (1.825,1013) (2.65,1020) (3.475,1021) (4.3,1014) (5.125,0.5) (5.95,1013) (6.775,1026) (7.6,1016) (8.425,1025) (9.25,1019) (10.075,0.5) (10.9,1020) (11.725,2598) (12.55,1017) (13.375,1013) (14.2,1005) (15.025,0.5) (15.85,992) (16.675,979) (17.5,946) (18.325,929) (19.15,0.5) (19.975,903) (20.8,696) (21.625,656) (22.45,451) (23.275,429) (24.1,0.5) (24.925,301) (25.75,247) (26.575,45) (27.4,28) (28.225,25) (29.05,0.5) (29.875,17) (30.7,18) (31.525,17) (32.35,12) (33.175,1) (34,1)};
-\addplot[ybar interval, fill=splitA, draw=none] coordinates {(1,1017) (1.825,1013) (2.65,1020) (3.475,1021) (4.3,1014) (5.125,0.5) (5.95,1013) (6.775,1026) (7.6,1016) (8.425,1025) (9.25,1019) (10.075,0.5) (10.9,1020) (11.725,1020) (12.55,1017) (13.375,1013) (14.2,1005) (15.025,0.5) (15.85,992) (16.675,979) (17.5,946) (18.325,929) (19.15,0.5) (19.975,903) (20.8,696) (21.625,656) (22.45,451) (23.275,429) (24.1,0.5) (24.925,301) (25.75,247) (26.575,45) (27.4,28) (28.225,25) (29.05,0.5) (29.875,17) (30.7,18) (31.525,17) (32.35,12) (33.175,1) (34,1)};
+\nextgroupplot[title={grid\_position\\1\% missing}, ymode=log, ymin=1, ymax=100000, title style={align=center, font=\tiny}, ylabel={rows (log)}]
+\addplot[ybar interval, fill=modelB, draw=none] coordinates {(1,1017) (1.825,1013) (2.65,1020) (3.475,1021) (4.3,1014) (5.125,0.5) (5.95,1013) (6.775,1026) (7.6,1016) (8.425,1025) (9.25,1019) (10.075,0.5) (10.9,1020) (11.725,1252) (12.55,1017) (13.375,1013) (14.2,1005) (15.025,0.5) (15.85,992) (16.675,979) (17.5,946) (18.325,929) (19.15,0.5) (19.975,902) (20.8,691) (21.625,650) (22.45,450) (23.275,428) (24.1,0.5) (24.925,299) (25.75,246) (26.575,43) (27.4,27) (28.225,25) (29.05,0.5) (29.875,17) (30.7,18) (31.525,17) (32.35,12) (33.175,1) (34,1)};
+\addplot[ybar interval, fill=splitA, draw=none] coordinates {(1,1017) (1.825,1013) (2.65,1020) (3.475,1021) (4.3,1014) (5.125,0.5) (5.95,1013) (6.775,1026) (7.6,1016) (8.425,1025) (9.25,1019) (10.075,0.5) (10.9,1020) (11.725,1020) (12.55,1017) (13.375,1013) (14.2,1005) (15.025,0.5) (15.85,992) (16.675,979) (17.5,946) (18.325,929) (19.15,0.5) (19.975,902) (20.8,691) (21.625,650) (22.45,450) (23.275,428) (24.1,0.5) (24.925,299) (25.75,246) (26.575,43) (27.4,27) (28.225,25) (29.05,0.5) (29.875,17) (30.7,18) (31.525,17) (32.35,12) (33.175,1) (34,1)};
 \addplot[black, dashed] coordinates {(12,1) (12,100000)};
-\nextgroupplot[title={qualifying\_time\_seconds\\66\% missing}, ymode=log, ymin=1, ymax=100000, title style={align=center, font=\tiny}]
-\addplot[ybar interval, fill=modelB, draw=none] coordinates {(63.003,3915) (86.4939,20284) (109.985,301) (133.476,28) (156.967,0.5) (180.458,0.5) (203.949,0.5) (227.439,0.5) (250.93,0.5) (274.421,0.5) (297.912,0.5) (321.403,0.5) (344.894,0.5) (368.385,0.5) (391.876,0.5) (415.367,0.5) (438.858,0.5) (462.349,0.5) (485.84,0.5) (509.331,0.5) (532.822,0.5) (556.312,0.5) (579.803,0.5) (603.294,0.5) (626.785,0.5) (650.276,0.5) (673.767,0.5) (697.258,0.5) (720.749,0.5) (744.24,0.5) (767.731,0.5) (791.222,0.5) (814.713,0.5) (838.204,0.5) (861.694,0.5) (885.185,0.5) (908.676,0.5) (932.167,0.5) (955.658,0.5) (979.149,1) (1002.64,1)};
-\addplot[ybar interval, fill=splitA, draw=none] coordinates {(63.003,3915) (86.4939,3976) (109.985,301) (133.476,28) (156.967,0.5) (180.458,0.5) (203.949,0.5) (227.439,0.5) (250.93,0.5) (274.421,0.5) (297.912,0.5) (321.403,0.5) (344.894,0.5) (368.385,0.5) (391.876,0.5) (415.367,0.5) (438.858,0.5) (462.349,0.5) (485.84,0.5) (509.331,0.5) (532.822,0.5) (556.312,0.5) (579.803,0.5) (603.294,0.5) (626.785,0.5) (650.276,0.5) (673.767,0.5) (697.258,0.5) (720.749,0.5) (744.24,0.5) (767.731,0.5) (791.222,0.5) (814.713,0.5) (838.204,0.5) (861.694,0.5) (885.185,0.5) (908.676,0.5) (932.167,0.5) (955.658,0.5) (979.149,1) (1002.64,1)};
-\addplot[black, dashed] coordinates {(87.249,1) (87.249,100000)};
+\nextgroupplot[title={qualifying\_time\_seconds\\65\% missing}, ymode=log, ymin=1, ymax=100000, title style={align=center, font=\tiny}]
+\addplot[ybar interval, fill=modelB, draw=none] coordinates {(63.003,3914) (86.4939,18919) (109.985,301) (133.476,28) (156.967,0.5) (180.458,0.5) (203.949,0.5) (227.439,0.5) (250.93,0.5) (274.421,0.5) (297.912,0.5) (321.403,0.5) (344.894,0.5) (368.385,0.5) (391.876,0.5) (415.367,0.5) (438.858,0.5) (462.349,0.5) (485.84,0.5) (509.331,0.5) (532.822,0.5) (556.312,0.5) (579.803,0.5) (603.294,0.5) (626.785,0.5) (650.276,0.5) (673.767,0.5) (697.258,0.5) (720.749,0.5) (744.24,0.5) (767.731,0.5) (791.222,0.5) (814.713,0.5) (838.204,0.5) (861.694,0.5) (885.185,0.5) (908.676,0.5) (932.167,0.5) (955.658,0.5) (979.149,1) (1002.64,1)};
+\addplot[ybar interval, fill=splitA, draw=none] coordinates {(63.003,3914) (86.4939,3971) (109.985,301) (133.476,28) (156.967,0.5) (180.458,0.5) (203.949,0.5) (227.439,0.5) (250.93,0.5) (274.421,0.5) (297.912,0.5) (321.403,0.5) (344.894,0.5) (368.385,0.5) (391.876,0.5) (415.367,0.5) (438.858,0.5) (462.349,0.5) (485.84,0.5) (509.331,0.5) (532.822,0.5) (556.312,0.5) (579.803,0.5) (603.294,0.5) (626.785,0.5) (650.276,0.5) (673.767,0.5) (697.258,0.5) (720.749,0.5) (744.24,0.5) (767.731,0.5) (791.222,0.5) (814.713,0.5) (838.204,0.5) (861.694,0.5) (885.185,0.5) (908.676,0.5) (932.167,0.5) (955.658,0.5) (979.149,1) (1002.64,1)};
+\addplot[black, dashed] coordinates {(87.244,1) (87.244,100000)};
 \nextgroupplot[title={driver\_points\_before\\14\% missing}, ymode=log, ymin=1, ymax=100000, title style={align=center, font=\tiny}]
-\addplot[ybar interval, fill=modelB, draw=none] coordinates {(0,17756) (9.675,2448) (19.35,1283) (29.025,741) (38.7,548) (48.375,397) (58.05,206) (67.725,203) (77.4,140) (87.075,96) (96.75,76) (106.425,67) (116.1,58) (125.775,58) (135.45,46) (145.125,42) (154.8,39) (164.475,41) (174.15,31) (183.825,35) (193.5,30) (203.175,20) (212.85,26) (222.525,22) (232.2,19) (241.875,19) (251.55,10) (261.225,9) (270.9,11) (280.575,6) (290.25,6) (299.925,7) (309.6,5) (319.275,4) (328.95,7) (338.625,4) (348.3,3) (357.975,4) (367.65,3) (377.325,3) (387,3)};
-\addplot[ybar interval, fill=splitA, draw=none] coordinates {(0,14207) (9.675,2448) (19.35,1283) (29.025,741) (38.7,548) (48.375,397) (58.05,206) (67.725,203) (77.4,140) (87.075,96) (96.75,76) (106.425,67) (116.1,58) (125.775,58) (135.45,46) (145.125,42) (154.8,39) (164.475,41) (174.15,31) (183.825,35) (193.5,30) (203.175,20) (212.85,26) (222.525,22) (232.2,19) (241.875,19) (251.55,10) (261.225,9) (270.9,11) (280.575,6) (290.25,6) (299.925,7) (309.6,5) (319.275,4) (328.95,7) (338.625,4) (348.3,3) (357.975,4) (367.65,3) (377.325,3) (387,3)};
-\addplot[black, dashed] coordinates {(3,1) (3,100000)};
+\addplot[ybar interval, fill=modelB, draw=none] coordinates {(0,16398) (9.675,2440) (19.35,1283) (29.025,741) (38.7,548) (48.375,397) (58.05,206) (67.725,203) (77.4,140) (87.075,96) (96.75,76) (106.425,67) (116.1,58) (125.775,58) (135.45,46) (145.125,42) (154.8,39) (164.475,41) (174.15,31) (183.825,35) (193.5,30) (203.175,20) (212.85,26) (222.525,22) (232.2,19) (241.875,19) (251.55,10) (261.225,9) (270.9,11) (280.575,6) (290.25,6) (299.925,7) (309.6,5) (319.275,4) (328.95,7) (338.625,4) (348.3,3) (357.975,4) (367.65,3) (377.325,3) (387,3)};
+\addplot[ybar interval, fill=splitA, draw=none] coordinates {(0,13129) (9.675,2440) (19.35,1283) (29.025,741) (38.7,548) (48.375,397) (58.05,206) (67.725,203) (77.4,140) (87.075,96) (96.75,76) (106.425,67) (116.1,58) (125.775,58) (135.45,46) (145.125,42) (154.8,39) (164.475,41) (174.15,31) (183.825,35) (193.5,30) (203.175,20) (212.85,26) (222.525,22) (232.2,19) (241.875,19) (251.55,10) (261.225,9) (270.9,11) (280.575,6) (290.25,6) (299.925,7) (309.6,5) (319.275,4) (328.95,7) (338.625,4) (348.3,3) (357.975,4) (367.65,3) (377.325,3) (387,3)};
+\addplot[black, dashed] coordinates {(4,1) (4,100000)};
 \nextgroupplot[title={constructor\_podium\_rate\_5\\1\% missing}, ymode=log, ymin=1, ymax=100000, title style={align=center, font=\tiny}]
-\addplot[ybar interval, fill=modelB, draw=none] coordinates {(0,13594) (0.025,165) (0.05,492) (0.075,211) (0.1,2578) (0.125,337) (0.15,151) (0.175,138) (0.2,1632) (0.225,139) (0.25,192) (0.275,1221) (0.3,99) (0.325,123) (0.35,119) (0.375,87) (0.4,961) (0.425,53) (0.45,89) (0.475,17) (0.5,788) (0.525,17) (0.55,29) (0.575,556) (0.6,16) (0.625,8) (0.65,14) (0.675,372) (0.7,0.5) (0.725,2) (0.75,5) (0.775,0.5) (0.8,194) (0.825,0.5) (0.85,0.5) (0.875,0.5) (0.9,96) (0.925,0.5) (0.95,0.5) (0.975,34) (1,34)};
-\addplot[ybar interval, fill=splitA, draw=none] coordinates {(0,13254) (0.025,165) (0.05,492) (0.075,211) (0.1,2578) (0.125,337) (0.15,151) (0.175,138) (0.2,1632) (0.225,139) (0.25,192) (0.275,1221) (0.3,99) (0.325,123) (0.35,119) (0.375,87) (0.4,961) (0.425,53) (0.45,89) (0.475,17) (0.5,788) (0.525,17) (0.55,29) (0.575,556) (0.6,16) (0.625,8) (0.65,14) (0.675,372) (0.7,0.5) (0.725,2) (0.75,5) (0.775,0.5) (0.8,194) (0.825,0.5) (0.85,0.5) (0.875,0.5) (0.9,96) (0.925,0.5) (0.95,0.5) (0.975,34) (1,34)};
+\addplot[ybar interval, fill=modelB, draw=none] coordinates {(0,12377) (0.025,158) (0.05,457) (0.075,231) (0.1,2427) (0.125,337) (0.15,156) (0.175,126) (0.2,1609) (0.225,162) (0.25,176) (0.275,1241) (0.3,76) (0.325,136) (0.35,115) (0.375,86) (0.4,976) (0.425,50) (0.45,93) (0.475,25) (0.5,787) (0.525,19) (0.55,29) (0.575,564) (0.6,16) (0.625,7) (0.65,21) (0.675,368) (0.7,0.5) (0.725,5) (0.75,5) (0.775,0.5) (0.8,194) (0.825,2) (0.85,2) (0.875,0.5) (0.9,96) (0.925,0.5) (0.95,0.5) (0.975,34) (1,34)};
+\addplot[ybar interval, fill=splitA, draw=none] coordinates {(0,12059) (0.025,158) (0.05,457) (0.075,231) (0.1,2427) (0.125,337) (0.15,156) (0.175,126) (0.2,1609) (0.225,162) (0.25,176) (0.275,1241) (0.3,76) (0.325,136) (0.35,115) (0.375,86) (0.4,976) (0.425,50) (0.45,93) (0.475,25) (0.5,787) (0.525,19) (0.55,29) (0.575,564) (0.6,16) (0.625,7) (0.65,21) (0.675,368) (0.7,0.5) (0.725,5) (0.75,5) (0.775,0.5) (0.8,194) (0.825,2) (0.85,2) (0.875,0.5) (0.9,96) (0.925,0.5) (0.95,0.5) (0.975,34) (1,34)};
 \addplot[black, dashed] coordinates {(0,1) (0,100000)};
 \nextgroupplot[xlabel={standardized value}, ylabel={density}]
-\addplot[ybar interval, fill=modelC, fill opacity=0.6, draw=none] coordinates {(-1.64934,0.335509) (-1.52576,0.334189) (-1.40219,0.336498) (-1.27861,0.336828) (-1.15503,0.334519) (-1.03146,0) (-0.90788,0.334189) (-0.784303,0.338478) (-0.660726,0.335179) (-0.537149,0.338148) (-0.413572,0.336168) (-0.289995,0) (-0.166418,0.336498) (-0.0428411,0.857081) (0.0807358,0.335509) (0.204313,0.334189) (0.32789,0.33155) (0.451467,0) (0.575044,0.327261) (0.698621,0.322972) (0.822198,0.312086) (0.945775,0.306477) (1.06935,0) (1.19293,0.2979) (1.31651,0.229611) (1.44008,0.216415) (1.56366,0.148785) (1.68724,0.141527) (1.81081,0) (1.93439,0.0993) (2.05797,0.0814854) (2.18154,0.0148455) (2.30512,0.00923721) (2.4287,0.00824751) (2.55227,0) (2.67585,0.0056083) (2.79943,0.0059382) (2.92301,0.0056083) (3.04658,0.0039588) (3.17016,0.0003299) (3.29374,0.0003299)};
-\addplot[ybar interval, fill=splitB, fill opacity=0.6, draw=none] coordinates {(-1.64934,0.404606) (-1.52576,0.404606) (-1.40219,0.404606) (-1.27861,0.404606) (-1.15503,0.404606) (-1.03146,0) (-0.90788,0.404606) (-0.784303,0.394232) (-0.660726,0.404606) (-0.537149,0.404606) (-0.413572,0.404606) (-0.289995,0) (-0.166418,0.394232) (-0.0428411,0.580973) (0.0807358,0.394232) (0.204313,0.394232) (0.32789,0.394232) (0.451467,0) (0.575044,0.394232) (0.698621,0.404606) (0.822198,0.383857) (0.945775,0.394232) (1.06935,0) (1.19293,0.32161) (1.31651,0) (1.44008,0) (1.56366,0) (1.68724,0) (1.81081,0) (1.93439,0) (2.05797,0) (2.18154,0) (2.30512,0) (2.4287,0) (2.55227,0) (2.67585,0) (2.79943,0) (2.92301,0) (3.04658,0) (3.17016,0) (3.29374,0)};
+\addplot[ybar interval, fill=modelC, fill opacity=0.6, draw=none] coordinates {(-1.60334,0.365191) (-1.48312,0.363754) (-1.36289,0.366268) (-1.24266,0.366627) (-1.12243,0.364114) (-1.0022,0) (-0.881975,0.363754) (-0.761747,0.368423) (-0.641519,0.364832) (-0.521291,0.368064) (-0.401063,0.365909) (-0.280834,0) (-0.160606,0.366268) (-0.0403781,0.449576) (0.0798501,0.365191) (0.200078,0.363754) (0.320306,0.360882) (0.440535,0) (0.560763,0.356214) (0.680991,0.351546) (0.801219,0.339696) (0.921447,0.333591) (1.04168,0) (1.1619,0.323896) (1.28213,0.248129) (1.40236,0.233406) (1.52259,0.161589) (1.64282,0.153689) (1.76304,0) (1.88327,0.107367) (2.0035,0.0883352) (2.12373,0.0154407) (2.24396,0.00969533) (2.36419,0.00897716) (2.48441,0) (2.60464,0.00610447) (2.72487,0.00646355) (2.8451,0.00610447) (2.96533,0.00430904) (3.08555,0.000359086) (3.20578,0.000359086)};
+\addplot[ybar interval, fill=splitB, fill opacity=0.6, draw=none] coordinates {(-1.60334,0.415876) (-1.48312,0.415876) (-1.36289,0.415876) (-1.24266,0.415876) (-1.12243,0.415876) (-1.0022,0) (-0.881975,0.415876) (-0.761747,0.405212) (-0.641519,0.415876) (-0.521291,0.415876) (-0.401063,0.415876) (-0.280834,0) (-0.160606,0.405212) (-0.0403781,0.597155) (0.0798501,0.405212) (0.200078,0.405212) (0.320306,0.405212) (0.440535,0) (0.560763,0.405212) (0.680991,0.415876) (0.801219,0.394549) (0.921447,0.405212) (1.04168,0) (1.1619,0.330568) (1.28213,0) (1.40236,0) (1.52259,0) (1.64282,0) (1.76304,0) (1.88327,0) (2.0035,0) (2.12373,0) (2.24396,0) (2.36419,0) (2.48441,0) (2.60464,0) (2.72487,0) (2.8451,0) (2.96533,0) (3.08555,0) (3.20578,0)};
 \nextgroupplot[xlabel={standardized value}]
-\addplot[ybar interval, fill=modelC, fill opacity=0.6, draw=none] coordinates {(-3.7582,0.0244263) (-1.16454,0.342219) (1.42913,0.0178089) (4.0228,0.00102169) (6.61646,6.28733e-05) (9.21013,0) (11.8038,0) (14.3975,0) (16.9911,0) (19.5848,0) (22.1785,0) (24.7721,0) (27.3658,0) (29.9594,0) (32.5531,0) (35.1468,0) (37.7404,0) (40.3341,0) (42.9278,0) (45.5214,0) (48.1151,0) (50.7088,0) (53.3024,0) (55.8961,0) (58.4898,0) (61.0834,0) (63.6771,0) (66.2708,0) (68.8644,0) (71.4581,0) (74.0518,0) (76.6454,0) (79.2391,0) (81.8328,0) (84.4264,0) (87.0201,0) (89.6138,0) (92.2074,0) (94.8011,0) (97.3947,1.57183e-05) (99.9884,1.57183e-05)};
-\addplot[ybar interval, fill=splitB, fill opacity=0.6, draw=none] coordinates {(-3.7582,0.124564) (-1.16454,0.213044) (1.42913,0.0449814) (4.0228,0.00296581) (6.61646,0) (9.21013,0) (11.8038,0) (14.3975,0) (16.9911,0) (19.5848,0) (22.1785,0) (24.7721,0) (27.3658,0) (29.9594,0) (32.5531,0) (35.1468,0) (37.7404,0) (40.3341,0) (42.9278,0) (45.5214,0) (48.1151,0) (50.7088,0) (53.3024,0) (55.8961,0) (58.4898,0) (61.0834,0) (63.6771,0) (66.2708,0) (68.8644,0) (71.4581,0) (74.0518,0) (76.6454,0) (79.2391,0) (81.8328,0) (84.4264,0) (87.0201,0) (89.6138,0) (92.2074,0) (94.8011,0) (97.3947,0) (99.9884,0)};
+\addplot[ybar interval, fill=modelC, fill opacity=0.6, draw=none] coordinates {(-3.65522,0.0266157) (-1.13454,0.349498) (1.38614,0.0194051) (3.90683,0.00111327) (6.42751,6.85089e-05) (8.94819,0) (11.4689,0) (13.9896,0) (16.5102,0) (19.0309,0) (21.5516,0) (24.0723,0) (26.593,0) (29.1137,0) (31.6343,0) (34.155,0) (36.6757,0) (39.1964,0) (41.7171,0) (44.2377,0) (46.7584,0) (49.2791,0) (51.7998,0) (54.3205,0) (56.8412,0) (59.3618,0) (61.8825,0) (64.4032,0) (66.9239,0) (69.4446,0) (71.9653,0) (74.4859,0) (77.0066,0) (79.5273,0) (82.048,0) (84.5687,0) (87.0893,0) (89.61,0) (92.1307,0) (94.6514,1.71272e-05) (97.1721,1.71272e-05)};
+\addplot[ybar interval, fill=splitB, fill opacity=0.6, draw=none] coordinates {(-3.65522,0.12817) (-1.13454,0.219212) (1.38614,0.0462838) (3.90683,0.00305168) (6.42751,0) (8.94819,0) (11.4689,0) (13.9896,0) (16.5102,0) (19.0309,0) (21.5516,0) (24.0723,0) (26.593,0) (29.1137,0) (31.6343,0) (34.155,0) (36.6757,0) (39.1964,0) (41.7171,0) (44.2377,0) (46.7584,0) (49.2791,0) (51.7998,0) (54.3205,0) (56.8412,0) (59.3618,0) (61.8825,0) (64.4032,0) (66.9239,0) (69.4446,0) (71.9653,0) (74.4859,0) (77.0066,0) (79.5273,0) (82.048,0) (84.5687,0) (87.0893,0) (89.61,0) (92.1307,0) (94.6514,0) (97.1721,0)};
 \nextgroupplot[xlabel={standardized value}]
-\addplot[ybar interval, fill=modelC, fill opacity=0.6, draw=none] coordinates {(-0.419012,2.49679) (-0.129088,0.34423) (0.160835,0.180411) (0.450759,0.104197) (0.740682,0.0770579) (1.03061,0.0558248) (1.32053,0.028967) (1.61045,0.0285452) (1.90038,0.0196863) (2.1903,0.0134992) (2.48022,0.0106869) (2.77015,0.00942131) (3.06007,0.00815576) (3.34999,0.00815576) (3.63992,0.00646837) (3.92984,0.0059059) (4.21976,0.00548405) (4.50969,0.00576528) (4.79961,0.00435912) (5.08954,0.00492158) (5.37946,0.0042185) (5.66938,0.00281233) (5.95931,0.00365603) (6.24923,0.00309357) (6.53915,0.00267172) (6.82908,0.00267172) (7.119,0.00140617) (7.40892,0.00126555) (7.69885,0.00154678) (7.98877,0.0008437) (8.27869,0.0008437) (8.56862,0.000984316) (8.85854,0.000703083) (9.14846,0.000562467) (9.43839,0.000984316) (9.72831,0.000562467) (10.0182,0.00042185) (10.3082,0.000562467) (10.5981,0.00042185) (10.888,0.00042185) (11.1779,0.00042185)};
-\addplot[ybar interval, fill=splitB, fill opacity=0.6, draw=none] coordinates {(-0.419012,1.37525) (-0.129088,0.375873) (0.160835,0.176881) (0.450759,0.185725) (0.740682,0.225524) (1.03061,0.137083) (1.32053,0.137083) (1.61045,0.0972847) (1.90038,0.0795966) (2.1903,0.0663305) (2.48022,0.106129) (2.77015,0.0751746) (3.06007,0.0353763) (3.34999,0.0353763) (3.63992,0.0265322) (3.92984,0.0574864) (4.21976,0.0353763) (4.50969,0.00884407) (4.79961,0.0221102) (5.08954,0.0397983) (5.37946,0.0353763) (5.66938,0.00884407) (5.95931,0.0132661) (6.24923,0.0132661) (6.53915,0) (6.82908,0.00884407) (7.119,0.00884407) (7.40892,0.00442203) (7.69885,0.00442203) (7.98877,0.00884407) (8.27869,0.00442203) (8.56862,0.00442203) (8.85854,0.00884407) (9.14846,0) (9.43839,0.00884407) (9.72831,0.00442203) (10.0182,0.00442203) (10.3082,0) (10.5981,0.00884407) (10.888,0) (11.1779,0)};
+\addplot[ybar interval, fill=modelC, fill opacity=0.6, draw=none] coordinates {(-0.436314,2.49782) (-0.152892,0.371673) (0.130531,0.195433) (0.413954,0.112873) (0.697376,0.083474) (0.980799,0.0604729) (1.26422,0.0313789) (1.54764,0.0309219) (1.83107,0.0213255) (2.11449,0.0146232) (2.39791,0.0115767) (2.68133,0.0102058) (2.96476,0.00883484) (3.24818,0.00883484) (3.5316,0.00700694) (3.81503,0.00639764) (4.09845,0.00594067) (4.38187,0.00624532) (4.66529,0.00472207) (4.94872,0.00533137) (5.23214,0.00456974) (5.51556,0.0030465) (5.79898,0.00396044) (6.08241,0.00335115) (6.36583,0.00289417) (6.64925,0.00289417) (6.93268,0.00152325) (7.2161,0.00137092) (7.49952,0.00167557) (7.78294,0.000913949) (8.06637,0.000913949) (8.34979,0.00106627) (8.63321,0.000761624) (8.91663,0.000609299) (9.20006,0.00106627) (9.48348,0.000609299) (9.7669,0.000456974) (10.0503,0.000609299) (10.3337,0.000456974) (10.6172,0.000456974) (10.9006,0.000456974)};
+\addplot[ybar interval, fill=splitB, fill opacity=0.6, draw=none] coordinates {(-0.436314,1.4068) (-0.152892,0.384494) (0.130531,0.180938) (0.413954,0.189985) (0.697376,0.230696) (0.980799,0.140227) (1.26422,0.140227) (1.54764,0.0995161) (1.83107,0.0814223) (2.11449,0.0678519) (2.39791,0.108563) (2.68133,0.0768988) (2.96476,0.0361877) (3.24818,0.0361877) (3.5316,0.0271408) (3.81503,0.058805) (4.09845,0.0361877) (4.38187,0.00904692) (4.66529,0.0226173) (4.94872,0.0407111) (5.23214,0.0361877) (5.51556,0.00904692) (5.79898,0.0135704) (6.08241,0.0135704) (6.36583,0) (6.64925,0.00904692) (6.93268,0.00904692) (7.2161,0.00452346) (7.49952,0.00452346) (7.78294,0.00904692) (8.06637,0.00452346) (8.34979,0.00452346) (8.63321,0.00904692) (8.91663,0) (9.20006,0.00904692) (9.48348,0.00452346) (9.7669,0.00452346) (10.0503,0) (10.3337,0.00904692) (10.6172,0) (10.9006,0)};
 \nextgroupplot[xlabel={standardized value}]
-\addplot[ybar interval, fill=modelC, fill opacity=0.6, draw=none] coordinates {(-0.650067,4.33837) (-0.52205,0.0433105) (-0.394034,0.155408) (-0.266017,0.0684688) (-0.138001,0.827357) (-0.00998421,0.100952) (0.118032,0.0464951) (0.246049,0.0455397) (0.374065,0.519726) (0.502082,0.0627365) (0.630099,0.0426736) (0.758115,0.0219737) (0.886132,0.398393) (1.01415,0.0337567) (1.14216,0.0433105) (1.27018,0.027706) (1.3982,0.306039) (1.52621,0.0210183) (1.65423,0.0242029) (1.78225,0.00541381) (1.91026,0.250946) (2.03828,0.00541381) (2.1663,0.00923532) (2.29431,0.00477689) (2.42233,0.177382) (2.55035,0.00254767) (2.67836,0.00445843) (2.80638,0) (2.9344,0.118467) (3.06241,0.000636919) (3.19043,0.0015923) (3.31845,0) (3.44646,0.0617811) (3.57448,0) (3.7025,0) (3.83051,0) (3.95853,0.0305721) (4.08655,0) (4.21456,0) (4.34258,0.0108276) (4.4706,0.0108276)};
-\addplot[ybar interval, fill=splitB, fill opacity=0.6, draw=none] coordinates {(-0.650067,4.2863) (-0.52205,0) (-0.394034,0) (-0.266017,0) (-0.138001,1.42209) (-0.00998421,0) (0.118032,0) (0.246049,0) (0.374065,0.480707) (0.502082,0) (0.630099,0) (0.758115,0) (0.886132,0.240354) (1.01415,0) (1.14216,0) (1.27018,0) (1.3982,0.300442) (1.52621,0) (1.65423,0) (1.78225,0) (1.91026,0.240354) (2.03828,0) (2.1663,0) (2.29431,0) (2.42233,0.340501) (2.55035,0) (2.67836,0) (2.80638,0) (2.9344,0.300442) (3.06241,0) (3.19043,0) (3.31845,0) (3.44646,0.120177) (3.57448,0) (3.7025,0) (3.83051,0) (3.95853,0.0801178) (4.08655,0) (4.21456,0) (4.34258,0) (4.4706,0)};
+\addplot[ybar interval, fill=modelC, fill opacity=0.6, draw=none] coordinates {(-0.674893,4.26403) (-0.549578,0.0544329) (-0.424264,0.157442) (-0.29895,0.0795823) (-0.173635,0.836131) (-0.0483211,0.116101) (0.0769932,0.0537439) (0.202308,0.0434085) (0.327622,0.55432) (0.452936,0.055811) (0.57825,0.0606341) (0.703565,0.42754) (0.828879,0.0261829) (0.954193,0.0337622) (1.07951,0.0547774) (1.20482,0.345201) (1.33014,0.0172256) (1.45545,0.0186037) (1.58076,0.0320396) (1.70608,0.273198) (1.83139,0.00654573) (1.95671,0.00654573) (2.08202,0.00999085) (2.20734,0.194305) (2.33265,0.00551219) (2.45797,0.00241159) (2.58328,0.00723476) (2.70859,0.12678) (2.83391,0) (2.95922,0.00344512) (3.08454,0) (3.20985,0) (3.33517,0.0668354) (3.46048,0.000689024) (3.58579,0.000689024) (3.71111,0) (3.83642,0.0330732) (3.96174,0) (4.08705,0) (4.21237,0.0117134) (4.33768,0.0117134)};
+\addplot[ybar interval, fill=splitB, fill opacity=0.6, draw=none] coordinates {(-0.674893,4.37873) (-0.549578,0) (-0.424264,0) (-0.29895,0) (-0.173635,1.45276) (-0.0483211,0) (0.0769932,0) (0.202308,0) (0.327622,0.491073) (0.452936,0) (0.57825,0) (0.703565,0.245536) (0.828879,0) (0.954193,0) (1.07951,0) (1.20482,0.306921) (1.33014,0) (1.45545,0) (1.58076,0) (1.70608,0.245536) (1.83139,0) (1.95671,0) (2.08202,0) (2.20734,0.347843) (2.33265,0) (2.45797,0) (2.58328,0) (2.70859,0.306921) (2.83391,0) (2.95922,0) (3.08454,0) (3.20985,0) (3.33517,0.122768) (3.46048,0) (3.58579,0) (3.71111,0) (3.83642,0.0818455) (3.96174,0) (4.08705,0) (4.21237,0) (4.33768,0)};
 \end{groupplot}
 \end{tikzpicture}
 \caption{Top: training values before and after median imputation (dashed line is the fill value, log scale). Bottom: training and validation after the training-fitted scaler.}
@@ -831,28 +836,28 @@ Figure 8 shows the spike at the median and the shift of later seasons; in Figure
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
-\begin{axis}[name=left, xbar, bar width=5pt, width=0.270\linewidth, xmode=log, xmin=0.5, title={Raw training range (max - min)}, ytick={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}, yticklabels={constructor\_podium\_rate\_5,driver\_podium\_rate\_5,pit\_lane\_start,front\_row,qualifying\_missing,constructor\_rank\_before,round,field\_size,driver\_age,qualifying\_position,grid\_position,driver\_rank\_before,qualifying\_time\_seconds,year,driver\_points\_before,driver\_races\_before,constructor\_points\_before}, y dir=reverse, ymin=-0.7, ymax=16.7, height=7.6cm, scale only axis, yticklabel style={font=\tiny}, xmajorgrids]
-\addplot[xbar, fill=splitA, draw=none] coordinates {(1,0) (1,1) (1,2) (1,3) (1,4) (19,5) (20,6) (32,7) (41.3342,8) (27,9) (33,10) (101,11) (939.637,12) (69,13) (387,14) (325,15) (722,16)};
+\begin{axis}[name=left, xbar, bar width=5pt, width=0.270\linewidth, xmode=log, xmin=0.5, title={Raw training range (max - min)}, ytick={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}, yticklabels={pit\_lane\_start,constructor\_podium\_rate\_5,driver\_podium\_rate\_5,front\_row,qualifying\_missing,field\_size,constructor\_rank\_before,round,driver\_age,qualifying\_position,grid\_position,driver\_rank\_before,qualifying\_time\_seconds,year,driver\_points\_before,driver\_races\_before,constructor\_points\_before}, y dir=reverse, ymin=-0.7, ymax=16.7, height=7.6cm, scale only axis, yticklabel style={font=\tiny}, xmajorgrids]
+\addplot[xbar, fill=splitA, draw=none] coordinates {(1,0) (1,1) (1,2) (1,3) (1,4) (32,5) (19,6) (20,7) (39.3218,8) (25,9) (33,10) (101,11) (939.637,12) (69,13) (387,14) (324,15) (722,16)};
 \end{axis}
-\begin{axis}[at={(left.east)}, anchor=west, xshift=0.6cm, width=0.270\linewidth, title={Range after scaling}, ytick={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}, yticklabels={constructor\_podium\_rate\_5,driver\_podium\_rate\_5,pit\_lane\_start,front\_row,qualifying\_missing,constructor\_rank\_before,round,field\_size,driver\_age,qualifying\_position,grid\_position,driver\_rank\_before,qualifying\_time\_seconds,year,driver\_points\_before,driver\_races\_before,constructor\_points\_before}, y dir=reverse, ymin=-0.7, ymax=16.7, height=7.6cm, scale only axis, yticklabel style={font=\tiny}, xmajorgrids, yticklabels=\empty, legend pos=south east, legend style={font=\tiny}]
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.650067,0) (4.4706,0)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.546627,1) (3.87774,1)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.262212,2) (3.81371,2)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.300377,3) (3.32915,3)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.39122,4) (0.718793,4)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.45695,5) (3.62205,5)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.49753,6) (2.61496,6)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-2.95993,7) (3.33136,7)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-2.43154,8) (5.50791,8)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-2.72152,9) (4.53362,9)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.64934,10) (3.29374,10)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.41544,11) (9.80577,11)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-2.70616,12) (99.9884,12)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-2.10594,13) (1.63441,13)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.419012,14) (11.1779,14)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.977025,15) (4.33086,15)};
-\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.447292,16) (10.764,16)};
-\addplot[only marks, mark=*, mark size=1.6pt, modelB] coordinates {(0.0930855,0) (0.113626,1) (-0.173378,2) (0.062576,3) (-1.38852,4) (-0.247172,5) (0.437447,6) (-0.993898,7) (-0.430939,8) (-0.171886,9) (-0.243042,10) (-0.32822,11) (-0.463989,12) (1.7192,13) (0.988096,14) (1.00084,15) (1.02689,16)};
+\begin{axis}[at={(left.east)}, anchor=west, xshift=0.6cm, width=0.270\linewidth, title={Range after scaling}, ytick={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}, yticklabels={pit\_lane\_start,constructor\_podium\_rate\_5,driver\_podium\_rate\_5,front\_row,qualifying\_missing,field\_size,constructor\_rank\_before,round,driver\_age,qualifying\_position,grid\_position,driver\_rank\_before,qualifying\_time\_seconds,year,driver\_points\_before,driver\_races\_before,constructor\_points\_before}, y dir=reverse, ymin=-0.7, ymax=16.7, height=7.6cm, scale only axis, yticklabel style={font=\tiny}, xmajorgrids, yticklabels=\empty, legend pos=south east, legend style={font=\tiny}]
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.100585,0) (9.94186,0)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.674893,1) (4.33768,1)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.56733,2) (3.76854,2)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.309933,3) (3.22651,3)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.33217,4) (0.750655,4)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-3.87963,5) (5.49165,5)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.49868,6) (4.0389,6)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.49465,7) (2.59423,7)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-2.42226,8) (5.09279,8)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-2.65094,9) (3.89062,9)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.60334,10) (3.20578,10)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-1.40053,11) (10.416,11)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-2.63278,12) (97.1721,12)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-2.08859,13) (1.58593,13)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.436314,14) (10.9006,14)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.979244,15) (4.26098,15)};
+\addplot[modelC, line width=2.2pt, forget plot] coordinates {(-0.46185,16) (10.4954,16)};
+\addplot[only marks, mark=*, mark size=1.6pt, modelB] coordinates {(0.118289,0) (0.052573,1) (0.0797144,2) (0.0437112,3) (-1.3295,4) (-0.951104,5) (-0.179674,6) (0.429222,7) (-0.431686,8) (-0.168169,9) (-0.235153,10) (-0.26222,11) (-0.453711,12) (1.66922,13) (0.940895,14) (0.979431,15) (0.979702,16)};
 \legend{validation mean}
 \end{axis}
 \end{tikzpicture}
@@ -876,26 +881,26 @@ The table above changes which strategy we use. We also ran three experiments tha
 \rowcolor{navy}
 \textcolor{white}{\textbf{Experiment}} & \textcolor{white}{\textbf{Order}} & \textcolor{white}{\textbf{Fitted on}} & \textcolor{white}{\textbf{Model}} & \textcolor{white}{\textbf{Missing grid becomes}} & \textcolor{white}{\textbf{Val. PR-AUC}} & \textcolor{white}{\textbf{Change}} \\
 \midrule
-A & impute $\rightarrow$ scale & train & LogReg & 12.00 & 0.728 & +0.0000 \\
-A & impute $\rightarrow$ scale & train & MLP & 12.00 & 0.738 & +0.0000 \\
-A & scale $\rightarrow$ impute & train & LogReg & 12.00 & 0.728 & +0.0000 \\
-A & scale $\rightarrow$ impute & train & MLP & 12.00 & 0.727 & $-$0.0117 \\
-B & zero-fill $\rightarrow$ scale & train & LogReg & 0.00 & 0.725 & +0.0000 \\
-B & zero-fill $\rightarrow$ scale & train & MLP & 0.00 & 0.701 & +0.0000 \\
-B & scale $\rightarrow$ zero-fill & train & LogReg & 12.01 & 0.727 & +0.0020 \\
-B & scale $\rightarrow$ zero-fill & train & MLP & 12.01 & 0.711 & +0.0103 \\
-C & impute $\rightarrow$ scale & all years & LogReg & 12.00 & 0.727 & $-$0.0002 \\
-C & impute $\rightarrow$ scale & all years & MLP & 12.00 & 0.700 & $-$0.0383 \\
+A & impute $\rightarrow$ scale & train & LogReg & 12.00 & 0.729 & +0.0000 \\
+A & impute $\rightarrow$ scale & train & MLP & 12.00 & 0.735 & +0.0000 \\
+A & scale $\rightarrow$ impute & train & LogReg & 12.00 & 0.729 & +0.0000 \\
+A & scale $\rightarrow$ impute & train & MLP & 12.00 & 0.730 & $-$0.0051 \\
+B & zero-fill $\rightarrow$ scale & train & LogReg & 0.00 & 0.726 & +0.0000 \\
+B & zero-fill $\rightarrow$ scale & train & MLP & 0.00 & 0.721 & +0.0000 \\
+B & scale $\rightarrow$ zero-fill & train & LogReg & 12.00 & 0.728 & +0.0021 \\
+B & scale $\rightarrow$ zero-fill & train & MLP & 12.00 & 0.735 & +0.0145 \\
+C & impute $\rightarrow$ scale & all years & LogReg & 12.00 & 0.729 & +0.0001 \\
+C & impute $\rightarrow$ scale & all years & MLP & 12.00 & 0.733 & $-$0.0018 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-\textbf{A.} Median imputation commutes with a linear rescale, so a missing grid becomes 12.0 either way. Only the scaler's statistics differ, because scaling first measures spread on observed values. Validation PR-AUC moves by +0.0000 for logistic regression and $-$0.0117 for the network. \textbf{B.} Here order changes the value. Zero-filling first writes a literal 0, a grid slot ahead of pole and a 0-second lap. Zero-filling after scaling writes the training mean (12.0 for grid). Validation PR-AUC changes by +0.0020 (logistic) and +0.0103 (network). \textbf{C.} Fitting before the split lets 2020-2024 set the medians and scaling used in training. The score moves by $-$0.0002 and $-$0.0383; small or not, it uses future data, so we never do it.
+\textbf{A.} Median imputation commutes with a linear rescale, so a missing grid becomes 12.0 either way. Only the scaler's statistics differ, because scaling first measures spread on observed values. Validation PR-AUC moves by +0.0000 for logistic regression and $-$0.0051 for the network. \textbf{B.} Here order changes the value. Zero-filling first writes a literal 0, a grid slot ahead of pole and a 0-second lap. Zero-filling after scaling writes the training mean (12.0 for grid). Validation PR-AUC changes by +0.0021 (logistic) and +0.0145 (network). \textbf{C.} Fitting before the split lets 2020-2024 set the medians and scaling used in training. The score moves by +0.0001 and $-$0.0018; small or not, it uses future data, so we never do it.
 
 
 \begin{takeaway}
-\textbf{Takeaway.} We keep split, then median imputation, then scaling, all fitted on training rows inside the model pipeline. Logistic regression is almost indifferent to strategy and order (every change is within 0.004 PR-AUC). The network is more sensitive, up to about 0.04 PR-AUC, so for it the order is part of the model, not a detail. The next sections test which information the models need.
+\textbf{Takeaway.} We keep split, then median imputation, then scaling, all fitted on training rows inside the model pipeline. Logistic regression is almost indifferent to strategy and order (every change is within 0.004 PR-AUC). The network is more sensitive, up to 0.014 PR-AUC, about 2.0 seed standard deviations of a single seed, so for it the order is worth fixing explicitly rather than treating as a detail. The next sections test which information the models need.
 \end{takeaway}
 
 
@@ -903,7 +908,7 @@ C & impute $\rightarrow$ scale & all years & MLP & 12.00 & 0.700 & $-$0.0383 \\
 \subsection{Missing values: impute, drop columns, or drop rows?}
 
 
-About two thirds of training rows have no qualifying record, so we did not choose the handling by preference. Each approach is scored on the same validation seasons (Table 17). The network is run once with one seed, and its seed-to-seed spread is about 0.016 (Section 7.1), so small network differences are noise.
+About 64\% of training rows have no qualifying record, so we did not choose the handling by preference. Each approach is scored on the same validation seasons (Table 17). The network is run once with one seed, and its seed-to-seed spread is about 0.007 (Section 7.1), so small network differences are noise.
 
 
 \begin{table}[H]
@@ -915,27 +920,27 @@ About two thirds of training rows have no qualifying record, so we did not choos
 \rowcolor{navy}
 \textcolor{white}{\textbf{Approach}} & \textcolor{white}{\textbf{Training rows}} & \textcolor{white}{\textbf{LogReg PR-AUC}} & \textcolor{white}{\textbf{Change}} & \textcolor{white}{\textbf{MLP PR-AUC}} & \textcolor{white}{\textbf{Change}} \\
 \midrule
-median imputation (used) & 24,529 & 0.7276 & +0.0000 & 0.7385 & +0.0000 \\
-mean imputation & 24,529 & 0.7265 & $-$0.0011 & 0.7235 & $-$0.0150 \\
-KNN imputation (k=5) & 24,529 & 0.7298 & +0.0022 & 0.6929 & $-$0.0456 \\
-iterative (regression) imputation & 24,529 & 0.7279 & +0.0003 & 0.6934 & $-$0.0450 \\
-median, without the qualifying\_missing flag & 24,529 & 0.7268 & $-$0.0008 & 0.6971 & $-$0.0414 \\
-drop the sparse columns (qualifying\_position, qualifying\_time\_seconds) & 24,529 & 0.7230 & $-$0.0046 & 0.7037 & $-$0.0347 \\
-drop training rows with no qualifying (keeps 1994+) & 8,356 & 0.7253 & $-$0.0023 & 0.7152 & $-$0.0232 \\
-drop training rows with any missing feature & 7,374 & 0.7235 & $-$0.0041 & 0.6917 & $-$0.0468 \\
+median imputation (used) & 23,163 & 0.7288 & +0.0000 & 0.7352 & +0.0000 \\
+mean imputation & 23,163 & 0.7280 & $-$0.0008 & 0.7328 & $-$0.0023 \\
+KNN imputation (k=5) & 23,163 & 0.7304 & +0.0016 & 0.7415 & +0.0063 \\
+iterative (regression) imputation & 23,163 & 0.7290 & +0.0003 & 0.7428 & +0.0077 \\
+median, without the qualifying\_missing flag & 23,163 & 0.7279 & $-$0.0008 & 0.7036 & $-$0.0316 \\
+drop the sparse columns (qualifying\_position, qualifying\_time\_seconds) & 23,163 & 0.7237 & $-$0.0050 & 0.7036 & $-$0.0316 \\
+drop training rows with no qualifying (keeps 1994+) & 8,348 & 0.7258 & $-$0.0030 & 0.6873 & $-$0.0479 \\
+drop training rows with any missing feature & 7,372 & 0.7244 & $-$0.0044 & 0.6897 & $-$0.0455 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-For logistic regression every alternative stays within 0.005 of median imputation (k-nearest-neighbour imputation is the best, at +0.0022). For the network every alternative is worse, by 0.015 for mean imputation and about 0.045 for k-nearest-neighbour and iterative imputation. Dropping the two sparse qualifying columns costs the network 0.035, and removing the missing-value flag instead costs it 0.041, so the flag carries real information. Dropping rows keeps only 8,356 or 7,374 of 24,529 training rows and lowers both scores. \textbf{We keep median imputation with the flag}, fitted on training rows only: it is the best or tied for best, and it keeps all the history.
+For logistic regression every alternative stays within 0.005 of median imputation (the best alternative, KNN imputation (k=5), is +0.0016). For the network, mean imputation changes the score by $-$0.002, k-nearest-neighbour imputation by +0.006, and iterative imputation by +0.008. Dropping the two sparse qualifying columns changes the network by $-$0.032, and removing the missing-value flag instead changes it by $-$0.032, so the network relies on the flag as well as on the values. Dropping rows keeps only 8,348 or 7,372 of 23,163 training rows and changes the scores by $-$0.003 and $-$0.004 for logistic regression, $-$0.048 and $-$0.045 for the network. \textbf{We keep median imputation with the flag}, fitted on training rows only: it is the best or tied for best, and it keeps all the history.
 
 
 
 \section{Three models, and why the scores are not interchangeable}
 
 
-We fit three classifiers on the same training rows and the same 17 features. Logistic regression is the linear baseline, with class weights so the rare podium rows are not ignored. The random forest has 240 trees, a depth limit of 12, and a minimum of 30 rows per leaf; it can use combinations such as a strong recent record together with a poor grid. The neural network has two hidden layers, of 32 and 12 units. Each model's settings were searched on validation (Section 7.1), and the probability cutoff that maximises F1 on validation is chosen last. That produces a different cutoff for each model, because the three probability scales are not the same number line. A cutoff of 0.240 on the network is not automatically more aggressive than 0.655 on the logistic model. Precision and recall tell us what the cutoff actually does.
+We fit three classifiers on the same training rows and the same 17 features. Logistic regression is the linear baseline, with class weights so the rare podium rows are not ignored. The random forest has 240 trees, a depth limit of 12, and a minimum of 30 rows per leaf; it can use combinations such as a strong recent record together with a poor grid. The neural network has two hidden layers, of 32 and 12 units. Each model's settings were searched on validation (Section 7.1), and the probability cutoff that maximises F1 on validation is chosen last. That produces a different cutoff for each model, because the three probability scales are not the same number line. A cutoff of 0.275 on the network is not automatically more aggressive than 0.645 on the logistic model. Precision and recall tell us what the cutoff actually does.
 
 
 Figure 10 compares the three models on the test seasons only. Table 18 gives training, validation, and test, so we can see whether a high training score survives.
@@ -945,9 +950,9 @@ Figure 10 compares the three models on the test seasons only. Table 18 gives tra
 \centering
 \begin{tikzpicture}
 \begin{axis}[ybar, bar width=11pt, width=0.828\linewidth, height=6cm, xtick={0,1,2,3,4}, xticklabels={ROC-AUC,PR-AUC,F1,Precision,Recall}, ymin=0, ymax=1.05, ylabel={score}, ymajorgrids, enlarge x limits=0.12, legend style={at={(0.5,-0.18)}, anchor=north, legend columns=3}]
-\addplot[ybar, fill=modelA, draw=none] coordinates {(0,0.935048) (1,0.702575) (2,0.66791) (3,0.539157) (4,0.877451)};
-\addplot[ybar, fill=modelB, draw=none] coordinates {(0,0.937446) (1,0.712175) (2,0.646914) (3,0.651741) (4,0.642157)};
-\addplot[ybar, fill=modelC, draw=none] coordinates {(0,0.937913) (1,0.716215) (2,0.669355) (3,0.568493) (4,0.813725)};
+\addplot[ybar, fill=modelA, draw=none] coordinates {(0,0.935137) (1,0.703512) (2,0.669173) (3,0.542683) (4,0.872549)};
+\addplot[ybar, fill=modelB, draw=none] coordinates {(0,0.937739) (1,0.717002) (2,0.651741) (3,0.661616) (4,0.642157)};
+\addplot[ybar, fill=modelC, draw=none] coordinates {(0,0.937522) (1,0.717051) (2,0.666667) (3,0.590909) (4,0.764706)};
 \legend{Logistic regression, Random forest, Shallow neural network}
 \end{axis}
 \end{tikzpicture}
@@ -964,30 +969,30 @@ Figure 10 compares the three models on the test seasons only. Table 18 gives tra
 \rowcolor{navy}
 \textcolor{white}{\textbf{Model}} & \textcolor{white}{\textbf{Split}} & \textcolor{white}{\textbf{Cutoff}} & \textcolor{white}{\textbf{ROC-AUC}} & \textcolor{white}{\textbf{PR-AUC}} & \textcolor{white}{\textbf{F1}} & \textcolor{white}{\textbf{Precision}} & \textcolor{white}{\textbf{Recall}} \\
 \midrule
-Logistic regression & train & 0.655 & 0.906 & 0.561 & 0.580 & 0.468 & 0.763 \\
-Logistic regression & validation & 0.655 & 0.926 & 0.728 & 0.703 & 0.647 & 0.769 \\
-Logistic regression & test & 0.655 & 0.935 & 0.703 & 0.668 & 0.539 & 0.877 \\
-Random forest & train & 0.785 & 0.932 & 0.648 & 0.606 & 0.614 & 0.599 \\
-Random forest & validation & 0.785 & 0.926 & 0.722 & 0.707 & 0.713 & 0.701 \\
-Random forest & test & 0.785 & 0.937 & 0.712 & 0.647 & 0.652 & 0.642 \\
-Shallow neural network & train & 0.240 & 0.912 & 0.585 & 0.578 & 0.462 & 0.771 \\
-Shallow neural network & validation & 0.240 & 0.928 & 0.738 & 0.713 & 0.677 & 0.752 \\
-Shallow neural network & test & 0.240 & 0.938 & 0.716 & 0.669 & 0.568 & 0.814 \\
+Logistic regression & train & 0.645 & 0.900 & 0.562 & 0.580 & 0.470 & 0.758 \\
+Logistic regression & validation & 0.645 & 0.926 & 0.729 & 0.706 & 0.652 & 0.769 \\
+Logistic regression & test & 0.645 & 0.935 & 0.704 & 0.669 & 0.543 & 0.873 \\
+Random forest & train & 0.780 & 0.927 & 0.647 & 0.600 & 0.616 & 0.584 \\
+Random forest & validation & 0.780 & 0.927 & 0.723 & 0.704 & 0.707 & 0.701 \\
+Random forest & test & 0.780 & 0.938 & 0.717 & 0.652 & 0.662 & 0.642 \\
+Shallow neural network & train & 0.275 & 0.905 & 0.584 & 0.584 & 0.486 & 0.731 \\
+Shallow neural network & validation & 0.275 & 0.927 & 0.735 & 0.708 & 0.691 & 0.726 \\
+Shallow neural network & test & 0.275 & 0.938 & 0.717 & 0.667 & 0.591 & 0.765 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-On the test set we measure a ROC-AUC of 0.935 for logistic regression, 0.937 for the forest, and 0.938 for the network. Those three numbers are within 0.005 of each other. In the pair reading of ROC-AUC, a true podium finisher outranks a non-podium about 93 to 94 times out of 100. That is a strong ranking. It is also a ranking on which the models do not separate. ROC-AUC compresses the comparison because most rows are not podiums, so a modest number of false alarms barely moves the false-positive rate.
+On the test set we measure a ROC-AUC of 0.935 for logistic regression, 0.938 for the forest, and 0.938 for the network. Those three numbers are within 0.005 of each other. In the pair reading of ROC-AUC, a true podium finisher outranks a non-podium about 93 to 94 times out of 100. That is a strong ranking. It is also a ranking on which the models do not separate. ROC-AUC compresses the comparison because most rows are not podiums, so a modest number of false alarms barely moves the false-positive rate.
 
 
-PR-AUC is where they separate. On test, the network scores 0.716, logistic regression 0.703, and the forest 0.712. The test podium rate is 15.0\%, so a useless ranking would sit near 0.150. All three models are far above that floor. The network's lead over logistic regression is 0.014 PR-AUC. We call that a small lead, not a different kind of model. We selected the network before looking at this comparison, because its validation PR-AUC of 0.738 was ahead of 0.728 and 0.722.
+PR-AUC is where they separate. On test, the network scores 0.717, logistic regression 0.704, and the forest 0.717. The test podium rate is 15.0\%, so a useless ranking would sit near 0.150. All three models are far above that floor. The network's lead over logistic regression is 0.014 PR-AUC. We call that a small lead, not a different kind of model. We selected the network before looking at this comparison, because its validation PR-AUC of 0.735 was ahead of 0.729 and 0.723.
 
 
-The operating points we chose explain the precision and recall bars in Figure 10. At its validation cutoff, logistic regression has test precision 0.539 and recall 0.877. It catches most podiums and accepts more false alarms. The forest has precision 0.652 and recall 0.642. It is the conservative one of the three. The network sits between them, with precision 0.568 and recall 0.814. Test F1 ends up almost tied, from 0.647 to 0.669. Same F1, different mix of missed podiums and false podiums.
+The operating points we chose explain the precision and recall bars in Figure 10. At its validation cutoff, logistic regression has test precision 0.543 and recall 0.873. It catches most podiums and accepts more false alarms. The forest has precision 0.662 and recall 0.642. It is the conservative one of the three. The network sits between them, with precision 0.591 and recall 0.765. Test F1 ends up almost tied, from 0.652 to 0.669. Same F1, different mix of missed podiums and false podiums.
 
 
-The training column is the check for memorizing. All three models have a training PR-AUC below their validation score: 0.561 for logistic regression, 0.648 for the forest, and 0.585 for the network. That was not true of the first forest, which scored 0.919 on training and 0.702 on validation because it had no depth limit and four rows per leaf. The validation search in Section 7.1 limited it. We do not read the higher validation score as the model improving after 2019. Training has a lower podium rate and far more missing qualifying, so the PR-AUC floor on training is lower as well. The comparison we trust is validation against test, where the positive rate is almost the same.
+The training column is the check for memorizing. All three models have a training PR-AUC below their validation score: 0.562 for logistic regression, 0.647 for the forest, and 0.584 for the network. That was not true of the first forest, which scored 0.920 on training and 0.699 on validation because it had no depth limit and four rows per leaf. The validation search in Section 7.1 limited it. We do not read the higher validation score as the model improving after 2019. Training has a lower podium rate and far more missing qualifying, so the PR-AUC floor on training is lower as well. The comparison we trust is validation against test, where the positive rate is almost the same.
 
 
 \begin{takeaway}
@@ -1011,25 +1016,25 @@ We trained each model on 1950-2019 and scored it on 2020-2021 for every setting 
 \rowcolor{navy}
 \textcolor{white}{\textbf{Model}} & \textcolor{white}{\textbf{Setting}} & \textcolor{white}{\textbf{Role}} & \textcolor{white}{\textbf{Val. PR-AUC}} & \textcolor{white}{\textbf{Seed sd}} & \textcolor{white}{\textbf{Train PR-AUC}} \\
 \midrule
-Logistic regression & C: 10.0, penalty: l2 & best of grid (tie) & 0.7276 & 0.0000 & 0.5610 \\
-Logistic regression & C: 1.0, penalty: l2 & starting, kept & 0.7276 & 0.0000 & 0.5610 \\
-Random forest & max\_depth: None, min\_samples\_leaf: 30 & best of grid (tie) & 0.7231 & 0.0000 & 0.6490 \\
-Random forest & max\_depth: 12, min\_samples\_leaf: 30 & adopted & 0.7215 & 0.0000 & 0.6478 \\
-Random forest & max\_depth: None, min\_samples\_leaf: 4 & starting & 0.7040 & 0.0000 & 0.9198 \\
-Shallow neural network & hidden\_layer\_sizes: (32, 12), alpha: 0.002 & starting, kept & 0.7248 & 0.0163 & 0.5867 \\
+Logistic regression & C: 10.0, penalty: l1 & top of grid & 0.7288 & 0.0000 & 0.5620 \\
+Logistic regression & C: 1.0, penalty: l2 & starting, kept & 0.7288 & 0.0000 & 0.5620 \\
+Random forest & max\_depth: 12, min\_samples\_leaf: 30 & adopted & 0.7226 & 0.0000 & 0.6467 \\
+Random forest & max\_depth: None, min\_samples\_leaf: 4 & starting & 0.6993 & 0.0000 & 0.9197 \\
+Shallow neural network & hidden\_layer\_sizes: (32, 12), alpha: 0.02 & adopted & 0.7253 & 0.0071 & 0.5858 \\
+Shallow neural network & hidden\_layer\_sizes: (32, 12), alpha: 0.002 & starting & 0.7211 & 0.0084 & 0.5842 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-\textbf{Random forest: improved.} The starting forest ranked 7th of 9. A depth limit of 12 with 30 rows per leaf raises validation PR-AUC from 0.702 to 0.717 and cuts the training score from 0.919 to 0.647, so it no longer memorizes the training seasons. We adopted it, and test PR-AUC rose from 0.689 to 0.712 without the test set taking part in the choice. \textbf{Shallow network: confirmed, not improved.} One layer of 8, 16, 32, or 64 units and two layers of 32 and 12 or 64 and 32, each with two regularization strengths, were all tried. The starting 32 and 12 was best, at 0.7248 over three seeds, so the network is not a deliberately weak choice: smaller ones are worse and larger ones are no better. \textbf{Logistic regression} is insensitive: L1 and L2 penalties and C from 0.01 to 10 all fall between 0.713 and 0.728, and C = 1 with L2 ties for best.
+\textbf{Random forest: improved.} The starting forest (no depth limit, 4 rows per leaf) ranked 7th of 9. It scored 0.699 on validation but 0.920 on training, a memorized fit. A depth limit of 12 with 30 rows per leaf ranks first at 0.723 and cuts the training score to 0.647, so it no longer memorizes the training seasons. We adopted it, with no test season taking part in the choice. \textbf{Shallow network: improved slightly.} One layer of 8, 16, 32, or 64 units and two layers of 32 and 12 or 64 and 32, each with two regularization strengths, were all tried. Two layers of 32 and 12 with the stronger penalty (alpha 0.02) rank first at 0.7253 over three seeds, ahead of the starting alpha of 0.002 (0.7211). That gap of 0.0042 is inside the seed spread of about 0.007, but the stronger penalty is also the simpler model, so we adopted it. Every other architecture scores lower, so the network is not a deliberately weak choice: smaller ones are worse and larger ones are no better. \textbf{Logistic regression} is insensitive: L1 and L2 penalties and C from 0.01 to 10 all fall between 0.712 and 0.729, and the starting C = 1 with L2 ties for best (within 0.0005), so we kept it.
 
 
 
 \subsection{How much the validation score can be trusted}
 
 
-We also asked whether 2019 is a good boundary. The same two models were scored on four validation windows that all end before the test seasons, each training on every earlier season (Table 20). The score depends on the window: logistic regression ranges from 0.689 to 0.728, and the network from 0.668 to 0.738. The window we use is at the top of both ranges, so validation scores are somewhat optimistic.
+We also asked whether 2019 is a good boundary. The same two models were scored on four validation windows that all end before the test seasons, each training on every earlier season (Table 20). The score depends on the window: logistic regression ranges from 0.689 to 0.729, and the network from 0.653 to 0.735. The window we use is at the top of both ranges, so validation scores are somewhat optimistic.
 
 
 \begin{table}[H]
@@ -1041,16 +1046,16 @@ We also asked whether 2019 is a good boundary. The same two models were scored o
 \rowcolor{navy}
 \textcolor{white}{\textbf{Validation window}} & \textcolor{white}{\textbf{Train years}} & \textcolor{white}{\textbf{Train rows}} & \textcolor{white}{\textbf{Val. races}} & \textcolor{white}{\textbf{LogReg PR-AUC}} & \textcolor{white}{\textbf{MLP PR-AUC}} \\
 \midrule
-2014-2015 & 1950-2013 & 22,042 & 38 & 0.7208 & 0.7137 \\
-2016-2017 & 1950-2015 & 22,827 & 41 & 0.7278 & 0.6683 \\
-2018-2019 & 1950-2017 & 23,689 & 42 & 0.6891 & 0.6982 \\
-2020-2021 (used) & 1950-2019 & 24,529 & 39 & 0.7276 & 0.7385 \\
+2014-2015 & 1950-2013 & 20,676 & 38 & 0.7177 & 0.7070 \\
+2016-2017 & 1950-2015 & 21,461 & 41 & 0.7280 & 0.6530 \\
+2018-2019 & 1950-2017 & 22,323 & 42 & 0.6892 & 0.7082 \\
+2020-2021 (used) & 1950-2019 & 23,163 & 39 & 0.7288 & 0.7352 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-To measure the uncertainty directly we resampled whole validation races (Table 21). With 39 races, each model's PR-AUC has a 95\% interval about 0.2 wide. The difference between the network and logistic regression is +0.011 with an interval from $-$0.010 to +0.031, and the forest's difference also includes zero. The data therefore do not show that any model beats the baseline, and we report the ranking as a tie within validation uncertainty. The chronological split stays because it is the only one with no same-race and no future leakage.
+To measure the uncertainty directly we resampled whole validation races (Table 21). With 39 races, each model's PR-AUC has a 95\% interval about 0.2 wide. The difference between the network and logistic regression is +0.006 with an interval from $-$0.016 to +0.031, and the forest's difference also includes zero. The data therefore do not show that any model beats the baseline, and we report the ranking as a tie within validation uncertainty. The chronological split stays because it is the only one with no same-race and no future leakage.
 
 
 \begin{table}[H]
@@ -1062,11 +1067,33 @@ To measure the uncertainty directly we resampled whole validation races (Table 2
 \rowcolor{navy}
 \textcolor{white}{\textbf{Comparison}} & \textcolor{white}{\textbf{Validation PR-AUC}} & \textcolor{white}{\textbf{95\% low}} & \textcolor{white}{\textbf{95\% high}} \\
 \midrule
-Logistic regression & 0.7276 & 0.6167 & 0.8364 \\
-Random forest & 0.7215 & 0.6073 & 0.8322 \\
-Shallow neural network & 0.7385 & 0.6270 & 0.8450 \\
-Random forest minus Logistic regression & $-$0.0061 & $-$0.0395 & 0.0300 \\
-Shallow neural network minus Logistic regression & 0.0109 & $-$0.0105 & 0.0307 \\
+Logistic regression & 0.7288 & 0.6180 & 0.8371 \\
+Random forest & 0.7226 & 0.6086 & 0.8321 \\
+Shallow neural network & 0.7352 & 0.6203 & 0.8424 \\
+Random forest minus Logistic regression & $-$0.0061 & $-$0.0438 & 0.0315 \\
+Shallow neural network minus Logistic regression & 0.0064 & $-$0.0164 & 0.0309 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+
+We repeated the resampling on the unseen test seasons. It resamples predictions we already had and chooses nothing, and we ran it after every choice was frozen (Table 22). With 68 races each model's interval is about 0.12 wide. The forest minus logistic regression difference is +0.0135 ($-$0.012 to +0.044), and for the network it is +0.0135 ($-$0.012 to +0.039). Both intervals include zero, so the test seasons do not separate the models either, even though logistic regression scores 0.013 lower.
+
+
+\begin{table}[H]
+\centering
+\caption{Bootstrap over the 68 test races. The last two rows are differences from logistic regression.}
+{\small\rowcolors{2}{white}{zebra}
+\begin{tabular}{>{\raggedright\arraybackslash}p{\dimexpr(\linewidth-8\tabcolsep)*484/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-8\tabcolsep)*203/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-8\tabcolsep)*156/1000\relax}>{\raggedleft\arraybackslash}p{\dimexpr(\linewidth-8\tabcolsep)*156/1000\relax}}
+\toprule
+\rowcolor{navy}
+\textcolor{white}{\textbf{Comparison}} & \textcolor{white}{\textbf{Test PR-AUC}} & \textcolor{white}{\textbf{95\% low}} & \textcolor{white}{\textbf{95\% high}} \\
+\midrule
+Logistic regression & 0.7035 & 0.6483 & 0.7629 \\
+Random forest & 0.7170 & 0.6584 & 0.7787 \\
+Shallow neural network & 0.7171 & 0.6587 & 0.7756 \\
+Random forest minus Logistic regression & 0.0135 & $-$0.0123 & 0.0444 \\
+Shallow neural network minus Logistic regression & 0.0135 & $-$0.0116 & 0.0394 \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -1082,8 +1109,8 @@ In our ablation we retrain logistic regression after deleting one feature group,
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xbar, bar width=6pt, width=0.570\linewidth, height=4.6cm, scale only axis, ytick={0,1,2,3,4,5}, yticklabels={all features,without grid,without qualifying,without form,without standings,without context}, y dir=reverse, ymin=-0.7, ymax=5.7, xlabel={Change in validation PR-AUC (logistic regression)}, xmajorgrids, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Validation PR-AUC change}, ]
-\addplot[xbar, fill=modelA, draw=none] coordinates {(0,0) (-0.0258366,1) (-0.00530358,2) (-0.00788891,3) (-0.0153724,4) (-0.00434181,5)};
+\begin{axis}[xbar, bar width=6pt, width=0.570\linewidth, height=4.6cm, scale only axis, ytick={0,1,2,3,4,5}, yticklabels={all features,without grid,without qualifying,without form,without standings,without context}, y dir=reverse, ymin=-0.7, ymax=5.7, xlabel={Change in validation PR-AUC (logistic regression)}, xmajorgrids, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Validation PR-AUC change}, xtick distance=0.005, scaled x ticks=false, xticklabel style={/pgf/number format/fixed, /pgf/number format/precision=3}]
+\addplot[xbar, fill=modelA, draw=none] coordinates {(0,0) (-0.0225797,1) (-0.00495426,2) (-0.00734697,3) (-0.01552,4) (-0.00384547,5)};
 \end{axis}
 \end{tikzpicture}
 \caption{Change in validation PR-AUC when one feature group is removed from logistic regression. Zero is the full 17-feature model.}
@@ -1099,18 +1126,18 @@ In our ablation we retrain logistic regression after deleting one feature group,
 \rowcolor{navy}
 \textcolor{white}{\textbf{Variant}} & \textcolor{white}{\textbf{Features kept}} & \textcolor{white}{\textbf{PR-AUC}} & \textcolor{white}{\textbf{ROC-AUC}} & \textcolor{white}{\textbf{PR-AUC change}} \\
 \midrule
-all features & 17 & 0.728 & 0.926 & +0.000 \\
-without grid & 13 & 0.702 & 0.921 & $-$0.026 \\
-without qualifying & 14 & 0.722 & 0.924 & $-$0.005 \\
-without form & 14 & 0.720 & 0.923 & $-$0.008 \\
-without standings & 13 & 0.712 & 0.924 & $-$0.015 \\
-without context & 14 & 0.723 & 0.925 & $-$0.004 \\
+all features & 17 & 0.729 & 0.926 & +0.000 \\
+without grid & 13 & 0.706 & 0.921 & $-$0.023 \\
+without qualifying & 14 & 0.724 & 0.924 & $-$0.005 \\
+without form & 14 & 0.721 & 0.924 & $-$0.007 \\
+without standings & 13 & 0.713 & 0.924 & $-$0.016 \\
+without context & 14 & 0.725 & 0.925 & $-$0.004 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-The full model sits at 0.728. Dropping the grid group costs 0.026 PR-AUC, the largest loss. Standings are next, at 0.015. Form, qualifying, and context cost 0.008, 0.005, and 0.004. The qualifying drop is small once the grid is already in the model. That fits the sport and the earlier definition: the published grid already contains qualifying order, plus any penalty. We do not conclude that qualifying is irrelevant on its own. We conclude that, next to the grid, it is mostly repeated information.
+The full model sits at 0.729. Dropping the grid group costs 0.023 PR-AUC, the largest loss. Standings are next, at 0.016. Form, qualifying, and context cost 0.007, 0.005, and 0.004. The qualifying drop is small once the grid is already in the model. That fits the sport and the earlier definition: the published grid already contains qualifying order, plus any penalty. We do not conclude that qualifying is irrelevant on its own. We conclude that, next to the grid, it is mostly repeated information.
 
 
 ROC-AUC barely notices the same deletion. It moves from 0.926 to 0.921 when the grid group is removed. This is the same lesson as the model comparison we drew in Section 7. A metric that stays high while the primary score drops is a poor guide for what to keep.
@@ -1138,8 +1165,8 @@ The explanations in this section are for the random forest, not for the neural n
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,constructor\_podium\_rate\_5,driver\_points\_before,driver\_podium\_rate\_5,constructor\_points\_before,driver\_rank\_before,front\_row,round,qualifying\_position,driver\_races\_before,pit\_lane\_start,qualifying\_missing}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={Mean change in PR-AUC when shuffled}, xmajorgrids, xmin=0, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Permutation importance}, ]
-\addplot[xbar, fill=modelA, draw=none] coordinates {(0.0979545,0) (0.0205964,1) (0.0130707,2) (0.0110198,3) (0.00766976,4) (0.0075761,5) (0.00582276,6) (0.00375319,7) (0.00342515,8) (0.000964234,9) (0.000885707,10) (1.1538e-05,11)};
+\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,constructor\_podium\_rate\_5,driver\_points\_before,driver\_rank\_before,constructor\_points\_before,front\_row,round,driver\_podium\_rate\_5,driver\_races\_before,pit\_lane\_start,year,field\_size}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={Mean change in PR-AUC when shuffled}, xmajorgrids, xmin=0, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Permutation importance}, ]
+\addplot[xbar, fill=modelA, draw=none] coordinates {(0.100005,0) (0.0161679,1) (0.0143786,2) (0.00891249,3) (0.00878009,4) (0.00742029,5) (0.00653905,6) (0.00555028,7) (0.00348404,8) (0.000683441,9) (0,10) (0,11)};
 \end{axis}
 \end{tikzpicture}
 \caption{Permutation importance on a validation sample, scored with PR-AUC. A taller bar means shuffling that column hurt the forest more.}
@@ -1155,23 +1182,23 @@ The explanations in this section are for the random forest, not for the neural n
 \rowcolor{navy}
 \textcolor{white}{\textbf{Feature}} & \textcolor{white}{\textbf{Mean PR-AUC change when shuffled}} \\
 \midrule
-grid\_position & +0.098 \\
-constructor\_podium\_rate\_5 & +0.021 \\
-driver\_points\_before & +0.013 \\
-driver\_podium\_rate\_5 & +0.011 \\
-constructor\_points\_before & +0.008 \\
-driver\_rank\_before & +0.008 \\
-front\_row & +0.006 \\
-round & +0.004 \\
-qualifying\_time\_seconds & $-$0.003 \\
+grid\_position & +0.100 \\
+constructor\_podium\_rate\_5 & +0.016 \\
+driver\_points\_before & +0.014 \\
+driver\_rank\_before & +0.009 \\
+constructor\_points\_before & +0.009 \\
+front\_row & +0.007 \\
+round & +0.007 \\
+driver\_podium\_rate\_5 & +0.006 \\
+qualifying\_time\_seconds & $-$0.004 \\
+constructor\_rank\_before & $-$0.002 \\
 driver\_age & $-$0.001 \\
-constructor\_rank\_before & $-$0.001 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-Grid position is in a class of its own, at +0.098. The next feature, constructor\_podium\_rate\_5, is +0.021, about 21\% of that, and every other feature is +0.013 or smaller. Driver podium rate is ranked 4 at +0.011, and year sits at +0.000. Shuffling qualifying\_time\_seconds changes PR-AUC by $-$0.003: the score rises slightly when the column is destroyed. We read a negative value as the forest not getting stable help from that column on these rows. We do not read it as evidence that the feature causes worse finishes.
+Grid position is in a class of its own, at +0.100. The next feature, constructor\_podium\_rate\_5, is +0.016, about 16\% of that, and every other feature is +0.014 or smaller. Driver podium rate is ranked 8 at +0.006, and year sits at +0.000. Shuffling qualifying\_time\_seconds changes PR-AUC by $-$0.004: the score rises slightly when the column is destroyed. We read a negative value as the forest not getting stable help from that column on these rows. We do not read it as evidence that the feature causes worse finishes.
 
 
 
@@ -1184,8 +1211,8 @@ Figure 13 asks the same question with SHAP. Each validation prediction is split 
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,constructor\_podium\_rate\_5,driver\_podium\_rate\_5,driver\_rank\_before,front\_row,constructor\_rank\_before,year,qualifying\_position,driver\_points\_before,round,constructor\_points\_before,driver\_races\_before}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={Mean absolute SHAP value}, xmajorgrids, xmin=0, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Global SHAP}, ]
-\addplot[xbar, fill=modelA, draw=none] coordinates {(0.146834,0) (0.0699154,1) (0.0564363,2) (0.0455589,3) (0.0319986,4) (0.0313301,5) (0.0307951,6) (0.0175809,7) (0.013431,8) (0.00867357,9) (0.00753165,10) (0.00561299,11)};
+\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,constructor\_podium\_rate\_5,driver\_podium\_rate\_5,driver\_rank\_before,year,front\_row,constructor\_rank\_before,qualifying\_position,driver\_points\_before,round,constructor\_points\_before,driver\_races\_before}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={Mean absolute SHAP value}, xmajorgrids, xmin=0, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Global SHAP}, ]
+\addplot[xbar, fill=modelA, draw=none] coordinates {(0.14475,0) (0.0666854,1) (0.052982,2) (0.0434237,3) (0.0330195,4) (0.0319714,5) (0.0312982,6) (0.0212291,7) (0.0143929,8) (0.00827138,9) (0.0072236,10) (0.00649986,11)};
 \end{axis}
 \end{tikzpicture}
 \caption{Mean absolute SHAP value by feature for the random forest, over 400 validation rows. This measures how large a feature's push is, not whether the push is positive.}
@@ -1201,20 +1228,20 @@ Figure 13 asks the same question with SHAP. Each validation prediction is split 
 \rowcolor{navy}
 \textcolor{white}{\textbf{Feature}} & \textcolor{white}{\textbf{Mean absolute SHAP}} \\
 \midrule
-grid\_position & 0.147 \\
-constructor\_podium\_rate\_5 & 0.070 \\
-driver\_podium\_rate\_5 & 0.056 \\
-driver\_rank\_before & 0.046 \\
+grid\_position & 0.145 \\
+constructor\_podium\_rate\_5 & 0.067 \\
+driver\_podium\_rate\_5 & 0.053 \\
+driver\_rank\_before & 0.043 \\
+year & 0.033 \\
 front\_row & 0.032 \\
 constructor\_rank\_before & 0.031 \\
-year & 0.031 \\
-qualifying\_position & 0.018 \\
+qualifying\_position & 0.021 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-Global SHAP also puts grid position first, at 0.147, and constructor podium rate second (0.070), the same top two as permutation importance. Driver podium rate follows at 0.056. The two methods differ below that. Year has a mean SHAP value of 0.031 (rank 7) but a permutation importance of +0.000, and driver points before the race is the reverse: rank 3 under permutation and rank 9 under SHAP. A reasonable reading is that year, form, and the standings overlap with each other and with the grid. The trees use them, but once the other columns are left intact, destroying one of them alone does not collapse the score. We treat the shared finding as the reliable one: grid position first, constructor form second.
+Global SHAP also puts grid position first, at 0.145, and constructor podium rate second (0.067), the same top two as permutation importance. Driver podium rate follows at 0.053. The two methods differ below that. Year has a mean SHAP value of 0.033 (rank 5) but a permutation importance of +0.000, and driver points before the race is the reverse: rank 3 under permutation and rank 9 under SHAP. A reasonable reading is that year, form, and the standings overlap with each other and with the grid. The trees use them, but once the other columns are left intact, destroying one of them alone does not collapse the score. We treat the shared finding as the reliable one: grid position first, constructor form second.
 
 
 Figure 14 is one validation row from that sample, not a row we picked because it looks tidy. It is George Russell, Williams, 2021 Dutch Grand Prix. He qualified and started 11th in a field of 20, sat 15th in the championship, and had a podium in one of his previous five starts (driver podium rate 0.2). He did not podium.
@@ -1223,9 +1250,9 @@ Figure 14 is one validation row from that sample, not a row we picked because it
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,driver\_podium\_rate\_5,driver\_rank\_before,constructor\_podium\_rate\_5,year,constructor\_rank\_before,front\_row,round,driver\_age,qualifying\_position,driver\_points\_before,qualifying\_time\_seconds}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={SHAP value (toward podium is positive)}, xmajorgrids, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Local SHAP}, ]
-\addplot[xbar, fill=modelB, draw=none] coordinates {(-0.165099,0) (-0.0608252,2) (-0.045578,3) (-0.0417418,4) (-0.0383849,5) (-0.0316522,6) (-0.0195359,7) (-0.00699777,9) (-0.00507363,11)};
-\addplot[xbar, fill=modelC, draw=none] coordinates {(0.0623457,1) (0.00743139,8) (0.00626201,10)};
+\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,driver\_rank\_before,driver\_podium\_rate\_5,constructor\_podium\_rate\_5,constructor\_rank\_before,year,front\_row,round,qualifying\_position,field\_size,driver\_points\_before,qualifying\_missing}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={SHAP value (toward podium is positive)}, xmajorgrids, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Local SHAP}, ]
+\addplot[xbar, fill=modelB, draw=none] coordinates {(-0.157707,0) (-0.0565158,1) (-0.0433109,3) (-0.0431998,4) (-0.0395647,5) (-0.0316851,6) (-0.0167717,7) (-0.00965678,8) (-0.00957067,9) (-0.0048374,11)};
+\addplot[xbar, fill=modelC, draw=none] coordinates {(0.0487882,2) (0.00912066,10)};
 \end{axis}
 \end{tikzpicture}
 \caption{SHAP contributions for one validation row: Russell, Williams, 2021 Dutch Grand Prix, started 11th and did not podium. Negative values push the forest away from a podium.}
@@ -1241,18 +1268,18 @@ Figure 14 is one validation row from that sample, not a row we picked because it
 \rowcolor{navy}
 \textcolor{white}{\textbf{Feature}} & \textcolor{white}{\textbf{SHAP value}} & \textcolor{white}{\textbf{Observed value}} \\
 \midrule
-grid\_position & $-$0.165 & 11.0 \\
-driver\_podium\_rate\_5 & +0.062 & 0.2 \\
-driver\_rank\_before & $-$0.061 & 15.0 \\
-constructor\_podium\_rate\_5 & $-$0.046 & 0.1 \\
-year & $-$0.042 & 2021.0 \\
-constructor\_rank\_before & $-$0.038 & 8.0 \\
+grid\_position & $-$0.158 & 11.0 \\
+driver\_rank\_before & $-$0.057 & 15.0 \\
+driver\_podium\_rate\_5 & +0.049 & 0.2 \\
+constructor\_podium\_rate\_5 & $-$0.043 & 0.1 \\
+constructor\_rank\_before & $-$0.043 & 8.0 \\
+year & $-$0.040 & 2021.0 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-The largest push is grid\_position = 11, and it is negative ($-$0.165). The next negative push is driver\_rank\_before = 15 ($-$0.061). The clearest positive push is driver\_podium\_rate\_5 = 0.2 (+0.062), and it is smaller than the grid push. We observe a row where recent form points up and the start position points down, with the start position winning inside this forest. That is one example. It matches the ablation, and it matches the grid ladder in Section 4, but a single row is not a general law.
+The largest push is grid\_position = 11, and it is negative ($-$0.158). The next negative push is driver\_rank\_before = 15 ($-$0.057). The clearest positive push is driver\_podium\_rate\_5 = 0.2 (+0.049), and it is smaller than the grid push. We observe a row where recent form points up and the start position points down, with the start position winning inside this forest. That is one example. It matches the ablation, and it matches the grid ladder in Section 4, but a single row is not a general law.
 
 
 
@@ -1265,12 +1292,12 @@ LIME provides the required model-agnostic local explanation for the same fixed v
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}
-\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,driver\_podium\_rate\_5,year,driver\_rank\_before,round,front\_row,constructor\_podium\_rate\_5,driver\_age,constructor\_rank\_before,driver\_races\_before,driver\_points\_before,qualifying\_position}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={LIME weight (toward podium is positive)}, xmajorgrids, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Local LIME}, ]
-\addplot[xbar, fill=modelB, draw=none] coordinates {(-0.0705144,0) (-0.0437454,2) (-0.0313297,3) (-0.0216921,4) (-0.0191906,5) (-0.0188209,6) (-0.0115937,8) (-0.00568169,10) (-0.00518926,11)};
-\addplot[xbar, fill=modelC, draw=none] coordinates {(0.0518475,1) (0.0150962,7) (0.00723147,9)};
+\begin{axis}[xbar, bar width=6pt, width=0.484\linewidth, height=6.2cm, scale only axis, ytick={0,1,2,3,4,5,6,7,8,9,10,11}, yticklabels={grid\_position,year,driver\_podium\_rate\_5,driver\_rank\_before,constructor\_rank\_before,round,driver\_age,front\_row,constructor\_podium\_rate\_5,field\_size,driver\_races\_before,driver\_points\_before}, y dir=reverse, ymin=-0.7, ymax=11.7, xlabel={LIME weight (toward podium is positive)}, xmajorgrids, yticklabel style={font=\scriptsize}, enlarge x limits=0.1, title={Local LIME}, ]
+\addplot[xbar, fill=modelB, draw=none] coordinates {(-0.068534,0) (-0.0454869,1) (-0.0292779,3) (-0.0238806,4) (-0.0174943,5) (-0.0155972,7) (-0.0124127,8) (-0.00970426,9)};
+\addplot[xbar, fill=modelC, draw=none] coordinates {(0.0409783,2) (0.0159468,6) (0.00932553,10) (0.00557206,11)};
 \end{axis}
 \end{tikzpicture}
-\caption{Local LIME contributions for one fixed validation prediction. The black-box probability is 0.163, the local surrogate estimate is 0.158, and weighted local R-squared is 0.185.}
+\caption{Local LIME contributions for one fixed validation prediction. The black-box probability is 0.152, the local surrogate estimate is 0.152, and weighted local R-squared is 0.174.}
 \end{figure}
 
 
@@ -1283,20 +1310,20 @@ LIME provides the required model-agnostic local explanation for the same fixed v
 \rowcolor{navy}
 \textcolor{white}{\textbf{Feature}} & \textcolor{white}{\textbf{LIME weight}} & \textcolor{white}{\textbf{Observed value}} \\
 \midrule
-grid\_position & $-$0.071 & 11.0 \\
-driver\_podium\_rate\_5 & +0.052 & 0.2 \\
-year & $-$0.044 & 2021.0 \\
-driver\_rank\_before & $-$0.031 & 15.0 \\
-round & $-$0.022 & 13.0 \\
-front\_row & $-$0.019 & 0.0 \\
-constructor\_podium\_rate\_5 & $-$0.019 & 0.1 \\
-driver\_age & +0.015 & 23.6 \\
+grid\_position & $-$0.069 & 11.0 \\
+year & $-$0.045 & 2021.0 \\
+driver\_podium\_rate\_5 & +0.041 & 0.2 \\
+driver\_rank\_before & $-$0.029 & 15.0 \\
+constructor\_rank\_before & $-$0.024 & 8.0 \\
+round & $-$0.017 & 13.0 \\
+driver\_age & +0.016 & 23.6 \\
+front\_row & $-$0.016 & 0.0 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
 
-The weighted local R-squared is 0.185. This fidelity value tells us how closely the simple surrogate follows the forest in the sampled neighborhood, so we read the local coefficients together with it rather than as global effects.
+The weighted local R-squared is 0.174. This fidelity value tells us how closely the simple surrogate follows the forest in the sampled neighborhood, so we read the local coefficients together with it rather than as global effects.
 
 
 \begin{takeaway}
@@ -1308,16 +1335,16 @@ The weighted local R-squared is 0.185. This fidelity value tells us how closely 
 \section{Two predictions from the selected network}
 
 
-The examples use the shallow neural network, because it had the best validation PR-AUC. Its frozen cutoff is 0.240. Missing inputs are filled by the imputer that was fit on the training years. We show one complete historical row and one partial record that was never a real entry.
+The examples use the shallow neural network, because it had the best validation PR-AUC. Its frozen cutoff is 0.275. Missing inputs are filled by the imputer that was fit on the training years. We show one complete historical row and one partial record that was never a real entry.
 
 
-The complete row is Lewis Hamilton, Mercedes, 2022 Saudi Arabian Grand Prix, round 2. He qualified 16th and started 15th in a field of 20. His previous five starts in this table were all podiums (driver rate 1.0), the constructor's recent podium rate was 0.7, he was third in the championship on 15 points, and Mercedes was second on 27 points. The network gives this row a podium probability of 0.087. That is below 0.240, so the predicted label is not a podium. The actual result was not a podium. Strong recent form and a high championship position did not overcome 15th on the grid, either in the race or in the model.
+The complete row is Lewis Hamilton, Mercedes, 2022 Saudi Arabian Grand Prix, round 2. He qualified 16th and started 15th in a field of 20. His previous five starts in this table were all podiums (driver rate 1.0), the constructor's recent podium rate was 0.7, he was third in the championship on 15 points, and Mercedes was second on 27 points. The network gives this row a podium probability of 0.071. That is below 0.275, so the predicted label is not a podium. The actual result was not a podium. Strong recent form and a high championship position did not overcome 15th on the grid, either in the race or in the model.
 
 
-The partial record supplies only what we chose to type in: grid position 3, not a pit-lane start, not a front-row start, a field of 20, season 2024, round 5. Every other feature is missing and is replaced with the training median. The network returns 0.032, also below the cutoff, so the predicted label is again not a podium. This record has no true result, because it is not a driver who started a race.
+The partial record supplies only what we chose to type in: grid position 3, not a pit-lane start, not a front-row start, a field of 20, season 2024, round 5. Every other feature is missing and is replaced with the training median. The network returns 0.030, also below the cutoff, so the predicted label is again not a podium. This record has no true result, because it is not a driver who started a race.
 
 
-We should not read 0.032 as the historical podium rate of cars that start third. Section 4.2 puts that rate near 55\% for grid positions 1-3. The partial row is a third-place start glued onto a median historical driver, and the median driver in a 1950-2019 training set is not a podium contender. The low probability is what this imputer does with a half-empty row. It is evidence that the function accepts missing fields. It is not evidence about the front of the grid.
+We should not read 0.030 as the historical podium rate of cars that start third. Section 4.2 puts that rate near 55\% for grid positions 1-3. The partial row is a third-place start glued onto a median historical driver, and the median driver in a 1950-2019 training set is not a podium contender. The low probability is what this imputer does with a half-empty row. It is evidence that the function accepts missing fields. It is not evidence about the front of the grid.
 
 
 \begin{takeaway}
@@ -1341,19 +1368,19 @@ The home analysis depends on a nationality-to-country map. Drivers we could not 
 The mechanical list is a rule we wrote down, not a measurement from the car. Ambiguous statuses can fall outside it. Leading rates such as Caterham's rest on a few dozen starts. The lower 2022-2024 totals are consistent with a more reliable field, and they are also consistent with changes in how retirements were described.
 
 
-Validation is 39 races. We used it to pick a cutoff and a model, which is what a held-out test set requires, and we do not pretend it can rank effects of a few thousandths. A bootstrap over those races gives each PR-AUC an interval about 0.2 wide, and the differences between the models fall inside it. On the unseen test seasons PR-AUC is 0.703 for logistic regression, 0.712 for the forest and 0.716 for the network, a spread smaller than the network's seed-to-seed variation of about 0.016. We therefore do not claim that the more complex models are better. We treat the three as tied in ranking quality and keep logistic regression as the readable baseline. Regulation changes in 2014 and 2022 sit inside the eras we compared. The models are associating historical patterns. They do not tell a team what would happen if it started one place further forward, and a probability is not a guarantee about the next race.
+Validation is 39 races. We used it to pick a cutoff and a model, which is what a held-out test set requires, and we do not pretend it can rank effects of a few thousandths. A bootstrap over those races gives each PR-AUC an interval about 0.2 wide, and the differences between the models fall inside it. On the unseen test seasons PR-AUC is 0.704 for logistic regression, 0.717 for the forest and 0.717 for the network. Logistic regression is 0.013 behind, but a bootstrap over the 68 test races puts both differences from it inside an interval that includes zero (Section 7.2). We therefore do not claim that the more complex models are better. We treat the three as tied in ranking quality and keep logistic regression as the readable baseline. Regulation changes in 2014 and 2022 sit inside the eras we compared. The models are associating historical patterns. They do not tell a team what would happen if it started one place further forward, and a probability is not a guarantee about the next race.
 
 
 
 \section{What the evidence supports}
 
 
-The tables join, and after 85 shared-drive groups are resolved we have one row per driver per race, 26,668 of them, with a podium rate of 12.7\%. Qualifying is missing for most of the early history and nearly complete from 2003, so the grid is the starting-order feature we can actually follow from 1950.
+The tables join, and after 85 shared-drive groups are resolved and 1,366 did-not-enter rows are removed we have one row per driver per race, 25,302 of them, with a podium rate of 13.4\%. Qualifying is missing for most of the early history and nearly complete from 2003, so the grid is the starting-order feature we can actually follow from 1950.
 
 
 Descriptively, front-row cars podium far more often than the field, and more often again after 2013. Home nationality, inside a grid band, does not produce a consistent extra podium rate. Mechanical retirement rates, on our component list and among teams with at least 20 starts, are lower in 2022-2024 than in 2014-2021, and the highest rates belong to shorter entries.
 
 
-Predictively, logistic regression, a random forest, and a shallow network all clear the PR-AUC baseline of the recent seasons by a wide margin. The network is the one we select from the validation scores, and the untouched test seasons still place it slightly first, although the three models are within validation uncertainty of each other. Ablation, permutation, and SHAP agree that grid position carries the prediction, and permutation and SHAP also agree that constructor form comes second. They differ on the smaller features, and we do not force them to agree. The Hamilton example is the same story in one row: a recent run of podiums, from 15th on the grid, was not enough.
+Predictively, logistic regression, a random forest, and a shallow network all clear the PR-AUC baseline of the recent seasons by a wide margin. The network is the one we select from the validation scores. The untouched test seasons put it level with the forest (0.717 and 0.717) and ahead of logistic regression (0.704), although the three models are within bootstrap uncertainty of each other on both validation and test. Ablation, permutation, and SHAP agree that grid position carries the prediction, and permutation and SHAP also agree that constructor form comes second. They differ on the smaller features, and we do not force them to agree. The Hamilton example is the same story in one row: a recent run of podiums, from 15th on the grid, was not enough.
 
 \end{document}

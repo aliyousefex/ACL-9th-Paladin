@@ -2,14 +2,16 @@
   "diagnostics": {
     "raw_result_rows": 26759,
     "duplicate_driver_race_groups": 85,
-    "clean_rows": 26668,
+    "rows_after_shared_drive_resolution": 26668,
+    "did_not_enter_rows_removed": 1366,
+    "clean_rows": 25302,
     "unique_grain": true,
     "year_min": 1950,
     "year_max": 2024
   },
-  "podiumRate": 0.12730613469326535,
-  "pitLaneShare": 0.06130943452827359,
-  "qualifyingMissing": 0.6064946752662367,
+  "podiumRate": 0.13417911627539325,
+  "pitLaneShare": 0.011422021974547466,
+  "qualifyingMissing": 0.5855663583906411,
   "audit": {
     "tables": 11,
     "rows": 100621,
@@ -69,11 +71,11 @@
     {
       "name": "Training",
       "seasons": "1950-2019",
-      "rows": 24529,
+      "rows": 23163,
       "races": 1018,
-      "startersPerRace": 24.095284872298624,
-      "podiumRate": 0.1253210485547719,
-      "qualifyingMissing": 0.6593420033429818
+      "startersPerRace": 22.75343811394892,
+      "podiumRate": 0.13271165220394596,
+      "qualifyingMissing": 0.6395976341579243
     },
     {
       "name": "Validation",
@@ -273,7 +275,7 @@
     },
     {
       "year": 1994,
-      "coverage": 0.8828828829
+      "coverage": 0.9352517986
     },
     {
       "year": 1995,
@@ -281,19 +283,19 @@
     },
     {
       "year": 1996,
-      "coverage": 0.4352941176
+      "coverage": 0.4464831804
     },
     {
       "year": 1997,
-      "coverage": 0.585106383
+      "coverage": 0.5882352941
     },
     {
       "year": 1998,
-      "coverage": 0.4383954155
+      "coverage": 0.4409221902
     },
     {
       "year": 1999,
-      "coverage": 0.1846590909
+      "coverage": 0.1851851852
     },
     {
       "year": 2000,
@@ -301,11 +303,11 @@
     },
     {
       "year": 2001,
-      "coverage": 0.0588235294
+      "coverage": 0.0589812332
     },
     {
       "year": 2002,
-      "coverage": 0.1160220994
+      "coverage": 0.1173184358
     },
     {
       "year": 2003,
@@ -341,11 +343,11 @@
     },
     {
       "year": 2011,
-      "coverage": 0.9912280702
+      "coverage": 0.9911894273
     },
     {
       "year": 2012,
-      "coverage": 0.9916666667
+      "coverage": 0.9916317992
     },
     {
       "year": 2013,
@@ -474,8 +476,8 @@
     "allStarters": [
       {
         "era": "1950-2013",
-        "rate": 0.12299246892296525,
-        "count": 22042
+        "rate": 0.13111820468175664,
+        "count": 20676
       },
       {
         "era": "2014-2024",
@@ -559,11 +561,11 @@
     },
     {
       "band": "16+",
-      "awayRate": 0.007531865585168,
-      "awayStarts": 6904,
-      "homeRate": 0.0074786324786324,
-      "homeStarts": 936,
-      "gap": -5.3233106535600407e-05
+      "awayRate": 0.0075504573834761,
+      "awayStarts": 6887,
+      "homeRate": 0.007502679528403,
+      "homeStarts": 933,
+      "gap": -4.7777855073099715e-05
     }
   ],
   "mechanical": {
@@ -745,234 +747,234 @@
   "preprocessing": [
     {
       "preprocessing": "median + scaling",
-      "validation_ROC-AUC": 0.9258485774,
-      "validation_PR-AUC": 0.7275874178
+      "validation_ROC-AUC": 0.9261579714,
+      "validation_PR-AUC": 0.728757277
     },
     {
       "preprocessing": "median, no scaling",
-      "validation_ROC-AUC": 0.9243918475,
-      "validation_PR-AUC": 0.7240747156
+      "validation_ROC-AUC": 0.9247270243,
+      "validation_PR-AUC": 0.7248878933
     },
     {
       "preprocessing": "zero + scaling",
-      "validation_ROC-AUC": 0.9268154336,
-      "validation_PR-AUC": 0.7245038188
+      "validation_ROC-AUC": 0.9270216963,
+      "validation_PR-AUC": 0.7258474824
     }
   ],
   "metrics": [
     {
       "model": "Logistic regression",
       "split": "train",
-      "threshold": 0.655,
-      "ROC-AUC": 0.9062452665,
-      "PR-AUC": 0.5610438528,
-      "F1": 0.5800148405,
-      "Precision": 0.467877095,
-      "Recall": 0.7628497072
+      "threshold": 0.645,
+      "ROC-AUC": 0.899875272,
+      "PR-AUC": 0.5619903395,
+      "F1": 0.5804683607,
+      "Precision": 0.4703270085,
+      "Recall": 0.7579700716
     },
     {
       "model": "Logistic regression",
       "split": "validation",
-      "threshold": 0.655,
-      "ROC-AUC": 0.9258485774,
-      "PR-AUC": 0.7275874178,
-      "F1": 0.703125,
-      "Precision": 0.6474820144,
+      "threshold": 0.645,
+      "ROC-AUC": 0.9261579714,
+      "PR-AUC": 0.728757277,
+      "F1": 0.7058823529,
+      "Precision": 0.652173913,
       "Recall": 0.7692307692
     },
     {
       "model": "Logistic regression",
       "split": "test",
-      "threshold": 0.655,
-      "ROC-AUC": 0.9350479586,
-      "PR-AUC": 0.7025748126,
-      "F1": 0.6679104478,
-      "Precision": 0.5391566265,
-      "Recall": 0.8774509804
+      "threshold": 0.645,
+      "ROC-AUC": 0.9351370851,
+      "PR-AUC": 0.7035121183,
+      "F1": 0.6691729323,
+      "Precision": 0.5426829268,
+      "Recall": 0.8725490196
     },
     {
       "model": "Random forest",
       "split": "train",
-      "threshold": 0.785,
-      "ROC-AUC": 0.9317894636,
-      "PR-AUC": 0.6469460077,
-      "F1": 0.6060506412,
-      "Precision": 0.6126994681,
-      "Recall": 0.5995445673
+      "threshold": 0.78,
+      "ROC-AUC": 0.9269749614,
+      "PR-AUC": 0.6467262901,
+      "F1": 0.5996661102,
+      "Precision": 0.6159122085,
+      "Recall": 0.5842550423
     },
     {
       "model": "Random forest",
       "split": "validation",
-      "threshold": 0.785,
-      "ROC-AUC": 0.9261192972,
-      "PR-AUC": 0.7174325288,
-      "F1": 0.7068965517,
-      "Precision": 0.7130434783,
+      "threshold": 0.78,
+      "ROC-AUC": 0.9271635018,
+      "PR-AUC": 0.7226204077,
+      "F1": 0.7038626609,
+      "Precision": 0.7068965517,
       "Recall": 0.7008547009
     },
     {
       "model": "Random forest",
       "split": "test",
-      "threshold": 0.785,
-      "ROC-AUC": 0.9376283847,
-      "PR-AUC": 0.7133163366,
-      "F1": 0.6518518519,
-      "Precision": 0.6567164179,
-      "Recall": 0.6470588235
+      "threshold": 0.78,
+      "ROC-AUC": 0.9377387319,
+      "PR-AUC": 0.7170015605,
+      "F1": 0.6517412935,
+      "Precision": 0.6616161616,
+      "Recall": 0.6421568627
     },
     {
       "model": "Shallow neural network",
       "split": "train",
-      "threshold": 0.24,
-      "ROC-AUC": 0.9120966445,
-      "PR-AUC": 0.5854170621,
-      "F1": 0.5775557451,
-      "Precision": 0.4617182934,
-      "Recall": 0.7709824333
+      "threshold": 0.275,
+      "ROC-AUC": 0.905397672,
+      "PR-AUC": 0.5835411816,
+      "F1": 0.5835929387,
+      "Precision": 0.4855291577,
+      "Recall": 0.73129473
     },
     {
       "model": "Shallow neural network",
       "split": "validation",
-      "threshold": 0.24,
-      "ROC-AUC": 0.9281819237,
-      "PR-AUC": 0.7384570397,
-      "F1": 0.7125506073,
-      "Precision": 0.6769230769,
-      "Recall": 0.7521367521
+      "threshold": 0.275,
+      "ROC-AUC": 0.9269572392,
+      "PR-AUC": 0.7351568077,
+      "F1": 0.7083333333,
+      "Precision": 0.6910569106,
+      "Recall": 0.7264957265
     },
     {
       "model": "Shallow neural network",
       "split": "test",
-      "threshold": 0.24,
-      "ROC-AUC": 0.9379127409,
-      "PR-AUC": 0.7162145036,
-      "F1": 0.6693548387,
-      "Precision": 0.5684931507,
-      "Recall": 0.8137254902
+      "threshold": 0.275,
+      "ROC-AUC": 0.9375222816,
+      "PR-AUC": 0.717050824,
+      "F1": 0.6666666667,
+      "Precision": 0.5909090909,
+      "Recall": 0.7647058824
     }
   ],
   "ablation": [
     {
       "variant": "all features",
       "features": 17,
-      "validation_PR-AUC": 0.7275874178,
-      "validation_ROC-AUC": 0.9258485774,
+      "validation_PR-AUC": 0.728757277,
+      "validation_ROC-AUC": 0.9261579714,
       "PR-AUC_change": 0.0
     },
     {
       "variant": "without grid",
       "features": 13,
-      "validation_PR-AUC": 0.7017507712,
-      "validation_ROC-AUC": 0.9205373142,
-      "PR-AUC_change": -0.0258366466
+      "validation_PR-AUC": 0.7061775778,
+      "validation_ROC-AUC": 0.9210014052,
+      "PR-AUC_change": -0.0225796992
     },
     {
       "variant": "without qualifying",
       "features": 14,
-      "validation_PR-AUC": 0.7222838364,
-      "validation_ROC-AUC": 0.9241855848,
-      "PR-AUC_change": -0.0053035814
+      "validation_PR-AUC": 0.7238030205,
+      "validation_ROC-AUC": 0.9243789561,
+      "PR-AUC_change": -0.0049542564
     },
     {
       "variant": "without form",
       "features": 14,
-      "validation_PR-AUC": 0.7196985051,
-      "validation_ROC-AUC": 0.9232445115,
-      "PR-AUC_change": -0.0078889127
+      "validation_PR-AUC": 0.7214103042,
+      "validation_ROC-AUC": 0.9235023398,
+      "PR-AUC_change": -0.0073469727
     },
     {
       "variant": "without standings",
       "features": 13,
-      "validation_PR-AUC": 0.7122149989,
-      "validation_ROC-AUC": 0.9236054711,
-      "PR-AUC_change": -0.0153724189
+      "validation_PR-AUC": 0.7132372889,
+      "validation_ROC-AUC": 0.9237343853,
+      "PR-AUC_change": -0.0155199881
     },
     {
       "variant": "without context",
       "features": 14,
-      "validation_PR-AUC": 0.7232456099,
-      "validation_ROC-AUC": 0.9245723273,
-      "PR-AUC_change": -0.0043418078
+      "validation_PR-AUC": 0.7249118102,
+      "validation_ROC-AUC": 0.9247785899,
+      "PR-AUC_change": -0.0038454668
     }
   ],
   "permutation": [
     {
       "feature": "grid_position",
-      "importance": 0.0994760337224739
+      "importance": 0.1000051706985416
     },
     {
       "feature": "constructor_podium_rate_5",
-      "importance": 0.0188843336288945
+      "importance": 0.0161679025776408
     },
     {
       "feature": "driver_points_before",
-      "importance": 0.0074893876727282
+      "importance": 0.0143786107322567
     },
     {
       "feature": "driver_rank_before",
-      "importance": 0.0056717889989607
-    },
-    {
-      "feature": "driver_podium_rate_5",
-      "importance": 0.0050017192135338
-    },
-    {
-      "feature": "round",
-      "importance": 0.0048874853097093
+      "importance": 0.0089124918178012
     },
     {
       "feature": "constructor_points_before",
-      "importance": 0.0035371038363422
+      "importance": 0.0087800873334848
     },
     {
       "feature": "front_row",
-      "importance": 0.0032977888043421
+      "importance": 0.0074202865540257
     },
     {
-      "feature": "qualifying_missing",
-      "importance": 0.0
+      "feature": "round",
+      "importance": 0.0065390484197766
+    },
+    {
+      "feature": "driver_podium_rate_5",
+      "importance": 0.0055502757927566
+    },
+    {
+      "feature": "driver_age",
+      "importance": -0.0005369914172279
     },
     {
       "feature": "constructor_rank_before",
-      "importance": -0.0018105282894966
+      "importance": -0.0016058262253165
     },
     {
       "feature": "qualifying_time_seconds",
-      "importance": -0.0038106313583346
+      "importance": -0.0040469521573839
     }
   ],
   "shapGlobal": [
     {
       "feature": "grid_position",
-      "value": 0.1468344788006012
+      "value": 0.1447497619101618
     },
     {
       "feature": "constructor_podium_rate_5",
-      "value": 0.0699153656689806
+      "value": 0.0666854457094261
     },
     {
       "feature": "driver_podium_rate_5",
-      "value": 0.0564362805978867
+      "value": 0.0529820098857771
     },
     {
       "feature": "driver_rank_before",
-      "value": 0.0455589063017264
-    },
-    {
-      "feature": "front_row",
-      "value": 0.0319985611527258
-    },
-    {
-      "feature": "constructor_rank_before",
-      "value": 0.0313300568889915
+      "value": 0.0434237076912699
     },
     {
       "feature": "year",
-      "value": 0.0307951476274864
+      "value": 0.0330195304506239
+    },
+    {
+      "feature": "front_row",
+      "value": 0.0319714387011334
+    },
+    {
+      "feature": "constructor_rank_before",
+      "value": 0.0312981719765291
     },
     {
       "feature": "qualifying_position",
-      "value": 0.0175809462692722
+      "value": 0.0212290684446086
     }
   ],
   "russell": {
@@ -988,33 +990,33 @@
     "shap": [
       {
         "feature": "grid_position",
-        "value": -0.1650987473727629,
+        "value": -0.1577065952642007,
         "observed": 11.0
       },
       {
-        "feature": "driver_podium_rate_5",
-        "value": 0.062345723135598,
-        "observed": 0.2
-      },
-      {
         "feature": "driver_rank_before",
-        "value": -0.0608251783127808,
+        "value": -0.0565158223576689,
         "observed": 15.0
       },
       {
+        "feature": "driver_podium_rate_5",
+        "value": 0.0487881847449187,
+        "observed": 0.2
+      },
+      {
         "feature": "constructor_podium_rate_5",
-        "value": -0.0455780244450288,
+        "value": -0.0433109372057324,
         "observed": 0.1
       },
       {
-        "feature": "year",
-        "value": -0.0417418196730201,
-        "observed": 2021.0
+        "feature": "constructor_rank_before",
+        "value": -0.043199769081054,
+        "observed": 8.0
       },
       {
-        "feature": "constructor_rank_before",
-        "value": -0.0383848810291559,
-        "observed": 8.0
+        "feature": "year",
+        "value": -0.0395646545431543,
+        "observed": 2021.0
       }
     ]
   },
@@ -1034,8 +1036,8 @@
     "constructorRank": 2.0,
     "constructorPoints": 27.0,
     "podium": 0,
-    "probability": 0.08661545099344505,
-    "threshold": 0.24,
+    "probability": 0.07089312114474128,
+    "threshold": 0.275,
     "predicted": false
   },
   "partial": {
@@ -1043,8 +1045,8 @@
     "field": 20,
     "year": 2024,
     "round": 5,
-    "probability": 0.03189925681062999,
-    "threshold": 0.24,
+    "probability": 0.030125845576136817,
+    "threshold": 0.275,
     "predicted": false
   },
   "selectedModel": "Shallow neural network"

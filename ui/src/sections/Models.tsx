@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
-import { num } from "../lib/format";
+import site from "../data/site.json";
+import { num, pct } from "../lib/format";
 import { haptic } from "../lib/haptic";
 import { metricAt, thresholdAt } from "../lib/metrics";
 import { Prose, Section, Takeaway } from "../components/Section";
@@ -28,7 +29,7 @@ const MODELS = [
     learns: "The 17 inputs pass through 32 hidden units, then 12, before one podium probability is produced.",
     strength: "Learns smooth combinations of grid, form, standings, and context. It leads validation PR-AUC.",
     caution: "Its internal weights are harder to interpret, and its raw probability scale differs from the other models.",
-    body: "Two hidden layers, 32 units then 12, with early stopping. We searched one and two hidden layers of 8 to 64 units, with two regularisation strengths, on validation and averaged three random seeds. 32 then 12 was best, so we kept it. Its probabilities sit lower than the other two, which is why the cutoff is near 0.24 rather than 0.65. We selected it because it led validation PR-AUC, by less than the seed-to-seed spread. The case-file probabilities come from this network.",
+    body: `Two hidden layers, 32 units then 12, with early stopping. We searched one and two hidden layers of 8 to 64 units, with two regularisation strengths, on validation and averaged three random seeds. 32 then 12 with the stronger regularisation (0.02) ranked first, ahead of the 0.002 we started with, so we use it. Its probabilities sit lower than the other two, which is why the cutoff is near ${num(thresholdAt("Shallow neural network"), 2)} rather than ${num(thresholdAt("Logistic regression"), 2)}. We selected it because it led validation PR-AUC, by less than the seed-to-seed spread. The case-file probabilities come from this network.`,
   },
 ];
 
@@ -136,7 +137,7 @@ const PIPELINE = [
   {
     name: "Target",
     status: "Binary classification",
-    detail: "One driver-race row is labelled 1 when positionOrder is 3 or better, otherwise 0. The positive class is rare: 12.7% overall.",
+    detail: `One driver-race row is labelled 1 when positionOrder is 3 or better, otherwise 0. The positive class is rare: ${pct(site.podiumRate)} overall.`,
   },
   {
     name: "Features",

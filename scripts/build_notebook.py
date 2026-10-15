@@ -1,11 +1,132 @@
-"""Build the fully self-contained Kaggle submission notebook."""
+"""Build the fully self-contained Kaggle submission notebook.
 
+The code cells are slices of ``src/f1podium/pipeline.py``. The commentary quotes numbers
+from ``artifacts/``, so run ``scripts/run_analysis.py`` first. That way the text cannot
+drift from the tables the notebook prints, and a claim that stops being true fails the
+build instead of surviving as stale prose.
+"""
+
+import json
 from pathlib import Path
+
 import nbformat as nbf
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "notebooks" / "milestone_1_f1_podium_prediction.ipynb"
 PIPELINE = ROOT / "src" / "f1podium" / "pipeline.py"
+ART = ROOT / "artifacts"
+
+
+def artifact(name: str) -> Path:
+    """Path of one saved artifact, with a clear message if the analysis has not been run."""
+    path = ART / name
+    if not path.exists():
+        raise SystemExit(f"{path} is missing. Run scripts/run_analysis.py first: the notebook text quotes artifacts.")
+    return path
+
+
+def load(name: str) -> pd.DataFrame:
+    """Read one saved artifact table."""
+    return pd.read_csv(artifact(name))
+
+
+def pc(value, digits: int = 1) -> str:
+    """Format a share as a percentage."""
+    return f"{100 * float(value):.{digits}f}%"
+
+
+def f2(value) -> str:
+    """Two decimals."""
+    return f"{float(value):.2f}"
+
+
+def f3(value) -> str:
+    """Three decimals."""
+    return f"{float(value):.3f}"
+
+
+def f4(value) -> str:
+    """Four decimals."""
+    return f"{float(value):.4f}"
+
+
+def sg(value, digits: int = 3) -> str:
+    """Signed decimal."""
+    return f"{float(value):+.{digits}f}"
+
+
+def n(value) -> str:
+    """Integer with thousands separators."""
+    return f"{int(round(float(value))):,}"
+
+
+def ordinal(value: int) -> str:
+    """1st, 2nd, 3rd, 4th, and so on."""
+    suffix = "th" if 10 <= value % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(value % 10, "th")
+    return f"{value}{suffix}"
+
+
+LR, RF, NN = "Logistic regression", "Random forest", "Shallow neural network"
+
+summary = json.loads(artifact("summary.json").read_text(encoding="utf-8"))
+diag = summary["diagnostics"]
+cleaning = load("cleaning_eda.csv")
+c_raw, c_shared, c_final = (cleaning.iloc[i] for i in range(3))
+audit = load("non_starter_audit.csv").set_index("group")
+runs = load("non_starter_experiment.csv")
+split = load("split_summary.csv").set_index("split")
+windows = load("split_window_experiment.csv")
+unc = load("validation_uncertainty.csv")
+fe = load("feature_eda.csv").set_index("feature")
+eng = load("feature_engineering_effects.csv").set_index("column")
+eff = load("preprocessing_effects.csv").set_index("feature")
+order = load("preprocessing_order_experiments.csv")
+missing = load("missing_value_experiments.csv")
+tuning = load("hyperparameter_search.csv")
+metrics = load("model_metrics.csv")
+ablation = load("ablation_results.csv").set_index("variant")
+
+
+def mget(model: str, which: str, col: str) -> float:
+    """One cell of the model-metrics table."""
+    return float(metrics[metrics.model.eq(model) & metrics.split.eq(which)][col].iloc[0])
+
+
+def abl_loss(variant: str) -> float:
+    """Size of the validation PR-AUC loss when one feature group is removed."""
+    return abs(float(ablation.loc[variant, "PR-AUC_change"]))
+
+
+def miss_change(prefix: str, model: str) -> float:
+    """Validation PR-AUC change of one missing-value variant against median imputation."""
+    hit = missing[missing.variant.str.startswith(prefix) & missing.model.eq(model)]
+    return float(hit["PR-AUC_change_vs_used"].iloc[0])
+
+
+def run_change(prefix: str, model: str) -> float:
+    """Validation PR-AUC change of one non-starter variant against the used table."""
+    hit = runs[runs.variant.str.startswith(prefix) & runs.model.eq(model)]
+    return float(hit["PR-AUC_change_vs_used"].iloc[0])
+
+
+def oget(experiment: str, order_name: str, model: str, col: str, fitted: str = "train") -> float:
+    """One value of the preprocessing-order experiments."""
+    hit = order[order.experiment.str.startswith(experiment) & order.order.eq(order_name)
+                & order.model.eq(model) & order.preprocessing_fitted_on.str.startswith(fitted[:3])]
+    return float(hit[col].iloc[0])
+
+
+def tuned(model: str, which: str) -> pd.Series:
+    """The initial, adopted, or top-ranked row of one model's settings search."""
+    column = {"initial": "is_initial", "current": "is_current", "best": "selected"}[which]
+    return tuning[tuning.model.eq(model) & tuning[column]].iloc[0]
+
+
+def auc(feature: str, col: str = "auc_train") -> str:
+    """One-feature AUC from the feature evidence table."""
+    return f2(fe.loc[feature, col])
+
 
 nb = nbf.v4.new_notebook()
 nb["metadata"] = {
@@ -120,21 +241,31 @@ display(results["cleaning_eda"])
 display(Image(filename=str(OUT / "figures" / "cleaning_before_after.png")))
 display(Image(filename=str(OUT / "figures" / "qualifying_coverage.png")))
 """)
-md("""
-Cleaning reaches exactly one row per `(raceId, driverId)` without materially changing the target or starting-position distributions. Qualifying coverage is sparse in older seasons, so we retain an explicit missingness flag and use final grid as the historically broader pre-race signal rather than discarding early history.
+md(f"""
+Cleaning has two steps. The first fixes the grain: resolving {n(diag['duplicate_driver_race_groups'])} shared-drive groups removes {n(c_raw.rows - c_shared.rows)} rows and leaves exactly one row per `(raceId, driverId)`, without moving the target ({pc(c_raw.podium_rate, 2)} to {pc(c_shared.podium_rate, 2)}) or the median grid ({c_shared.median_grid:g}). The second step removes the {n(diag['did_not_enter_rows_removed'])} rows of drivers who did not enter the race (section 8.1). None of them is a podium, so the podium rate rises to {pc(c_final.podium_rate, 2)} by arithmetic alone, and the grid-0 share falls from {pc(c_shared.pit_lane_share)} to {pc(c_final.pit_lane_share)}. Qualifying coverage is sparse in older seasons, so we retain an explicit missingness flag and use final grid as the historically broader pre-race signal rather than discarding early history.
 """)
 
 md("""
-### 8.1 Who has grid 0? Non-starters, withdrawals, and the pit-lane flag
+### 8.1 Who has grid 0? Drivers who did not enter, withdrawals, and the pit-lane flag
 """)
 code("""
 display(results["non_starters"].round(3))
 display(results["non_starter_experiment"].round(4))
 """)
-md("""
-**What the audit shows.** 6.1% of rows have grid 0, and the flag name `pit_lane_start` makes them sound like pit-lane starts. They are mostly not. Of the 1,635 grid-0 rows, 1,346 are drivers who never raced (positionText `F`: did not qualify, did not prequalify, or failed the 107% rule), 202 are withdrawals, and only 87 are real pit-lane or exceptional starts. All 1,366 `F` rows are in 1952-2012, all are in training, and none finished on the podium. Validation and test contain no `F` rows.
+_f, _w, _r = (audit.loc[audit.index.str.startswith(p)].iloc[0] for p in ("F:", "W:", "grid 0 but raced"))
+_f_zero, _w_zero = round(_f.rows * _f.grid_zero_share), round(_w.rows * _w.grid_zero_share)
+_keep, _tail, _both = ("keep F rows in the history and", "keep F rows in the history, drop", "also drop W rows")
+_seed = float(tuned(NN, "current")["validation_PR-AUC_std"])
+_small = max(abs(run_change(p, m)) for p in (_keep, _tail) for m in (LR, NN))
+_fs = runs.groupby("variant").train_field_size.first()
+md(f"""
+**What the audit shows.** Before the `F` rows are removed, {pc(c_shared.pit_lane_share)} of rows have grid 0, and the flag name `pit_lane_start` makes them sound like pit-lane starts. They are mostly not. Of the {n(_f_zero + _w_zero + _r.rows)} grid-0 rows, {n(_f_zero)} are drivers who never raced (positionText `F`: did not qualify, did not prequalify, or failed the 107% rule), {n(_w_zero)} are withdrawals, and only {n(_r.rows)} are real pit-lane or exceptional starts. All {n(_f.rows)} `F` rows are in {int(_f.first_year)}-{int(_f.last_year)}, all are in training, and none finished on the podium. Validation and test contain no `F` rows.
 
-**Decision: keep every row.** The experiment trains with and without these rows and scores the same 2020-2021 validation rows. Dropping the `F` rows changes validation PR-AUC by +0.0003 for logistic regression and -0.0027 for the network, which is within noise, so there is nothing to gain. Dropping the `W` rows as well cost the network about 0.05. Two further reasons: the evaluation seasons are unchanged either way, and a `W` row cannot be shown to be known before the start, because the same code covers 227 recorded withdrawals and drivers who started and then retired. We therefore keep the table as the unique driver-race table the brief describes and record the caveat: in training, `pit_lane_start` is mostly a did-not-qualify marker, and only from 2013 onward does it mean a true pit-lane start. Dropping the `F` rows is a reasonable alternative if the instructor rules that a driver who did not qualify did not enter the race.
+**Decision: remove the `F` rows, keep everything else (instructor ruling).** The instructor ruled that `F` rows are known before the race starts and may be removed, and that withdrawals (`W`) may not, because that code is only known after the race. A driver who did not qualify did not enter the race, so the row does not belong in a table of one driver entering one race. We remove the `F` rows *before* any feature is built. A skipped weekend therefore no longer counts as a race in `driver_podium_rate_5` or `driver_races_before`, and it no longer inflates `field_size` (training mean {f2(_fs['keep F rows in the history and in training'])} with them, {f2(_fs['drop F rows before features (used)'])} without).
+
+**Evidence that the choice is safe.** The experiment scores four variants on the same 2020-2021 validation rows. Keeping the `F` rows instead changes validation PR-AUC by {sg(run_change(_keep, LR), 4)} for logistic regression and {sg(run_change(_keep, NN), 4)} for the network. Keeping them in the history but dropping them from the training rows only changes it by {sg(run_change(_tail, LR), 4)} and {sg(run_change(_tail, NN), 4)}. The largest of these four changes is {f4(_small)}, against a seed-to-seed spread of about {f3(_seed)} for the network, so the choice rests on the ruling and on what a row means, not on a score. Removing the `W` rows as well, which the ruling does not allow, would change the network by {sg(run_change(_both, NN), 4)}.
+
+**What changes.** `pit_lane_start` now marks {n(_w_zero + _r.rows)} rows: {n(_w_zero)} withdrawals with grid 0 and {n(_r.rows)} drivers who raced from the pit lane or an exceptional start. It is no longer a did-not-qualify marker, but it is still not a pure pit-lane flag.
 """)
 
 md("## 9. Answers to the three data-engineering questions")
@@ -186,14 +317,23 @@ code("""
 display(results["feature_eda"].drop(columns=["bins"]).round(3))
 display(Image(filename=str(OUT / "figures" / "feature_eda.png")))
 """)
-md("""
+_strong = ["qualifying_position", "grid_position", "driver_rank_before", "constructor_rank_before",
+           "driver_podium_rate_5", "constructor_podium_rate_5", "driver_points_before",
+           "constructor_points_before", "front_row", "driver_races_before"]
+_weak = ["field_size", "driver_age", "qualifying_time_seconds", "pit_lane_start", "qualifying_missing"]
+assert fe.loc[_strong, "same_direction_in_validation"].all(), "a strong feature changed direction on validation"
+assert fe.loc[_weak, "auc_train"].between(0.4, 0.6).all(), "a 'weak' feature is no longer close to 0.5"
+assert fe.loc["grid_position", "podium_rate_when_missing"] == 0, "rows without a grid position now podium"
+_losses = ablation.drop(index="all features")["PR-AUC_change"].abs()
+assert _losses.idxmin() == "without context", "context is no longer the smallest ablation loss"
+md(f"""
 The table and figure use **training seasons only**. For each of the 17 features they show the share of missing cells, the podium rate in its lowest and highest bin, and a one-feature ROC-AUC (above 0.5 means a higher value goes with more podiums, below 0.5 the reverse). The same AUC on validation checks that the pattern still holds in later seasons. Missing cells are left out of the AUC and the bins, and the orange bar in the figure shows the podium rate of the rows where the feature is missing.
 
-**Strong single signals.** Position features carry the most: `qualifying_position` (AUC 0.09, so lower is better, measured on the 34% of rows that have it) and `grid_position` (0.12). The podium rate falls from about 45-50% in the best bin to under 1% in the worst. The standings ranks (0.15 and 0.16), form rates (0.82 and 0.83), and points (0.79 and 0.80) are next, and `front_row` (0.67) and `driver_races_before` (0.67) are clear but smaller. All of these keep the same direction on validation, with similar or slightly stronger AUCs (for example 0.09 for grid and 0.84-0.85 for form).
+**Strong single signals.** Position features carry the most: `qualifying_position` (AUC {auc('qualifying_position')}, so lower is better, measured on the {pc(1 - fe.loc['qualifying_position', 'missing_share_train'], 0)} of rows that have it) and `grid_position` ({auc('grid_position')}). The podium rate falls from {pc(fe.loc['grid_position', 'podium_rate_lowest_bin'], 0)} (grid) and {pc(fe.loc['qualifying_position', 'podium_rate_lowest_bin'], 0)} (qualifying) in the best bin to {pc(fe.loc['grid_position', 'podium_rate_highest_bin'])} and {pc(fe.loc['qualifying_position', 'podium_rate_highest_bin'])} in the worst. The standings ranks ({auc('driver_rank_before')} and {auc('constructor_rank_before')}), form rates ({auc('driver_podium_rate_5')} and {auc('constructor_podium_rate_5')}), and points ({auc('driver_points_before')} and {auc('constructor_points_before')}) are next, and `front_row` ({auc('front_row')}) and `driver_races_before` ({auc('driver_races_before')}) are clear but smaller. All of these keep the same direction on validation (for example {auc('grid_position', 'auc_validation')} for grid and {auc('driver_podium_rate_5', 'auc_validation')} and {auc('constructor_podium_rate_5', 'auc_validation')} for form).
 
-**Weak single signals, kept for a different reason.** `field_size` (0.44), `driver_age` (0.55), `qualifying_time_seconds` (0.45), `pit_lane_start` (0.46), and `qualifying_missing` (0.48) are close to 0.5 on their own. The qualifying time is not comparable across circuits and eras, so a raw time says little without the rest of the row. The two flags are indicators: the missing-value experiment in section 13.1 shows removing `qualifying_missing` costs the network 0.041 PR-AUC, and rows with no grid position (drivers who never started) never podium, while rows with no qualifying record podium at about the average rate (11.8% against 12.5%). `round` (0.50) and `year` (0.51) have essentially no single-feature signal, and `field_size`, `round`, and `year` are flat or constant on validation (every 2020-2021 race has 20 starters). We keep them as context and era controls, and the ablation shows the whole context group adds the least of the five (0.004 PR-AUC). We have not shown that `round` or `year` help on their own, so they are the first candidates to remove.
+**Weak single signals, kept for a different reason.** `field_size` ({auc('field_size')}), `driver_age` ({auc('driver_age')}), `qualifying_time_seconds` ({auc('qualifying_time_seconds')}), `pit_lane_start` ({auc('pit_lane_start')}), and `qualifying_missing` ({auc('qualifying_missing')}) are close to 0.5 on their own. The qualifying time is not comparable across circuits and eras, so a raw time says little without the rest of the row. The two flags are indicators: the missing-value experiment in section 13.1 shows removing `qualifying_missing` changes the network's PR-AUC by {sg(miss_change('median, without', NN))}, and rows with no grid position (withdrawals and pit-lane starts) never podium, while rows with no qualifying record podium at about the average rate ({pc(fe.loc['qualifying_position', 'podium_rate_when_missing'])} against {pc(split.loc['train', 'podium_rate'])}). `round` ({auc('round')}) and `year` ({auc('year')}) have essentially no single-feature signal, and `field_size`, `round`, and `year` are flat or constant on validation (every 2020-2021 race has 20 starters). We keep them as context and era controls, and the ablation shows the whole context group adds the least of the five ({f3(abl_loss('without context'))} PR-AUC). We have not shown that `round` or `year` help on their own, so they are the first candidates to remove.
 
-**What this evidence does and does not show.** A one-feature AUC ignores the other 16 features, so a feature that looks weak here can still help in combination, and a strong feature can add little once the grid is present (the ablation shows qualifying adds only 0.005 on top of the grid). The AUCs describe association in past races and are not causal effects.
+**What this evidence does and does not show.** A one-feature AUC ignores the other 16 features, so a feature that looks weak here can still help in combination, and a strong feature can add little once the grid is present (the ablation shows qualifying adds only {f3(abl_loss('without qualifying'))} on top of the grid). The AUCs describe association in past races and are not causal effects.
 """)
 
 md("## 11. Proper train / validation / test split")
@@ -220,10 +360,19 @@ code("""
 display(results["split_windows"].round(4))
 display(results["validation_uncertainty"].round(4))
 """)
-md("""
-The first table keeps the same two models and scores four validation windows, each training on all earlier seasons and each ending before the test seasons, so the test set is never used. The score depends on the window: logistic regression ranges from 0.689 to 0.728 PR-AUC and the network from 0.668 to 0.739. The 2020-2021 window we use is at the top of both ranges, so validation scores are somewhat optimistic and should not be read as the expected test score. The test seasons, which were never used for a decision, score lower for both models (0.70 and 0.72).
+_lr_w, _nn_w = windows["Logistic regression PR-AUC"], windows["Shallow neural network PR-AUC"]
+_used = windows.validation_window.str.contains("used")
+assert _lr_w[_used].iloc[0] == _lr_w.max() and _nn_w[_used].iloc[0] == _nn_w.max(), "the used window is no longer the highest"
+assert mget(LR, "test", "PR-AUC") < mget(LR, "validation", "PR-AUC") and mget(NN, "test", "PR-AUC") < mget(NN, "validation", "PR-AUC")
+_ci = unc.set_index("comparison")
+_rf_d, _nn_d = _ci.loc[f"{RF} minus {LR}"], _ci.loc[f"{NN} minus {LR}"]
+assert all(r["ci_low_2.5%"] <= 0 <= r["ci_high_97.5%"] for r in (_rf_d, _nn_d)), "a model-minus-baseline interval excludes zero"
+_lr_ci = _ci.loc[LR]
+_width = float((unc.iloc[:3]["ci_high_97.5%"] - unc.iloc[:3]["ci_low_2.5%"]).mean())
+md(f"""
+The first table keeps the same two models and scores four validation windows, each training on all earlier seasons and each ending before the test seasons, so the test set is never used. The score depends on the window: logistic regression ranges from {f3(_lr_w.min())} to {f3(_lr_w.max())} PR-AUC and the network from {f3(_nn_w.min())} to {f3(_nn_w.max())}. The 2020-2021 window we use is at the top of both ranges, so validation scores are somewhat optimistic and should not be read as the expected test score. The test seasons, which were never used for a decision, score lower for both models ({f3(mget(LR, 'test', 'PR-AUC'))} and {f3(mget(NN, 'test', 'PR-AUC'))}).
 
-The second table bootstraps whole validation races. With only 39 races, each model's PR-AUC has a 95% interval about 0.2 wide (for example 0.62-0.84 for logistic regression). The difference between the network and logistic regression is +0.011 with an interval of -0.011 to +0.031, and for the forest it is -0.010 with an interval of -0.044 to +0.028. Both intervals include zero, so the data do not show that any model is better than the baseline. We keep the chronological split because it is the only one with no same-race or future leakage, but we report the model ranking as a tie within validation uncertainty.
+The second table bootstraps whole validation races. With only {int(unc.races.iloc[0])} races, each model's PR-AUC has a 95% interval about {_width:.1f} wide (for example {f2(_lr_ci['ci_low_2.5%'])}-{f2(_lr_ci['ci_high_97.5%'])} for logistic regression). The difference between the network and logistic regression is {sg(_nn_d['validation_PR-AUC'])} with an interval of {sg(_nn_d['ci_low_2.5%'])} to {sg(_nn_d['ci_high_97.5%'])}, and for the forest it is {sg(_rf_d['validation_PR-AUC'])} with an interval of {sg(_rf_d['ci_low_2.5%'])} to {sg(_rf_d['ci_high_97.5%'])}. Both intervals include zero, so the data do not show that any model is better than the baseline. We keep the chronological split because it is the only one with no same-race or future leakage, but we report the model ranking as a tie within validation uncertainty.
 """)
 
 md("""
@@ -232,8 +381,8 @@ md("""
 ### 12.1 Feature-engineering steps
 """)
 code('display(results["feature_engineering_effects"])')
-md("""
-The table compares each raw source column with the feature built from it (all 1950-2024 rows). Raw `grid` contains 6.1% zeros (pit-lane or exceptional starts), which would sit numerically *ahead* of pole. In `grid_position` those zeros become missing, the minimum becomes 1, and the information moves to the binary `pit_lane_start` flag. Qualifying strings such as `1:23.456` become numeric seconds; the left join to every driver-race row then exposes the missing qualifying history of older seasons (61% of rows have no qualifying time). The shifted form and previous-race standings are missing on a driver's first race and on the first round of a season, because no earlier result exists. These gaps are what the imputer fills in the next step.
+md(f"""
+The table compares each raw source column with the feature built from it (all 1950-2024 rows of the modeling table). Raw `grid` still contains {pc(eng.loc['grid (raw)', 'zero_share'])} zeros (withdrawals and pit-lane or exceptional starts), which would sit numerically *ahead* of pole. In `grid_position` those zeros become missing, the minimum becomes 1, and the information moves to the binary `pit_lane_start` flag. Qualifying strings such as `1:23.456` become numeric seconds; the left join to every driver-race row then exposes the missing qualifying history of older seasons ({pc(eng.loc['qualifying_time_seconds (joined)', 'missing_share'], 0)} of rows have no qualifying time). The shifted form and previous-race standings are missing on a driver's first race and on the first round of a season, because no earlier result exists. These gaps are what the imputer fills in the next step.
 
 ### 12.2 Imputation and scaling
 """)
@@ -245,12 +394,14 @@ display(effects[["feature", "missing_share", "fill_value", "raw_min", "raw_max",
 display(Image(filename=str(OUT / "figures" / "preprocessing_distributions.png")))
 display(Image(filename=str(OUT / "figures" / "preprocessing_ranges.png")))
 """)
-md("""
-**Median imputation** writes the training median into every missing cell. Qualifying position and time are missing in about two thirds of training rows, so they get a tall spike at the median and their standard deviation falls by about 42%. Standings and form features lose only a few percent. Ranges do not change, because the median is inside the observed range. The `qualifying_missing` flag keeps the information that a value was filled.
+_partial = eff[(eff.missing_share > 0) & (eff.missing_share < 0.5)]
+_points = ["driver_points_before", "constructor_points_before"]
+md(f"""
+**Median imputation** writes the training median into every missing cell. Qualifying position and time are missing in {pc(eff.loc['qualifying_position', 'missing_share'], 0)} of training rows, so they get a tall spike at the median and their standard deviation falls by about {pc(-eff.loc['qualifying_position', 'std_change_from_imputation'], 0)}. The other features with gaps (grid position, standings, and form) lose between {pc(-_partial.std_change_from_imputation.max(), 0)} and {pc(-_partial.std_change_from_imputation.min(), 0)}. Ranges do not change, because the median is inside the observed range. The `qualifying_missing` flag keeps the information that a value was filled.
 
-**Standardization** moves every training feature to mean 0 and standard deviation 1. Raw ranges differ by orders of magnitude (`constructor_points_before` spans 0-722, the flags 0-1). After scaling they share one scale, so neither logistic regression's penalty nor the MLP's gradient steps are dominated by large-unit features. Scaling is linear, so the shape of each distribution and the order of values are unchanged. Long right tails stay long: one recorded qualifying time of 1002.6 s lands about 100 standard deviations out, and the points features reach about 11.
+**Standardization** moves every training feature to mean 0 and standard deviation 1. Raw ranges differ by orders of magnitude (`constructor_points_before` spans 0-{n(eff.loc['constructor_points_before', 'raw_max'])}, the flags 0-1). After scaling they share one scale, so neither logistic regression's penalty nor the MLP's gradient steps are dominated by large-unit features. Scaling is linear, so the shape of each distribution and the order of values are unchanged. Long right tails stay long: one recorded qualifying time of {eff.loc['qualifying_time_seconds', 'raw_max']:.1f} s lands about {eff.loc['qualifying_time_seconds', 'scaled_max']:.0f} standard deviations out, and the points features reach about {eff.loc[_points, 'scaled_max'].max():.0f}.
 
-**Fitted on training only.** Validation and test pass through the training-fitted transform, so their means are *not* zero. `year` sits about +1.7 standard deviations above the training mean, prior points about +1.0, `field_size` about -1.0 (smaller modern grids), and `qualifying_missing` about -1.4 (qualifying is almost always recorded now). This is the honest view of period shift, and it is what the model sees at deployment.
+**Fitted on training only.** Validation and test pass through the training-fitted transform, so their means are *not* zero. `year` sits about {eff.loc['year', 'validation_scaled_mean']:+.1f} standard deviations from the training mean, prior points about {eff.loc['driver_points_before', 'validation_scaled_mean']:+.1f}, `field_size` about {eff.loc['field_size', 'validation_scaled_mean']:+.1f} (smaller modern grids), and `qualifying_missing` about {eff.loc['qualifying_missing', 'validation_scaled_mean']:+.1f} (qualifying is almost always recorded now). This is the honest view of period shift, and it is what the model sees at deployment.
 """)
 
 md("## 13. Preprocessing experiments: strategy and order")
@@ -261,12 +412,12 @@ display(order.round(4))
 display(order.pivot_table(index=["experiment", "order", "preprocessing_fitted_on"], columns="model",
                           values="validation_PR-AUC").round(4))
 """)
-md("""
+md(f"""
 The first table compares preprocessing **strategies** (median with and without scaling, zero with scaling). The second reports three preprocessing-**order** experiments, each scored on validation with logistic regression and the shallow neural network:
 
-- **A: impute → scale vs scale → impute.** Median imputation commutes with a linear rescale, so the missing value maps to the same raw median either way. The difference is the scaler's statistics: scaling first computes mean and spread from observed values only, so after imputation qualifying time has a training standard deviation of 0.58 instead of 1. Logistic regression is unchanged; the MLP, which is sensitive to input scale, loses about 0.012 validation PR-AUC.
-- **B: zero-fill → scale vs scale → zero-fill.** Here the order changes the value. Filling zero *before* scaling writes a literal 0, which means "grid 0, ahead of pole" and "a 0-second qualifying lap". Filling zero *after* scaling writes the training mean (grid ≈ 12.0, qualifying ≈ 88.8 s). The `missing_..._becomes` columns show the fill in original units. The impossible raw zeros cost the MLP about 0.010 PR-AUC; logistic regression barely moves.
-- **C: preprocess before vs after the split.** Fitting the imputer and scaler on all seasons lets 2020-2024 set the medians and scaling used in training. Here it did not help: the MLP lost about 0.038 PR-AUC and logistic regression was unchanged. Whatever the score, it uses future seasons, so the pipeline fits preprocessing inside the scikit-learn `Pipeline` on training rows only.
+- **A: impute → scale vs scale → impute.** Median imputation commutes with a linear rescale, so the missing value maps to the same raw median either way. The difference is the scaler's statistics: scaling first computes mean and spread from observed values only, so after imputation qualifying time has a training standard deviation of {f2(oget('A', 'scale -> impute', NN, 'train_std_qualifying_time'))} instead of 1. Logistic regression moves by {sg(oget('A', 'scale -> impute', LR, 'PR-AUC_change_vs_reference'), 4)}; the MLP, which depends on input scale, moves by {sg(oget('A', 'scale -> impute', NN, 'PR-AUC_change_vs_reference'))} validation PR-AUC.
+- **B: zero-fill → scale vs scale → zero-fill.** Here the order changes the value. Filling zero *before* scaling writes a literal 0, which means "grid 0, ahead of pole" and "a 0-second qualifying lap". Filling zero *after* scaling writes the training mean (grid ≈ {oget('B', 'scale -> zero-fill', LR, 'missing_grid_position_becomes'):.1f}, qualifying ≈ {oget('B', 'scale -> zero-fill', LR, 'missing_qualifying_time_becomes'):.1f} s). The `missing_..._becomes` columns show the fill in original units. Moving from the impossible raw zeros to the training mean changes the MLP by {sg(oget('B', 'scale -> zero-fill', NN, 'PR-AUC_change_vs_reference'))} PR-AUC and logistic regression by {sg(oget('B', 'scale -> zero-fill', LR, 'PR-AUC_change_vs_reference'), 4)}.
+- **C: preprocess before vs after the split.** Fitting the imputer and scaler on all seasons lets 2020-2024 set the medians and scaling used in training. Here it moved the MLP by {sg(oget('C', 'impute -> scale', NN, 'PR-AUC_change_vs_reference', 'all'))} PR-AUC and logistic regression by {sg(oget('C', 'impute -> scale', LR, 'PR-AUC_change_vs_reference', 'all'), 4)}. Whatever the score, it uses future seasons, so the pipeline fits preprocessing inside the scikit-learn `Pipeline` on training rows only.
 
 We keep split → median imputation → scaling for the linear model and the MLP, and median imputation without scaling for the forest.
 """)
@@ -281,14 +432,25 @@ missing = results["missing_experiments"]
 display(missing.round(4))
 display(missing.pivot_table(index=["approach", "variant"], columns="model", values="PR-AUC_change_vs_used").round(4))
 """)
-md("""
-**Imputers.** Mean, k-nearest-neighbour, and iterative regression imputation all land within 0.005 PR-AUC of median imputation for logistic regression (KNN is +0.0022, the largest gain). For the network every alternative is worse, by 0.015 for mean and about 0.045 for KNN and iterative. The network's seed-to-seed spread is about 0.016 (see section 14.1), so the mean difference is within noise but the KNN and iterative drops are not.
+_rows = {p: int(missing[missing.variant.str.startswith(p)].train_rows.iloc[0])
+         for p in ("drop training rows with no qualifying", "drop training rows with any missing")}
+_full = int(missing[missing.variant.str.endswith("(used)")].train_rows.iloc[0])
+_lr_alt = missing[missing.model.eq(LR) & ~missing.variant.str.endswith("(used)")]["PR-AUC_change_vs_used"].abs().max()
+_alts = missing[~missing.variant.str.endswith("(used)")]
+_best_gain = float(_alts[_alts.model.eq(NN)]["PR-AUC_change_vs_used"].max())
+_seed_sd = float(tuned(NN, "current")["validation_PR-AUC_std"])
+_costly = _alts[_alts.model.eq(NN) & _alts.approach.isin(["flag", "drop columns", "drop rows"])]["PR-AUC_change_vs_used"]
+assert _best_gain < 2 * _seed_sd, "an alternative now beats median imputation by more than two seed deviations; rewrite the decision text"
+assert (_costly < 0).all() and _costly.abs().min() > 3 * max(_best_gain, 1e-9), \
+    "dropping the flag, columns, or rows no longer costs the network several times the best imputer gain; rewrite the decision text"
+md(f"""
+**Imputers.** Mean, k-nearest-neighbour, and iterative regression imputation change logistic regression's validation PR-AUC by {sg(miss_change('mean imputation', LR), 4)}, {sg(miss_change('KNN', LR), 4)}, and {sg(miss_change('iterative', LR), 4)} against median imputation. For the network the changes are {sg(miss_change('mean imputation', NN))}, {sg(miss_change('KNN', NN))}, and {sg(miss_change('iterative', NN))}. The network's seed-to-seed spread is about {f3(tuned(NN, 'current')['validation_PR-AUC_std'])} (see section 14.1), so a difference of that size is within noise.
 
-**Dropping columns.** Removing the two columns with more than 50% missing values (`qualifying_position` and `qualifying_time_seconds`) costs 0.005 for logistic regression and 0.035 for the network. Removing the `qualifying_missing` flag instead costs the network 0.041, so the flag carries real information.
+**Dropping columns.** Removing the two columns with more than 50% missing values (`qualifying_position` and `qualifying_time_seconds`) changes the score by {sg(miss_change('drop the sparse', LR))} for logistic regression and {sg(miss_change('drop the sparse', NN))} for the network. Removing the `qualifying_missing` flag instead changes the network by {sg(miss_change('median, without', NN))}, so the network relies on the flag as well as on the values.
 
-**Dropping rows.** Keeping only training rows with qualifying data (1994 onward) leaves 8,356 of 24,529 rows and lowers the score by 0.002 (logistic regression) and 0.023 (network). Keeping only complete rows leaves 7,374 and lowers it by 0.004 and 0.047. Dropping rows throws away about two thirds of the history, including most of the long driver and team form.
+**Dropping rows.** Keeping only training rows with qualifying data (1994 onward) leaves {n(_rows['drop training rows with no qualifying'])} of {n(_full)} rows and changes the score by {sg(miss_change('drop training rows with no qualifying', LR))} (logistic regression) and {sg(miss_change('drop training rows with no qualifying', NN))} (network). Keeping only complete rows leaves {n(_rows['drop training rows with any missing'])} and changes it by {sg(miss_change('drop training rows with any missing', LR))} and {sg(miss_change('drop training rows with any missing', NN))}. Dropping rows throws away about two thirds of the history, including most of the long driver and team form.
 
-**Decision.** Median imputation plus the missing-indicator flag, fitted on training rows only, is the best or tied for best for both models. It keeps all 24,529 training rows. We keep it. None of the alternatives helped, so leaving the nulls, dropping columns, and dropping rows were all tested against it and rejected on evidence.
+**Decision.** Median imputation plus the missing-indicator flag, fitted on training rows only, keeps all {n(_full)} training rows and is never meaningfully beaten. For logistic regression every alternative is within {f4(_lr_alt)}. For the network the largest gain from any imputer is {sg(_best_gain)}, about {_best_gain / _seed_sd:.1f} seed standard deviations of a single seed, so it is inside the noise, while dropping the flag, the columns, or the rows costs it at least {_costly.abs().min() / max(_best_gain, 1e-9):.1f} times as much. We keep median imputation. Leaving the nulls, dropping columns, and dropping rows were all tested against it, and none of them helped enough to justify what it throws away.
 """)
 
 md("## 14. Model comparison: train, validation, and unseen test")
@@ -300,8 +462,10 @@ validation_ranking = (results["metrics"].query("split == 'validation'")
 print("Validation-only model selection ranking:")
 display(validation_ranking)
 """)
-md("""
-Logistic regression is the statistical baseline, random forest captures nonlinear interactions, and the two-hidden-layer MLP is the shallow neural network. PR-AUC is the selection metric because the positive class is uncommon. Model-specific thresholds maximize validation F1 and are frozen before test scoring. All three models score lower on training than on validation, which reflects historical distribution shift (a lower podium rate and far more missing qualifying in the training years). The forest only behaves this way because its depth and leaf size were limited by the validation search in section 14.1; its first settings memorized the training seasons.
+assert all(mget(m, "train", "PR-AUC") < mget(m, "validation", "PR-AUC") for m in (LR, RF, NN)), \
+    "a model now scores higher on training than on validation; rewrite the paragraph below"
+md(f"""
+Logistic regression is the statistical baseline, random forest captures nonlinear interactions, and the two-hidden-layer MLP is the shallow neural network. PR-AUC is the selection metric because the positive class is uncommon. Model-specific thresholds ({f3(summary['thresholds'][LR])}, {f3(summary['thresholds'][RF])}, and {f3(summary['thresholds'][NN])}) maximize validation F1 and are frozen before test scoring. All three models score lower on training than on validation, which reflects historical distribution shift (a lower podium rate, {pc(split.loc['train', 'podium_rate'])} against {pc(split.loc['validation', 'podium_rate'])}, and far more missing qualifying in the training years). The forest only behaves this way because its depth and leaf size were limited by the validation search in section 14.1; its first settings memorized the training seasons.
 """)
 
 md("""
@@ -314,22 +478,44 @@ tuning = results["tuning"]
 display(tuning[["model", "settings", "is_initial", "is_current", "validation_PR-AUC", "validation_PR-AUC_std",
                 "validation_ROC-AUC", "train_PR-AUC", "rank_within_model"]].round(4))
 """)
-md("""
-**Random forest: improved.** The starting forest (unlimited depth, leaf size 4) scored 0.702 on validation but 0.919 on training, a memorized fit. The search ranked it 7th of 9. Depth 12 with leaf size 30 scores 0.717 on validation, and its training PR-AUC falls from 0.919 to 0.647, so it no longer memorizes the training seasons. We adopted it, and test PR-AUC rose from 0.689 to 0.712 without the test set influencing the choice.
+_sizes = tuning.groupby("model").size()
+_rf0, _rf1 = tuned(RF, "initial"), tuned(RF, "current")
+_nn0, _nn1 = tuned(NN, "initial"), tuned(NN, "current")
+_lr_all, _lr1, _lrb = tuning[tuning.model.eq(LR)], tuned(LR, "current"), tuned(LR, "best")
+_nn_others = tuning[tuning.model.eq(NN) & ~tuning.settings.str.contains(r"\(32, 12\)")]
+assert _rf1.rank_within_model == 1 and _nn1.rank_within_model == 1, "an adopted setting is no longer top-ranked"
+assert _nn_others["validation_PR-AUC"].max() < _nn1["validation_PR-AUC"], "another network architecture now wins"
+assert 0 < _nn1["validation_PR-AUC"] - _nn0["validation_PR-AUC"] < _nn1["validation_PR-AUC_std"], "the network gain is no longer inside the seed spread"
+_val = pd.Series({m: mget(m, "validation", "PR-AUC") for m in (LR, RF, NN)})
+assert _val.max() - _val.min() < 2 * _nn1["validation_PR-AUC_std"], "validation gaps now exceed twice the seed spread"
+_lr_gap_value = float(_lrb["validation_PR-AUC"] - _lr1["validation_PR-AUC"])
+_lr_gap = "ties for best (within 0.0005)" if _lr_gap_value < 5e-4 else f"is within {_lr_gap_value:.4f} of the best"
+_vs_lr = "above" if _nn1["validation_PR-AUC"] > mget(LR, "validation", "PR-AUC") else "below"
+md(f"""
+**Random forest: improved.** The starting forest (unlimited depth, leaf size 4) scored {f3(_rf0['validation_PR-AUC'])} on validation but {f3(_rf0['train_PR-AUC'])} on training, a memorized fit. The search ranked it {ordinal(int(_rf0.rank_within_model))} of {int(_sizes[RF])}. Depth 12 with leaf size 30 ranks first at {f3(_rf1['validation_PR-AUC'])} on validation, and its training PR-AUC falls from {f3(_rf0['train_PR-AUC'])} to {f3(_rf1['train_PR-AUC'])}, so it no longer memorizes the training seasons. We adopted it without the test set influencing the choice.
 
-**Shallow neural network: confirmed, not improved.** We tried one hidden layer of 8, 16, 32, and 64 units and two layers (32, 12) and (64, 32), each with two regularization strengths. The starting (32, 12) with alpha 0.002 was best at 0.7248 averaged over three seeds. Wider and deeper networks did not help, so we kept it. The network is not a deliberately weak model. Smaller ones are worse and larger ones are no better.
+**Shallow neural network: improved slightly.** We tried one hidden layer of 8, 16, 32, and 64 units and two layers (32, 12) and (64, 32), each with two regularization strengths. The two-layer (32, 12) network with the stronger penalty (alpha 0.02) ranks first at {f4(_nn1['validation_PR-AUC'])} averaged over three seeds, ahead of the starting alpha of 0.002 ({f4(_nn0['validation_PR-AUC'])}). That gap of {f4(_nn1['validation_PR-AUC'] - _nn0['validation_PR-AUC'])} is inside the seed spread (about {f3(_nn1['validation_PR-AUC_std'])}), but the stronger penalty is also the simpler model, so we adopted it. Wider and deeper networks did not help. The network is not a deliberately weak model: smaller ones are worse and larger ones are no better.
 
-**Logistic regression: insensitive.** L1 and L2 penalties and C from 0.01 to 10 all fall between 0.713 and 0.728. C = 1 with L2 ties for best, so we keep it.
+**Logistic regression: insensitive.** L1 and L2 penalties and C from 0.01 to 10 all fall between {f3(_lr_all['validation_PR-AUC'].min())} and {f3(_lr_all['validation_PR-AUC'].max())}. The starting C = 1 with L2 {_lr_gap}, so we keep it.
 
-**A caution about the headline number.** The network's 0.7385 validation score comes from seed 42. Averaged over three seeds it is 0.7248, with a seed standard deviation of 0.016, which is slightly below logistic regression's 0.7276. Differences between the three models are smaller than that spread, as the bootstrap in section 11.1 also shows.
+**A caution about the headline number.** The network's {f4(mget(NN, 'validation', 'PR-AUC'))} validation score in section 14 comes from seed 42. Averaged over three seeds the same setting scores {f4(_nn1['validation_PR-AUC'])}, with a seed standard deviation of {f3(_nn1['validation_PR-AUC_std'])}, which is {_vs_lr} logistic regression's {f4(mget(LR, 'validation', 'PR-AUC'))}. The validation gaps between the three models are at most {f3(_val.max() - _val.min())}, no more than about twice that spread, and the bootstrap in section 11.1 shows they sit inside the race-to-race noise.
 """)
 
 md("""
 ### 14.2 Does the added complexity earn its place?
+""")
+code("""
+display(results["test_uncertainty"].round(4))
+""")
+_ut = load("test_uncertainty.csv").set_index("comparison")
+_t_rf, _t_nn = _ut.loc[f"{RF} minus {LR}"], _ut.loc[f"{NN} minus {LR}"]
+_tp = {m: mget(m, "test", "PR-AUC") for m in (LR, RF, NN)}
+assert all(r["ci_low_2.5%"] <= 0 <= r["ci_high_97.5%"] for r in (_t_rf, _t_nn)), "a test-season interval excludes zero; rewrite 14.2"
+assert _tp[LR] < min(_tp[RF], _tp[NN]) and abs(_tp[RF] - _tp[NN]) < 0.005, "the test ranking changed; rewrite 14.2"
+md(f"""
+On unseen test seasons (2022-2024) PR-AUC is {f3(_tp[LR])} for logistic regression, {f3(_tp[RF])} for the random forest and {f3(_tp[NN])} for the network; ROC-AUC is {f3(mget(LR, 'test', 'ROC-AUC'))}, {f3(mget(RF, 'test', 'ROC-AUC'))} and {f3(mget(NN, 'test', 'ROC-AUC'))}. The forest and the network are level at the top, and logistic regression is about {f3(min(_tp[RF], _tp[NN]) - _tp[LR])} behind. To see whether that gap is real we bootstrapped the {int(_ut.races.iloc[0])} test races (table above). The bootstrap resamples predictions we already had and chooses nothing, and we ran it after every choice was frozen. The forest minus logistic regression difference is {sg(_t_rf['test_PR-AUC'], 4)} with an interval of {sg(_t_rf['ci_low_2.5%'])} to {sg(_t_rf['ci_high_97.5%'])}, and for the network it is {sg(_t_nn['test_PR-AUC'], 4)} with an interval of {sg(_t_nn['ci_low_2.5%'])} to {sg(_t_nn['ci_high_97.5%'])}. Both intervals include zero, and so do the validation intervals in section 11.1. **The data do not support claiming that a more complex model is better.**
 
-On unseen test seasons (2022-2024) PR-AUC is 0.703 for logistic regression, 0.712 for the random forest and 0.716 for the network; ROC-AUC is 0.935, 0.937 and 0.938. The gap between the baseline and the best model is about 0.013 PR-AUC. That is smaller than the network's seed-to-seed spread (0.016) and well inside the bootstrap interval over 39 validation races in section 11.1, where the forest minus logistic regression difference spans zero. **The data do not support claiming that a more complex model is better.**
-
-We therefore treat the three models as equivalent in ranking quality and use the other properties to decide. Logistic regression is the baseline and the easiest to defend and explain: its coefficients are directly readable, it is stable across seeds, and it needs no tuning to behave. The network is nominally highest on both primary (PR-AUC) and secondary (ROC-AUC) metrics, so it is the model used for the inference demo, but we report that its edge is within noise. The reason a nonlinear model gains so little is that the strongest signals (grid, qualifying position, and recent form) act close to monotonically on podium odds, which a linear model already captures. PR-AUC is primary because only about one in eight entrants finishes on the podium, so ROC-AUC rewards correctly ranking the many easy non-podium rows; ROC-AUC stays as the secondary metric.
+We therefore treat the three models as equivalent in ranking quality and use the other properties to decide. Logistic regression is the baseline and the easiest to defend and explain: its coefficients are directly readable, it is stable across seeds, and it needs no tuning to behave. The network is nominally highest on validation PR-AUC, the score we selected on, so it is the model used for the inference demo, and it ties the forest on test PR-AUC, but we report that its edge is within noise. The reason a nonlinear model gains so little is that the strongest signals (grid, qualifying position, and recent form) act close to monotonically on podium odds, which a linear model already captures. PR-AUC is primary because only about one in eight entrants finishes on the podium, so ROC-AUC rewards correctly ranking the many easy non-podium rows; ROC-AUC stays as the secondary metric.
 """)
 
 md("## 15. Feature-group ablation")

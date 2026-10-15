@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from f1podium.pipeline import (
+    DID_NOT_ENTER_CODE,
     FEATURES,
     MECHANICAL_TERMS,
     NON_START_STATUSES,
@@ -24,6 +25,7 @@ from f1podium.pipeline import (
     engineering_answers,
     load_raw_tables,
     non_starter_audit,
+    non_starter_experiment,
     preprocessing_effects,
     preprocessing_order_experiments,
     split_by_time,
@@ -31,6 +33,8 @@ from f1podium.pipeline import (
     split_summary,
     split_window_experiment,
     sprint_weekend_check,
+    train_and_evaluate,
+    validation_uncertainty,
 )
 
 # These tests focus on mistakes that can make the final scores look believable
@@ -151,19 +155,53 @@ def test_current_race_result_cannot_change_its_own_features():
     assert not left.podium.equals(right.podium)
 
 
-def test_cleaning_eda_quantifies_grain_change_without_duplicates():
-    """Cleaning fixes duplicate grain without quietly moving the podium rate."""
+def test_cleaning_eda_quantifies_each_step_without_duplicates():
+    """Shared drives fix the grain without moving the label; removing F rows loses no podium."""
     tables = load_raw_tables("data/raw")
     frame, _ = build_modeling_table(tables)
     comparison = cleaning_eda(tables["results"], frame).set_index("stage")
 
     raw = comparison.loc["Raw results"]
-    clean = comparison.loc["Cleaned modeling table"]
+    shared = comparison.loc["Shared drives resolved"]
+    final = comparison.loc["Modeling table (F rows removed)"]
     assert raw.rows > raw.unique_driver_races
     assert raw.duplicate_rows > 0
-    assert clean.rows == clean.unique_driver_races
-    assert clean.duplicate_rows == 0
-    assert abs(raw.podium_rate - clean.podium_rate) < 0.001
+    # Step 1: resolving shared drives reaches the unique grain and leaves the podium rate alone.
+    assert shared.rows == shared.unique_driver_races
+    assert shared.duplicate_rows == 0
+    assert abs(raw.podium_rate - shared.podium_rate) < 0.001
+    # Step 2: the F rows go. The rate rises only because they never podium, so no podium row is lost.
+    assert final.rows < shared.rows
+    assert final.rows == final.unique_driver_races
+    assert final.duplicate_rows == 0
+    assert round(final.podium_rate * final.rows) == round(shared.podium_rate * shared.rows)
+    assert final.podium_rate > shared.podium_rate
+
+
+def test_did_not_enter_rows_leave_before_features_but_withdrawals_stay():
+    """Piazza: only F rows may go. They leave before any feature, so they never count as races."""
+    tables = load_raw_tables("data/raw")
+    frame, diagnostics = build_modeling_table(tables)
+    with_f, _ = build_modeling_table(tables, drop_did_not_enter=False)
+
+    assert not frame.positionText.eq(DID_NOT_ENTER_CODE).any()
+    assert frame.positionText.eq("W").any(), "withdrawals may not be removed"
+    removed = int(with_f.positionText.eq(DID_NOT_ENTER_CODE).sum())
+    assert removed > 0
+    assert diagnostics["did_not_enter_rows_removed"] == removed == len(with_f) - len(frame)
+    assert diagnostics["clean_rows"] == len(frame)
+    assert diagnostics["rows_after_shared_drive_resolution"] == len(with_f)
+    # A driver who did not qualify never podiums, so no positive label disappears.
+    assert with_f.podium.sum() == frame.podium.sum()
+    # Field size counts the drivers who entered, and the race count counts only entered races.
+    assert (frame.field_size == frame.groupby("raceId").driverId.transform("size")).all()
+    assert frame.field_size.mean() < with_f.field_size.mean()
+    entered = frame.groupby("driverId").size()
+    last = frame.sort_values(["date", "raceId"]).groupby("driverId").tail(1).set_index("driverId")
+    assert (last.driver_races_before == entered.loc[last.index] - 1).all()
+    # The row filter touches no other split: validation and test contain no F rows at all.
+    assert set(zip(with_f[with_f.year >= 2020].raceId, with_f[with_f.year >= 2020].driverId)) == \
+           set(zip(frame[frame.year >= 2020].raceId, frame[frame.year >= 2020].driverId))
 
 
 def test_split_is_complete_disjoint_and_ordered():
@@ -228,14 +266,32 @@ def test_sprint_results_end_before_the_race_and_are_absent_from_training():
 
 
 def test_non_starter_audit_covers_every_row_and_never_podiums():
-    """Grid-0 drivers who failed to qualify are in the table, never podium, and only in training."""
+    """The audit sees the F rows the modeling table removes: they never podium and are only in training."""
     tables = load_raw_tables("data/raw")
-    frame, _ = build_modeling_table(tables)
-    audit = non_starter_audit(frame, tables).set_index("group")
-    assert audit.rows.sum() == len(frame)
+    with_f, _ = build_modeling_table(tables, drop_did_not_enter=False)
+    audit = non_starter_audit(with_f, tables).set_index("group")
+    assert audit.rows.sum() == len(with_f)
     failed = audit.loc[audit.index.str.startswith("F:")].iloc[0]
     assert failed.podium_rate == 0
     assert failed.rows_in_validation == 0 and failed.rows_in_test == 0
+    assert failed.treatment.startswith("removed")
+    # W rows are only known after the race, so the audit must record that they stay.
+    assert audit.loc[audit.index.str.startswith("W:")].iloc[0].treatment.startswith("kept")
+
+
+def test_non_starter_experiment_compares_the_decision_on_the_same_validation_rows():
+    """Removing F rows is scored against keeping them; the validation rows are identical."""
+    tables = load_raw_tables("data/raw")
+    frame, _ = build_modeling_table(tables)
+    with_f, _ = build_modeling_table(tables, drop_did_not_enter=False)
+    runs = non_starter_experiment(with_f, frame)
+    used = runs[runs.variant.str.endswith("(used)")]
+    kept = runs[runs.variant.str.startswith("keep F rows in the history and")]
+    assert set(used.model) == set(kept.model) == {"Logistic regression", "Shallow neural network"}
+    assert (used["PR-AUC_change_vs_used"] == 0).all()
+    assert used.train_rows.iloc[0] == (frame.year <= 2019).sum()
+    assert kept.train_rows.iloc[0] == (with_f.year <= 2019).sum()
+    assert used.train_pit_lane_share.iloc[0] < kept.train_pit_lane_share.iloc[0]
 
 
 def test_every_model_feature_has_its_own_eda_row_from_training_only():
@@ -249,3 +305,14 @@ def test_every_model_feature_has_its_own_eda_row_from_training_only():
     top = summary.sort_values("signal_strength", ascending=False).iloc[0]
     assert top.feature in {"grid_position", "qualifying_position"}
     assert summary.set_index("feature").loc["grid_position", "signal_strength"] > 0.7
+
+
+def test_bootstrap_can_report_the_test_seasons_without_rescoring_or_choosing():
+    """The same race bootstrap covers validation and test; it only resamples existing predictions."""
+    frame, _ = build_modeling_table(load_raw_tables("data/raw"))
+    trained, _, _ = train_and_evaluate(frame)
+    for split, column in [("validation", "validation_PR-AUC"), ("test", "test_PR-AUC")]:
+        result = validation_uncertainty(frame, trained, n_boot=40, split=split)
+        assert column in result.columns and len(result) == 5
+        assert (result.races == split_by_time(frame)[split].raceId.nunique()).all()
+        assert (result["ci_low_2.5%"] <= result["ci_high_97.5%"]).all()

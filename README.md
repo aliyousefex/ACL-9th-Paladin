@@ -12,6 +12,7 @@ Start with the executed notebook. It has the full analysis and the code in visib
 | --- | --- |
 | Unit of analysis | One driver entering one race |
 | Unique grain | `(raceId, driverId)` |
+| Rows removed | Shared-drive duplicates, and `F` rows (drivers who did not qualify, prequalify, or pass the 107% rule), which the instructor ruled are known before the race. `W` rows stay |
 | Target | `podium = 1` when `positionOrder <= 3`, otherwise `0` |
 | Data period | 1950-2024 |
 | Training period | 1950-2019 |
@@ -30,7 +31,8 @@ flowchart TD
     A[14 immutable CSV tables<br/>data/raw] --> B[Load and normalize sentinels]
     B --> C[Primary-key and foreign-key audits]
     C --> D[Resolve shared-drive duplicates]
-    D --> E[One row per raceId and driverId]
+    D --> D2[Remove F rows: drivers who did not enter]
+    D2 --> E[One row per raceId and driverId]
     E --> F[Three data-engineering analyses]
     E --> G[Leakage-safe feature engineering]
     G --> H[Chronological train / validation / test split]
@@ -49,7 +51,7 @@ flowchart TD
 
 The submission notebook is self-contained and does not import `src/f1podium/pipeline.py`. `scripts/build_notebook.py` embeds the repository implementation into ordered notebook cells, so the reusable module and submitted notebook can be regenerated together.
 
-The analysis can run from the notebook or the command line. Both routes use the same pipeline code and produce the same results.
+The analysis can run from the notebook or the command line. Both routes use the same pipeline code and produce the same results in the same Python environment (see the note on kernels below).
 
 ## Core repository contents
 
@@ -173,7 +175,7 @@ The notebook shows the work and its outputs. We rebuild it from the pipeline sou
 
 ### `scripts/build_notebook.py`: the notebook blueprint
 
-This script defines the notebook sections, Markdown, code cells, tables, and figures. Running it recreates the `.ipynb` file instead of editing generated cells by hand.
+This script defines the notebook sections, Markdown, code cells, tables, and figures. Running it recreates the `.ipynb` file instead of editing generated cells by hand. The commentary quotes its numbers from `artifacts/`, so run `scripts/run_analysis.py` first. The text cannot drift from the tables, and a claim that stops being true (for example "the network leads validation") fails the build instead of surviving as stale prose.
 
 ```text
 build_notebook.py
@@ -226,8 +228,9 @@ This script runs `build_report.py` with LaTeX renderers swapped in, so the prose
   2. Prefer the better finishing classification.
   3. Break remaining ties using the lowest `resultId`.
 - Exactly one final row per `(raceId, driverId)`.
+- Drivers who did not enter the race are removed before any feature is built. Finishing code `F` means the driver did not qualify, did not prequalify, or failed the 107% rule, which is settled before the start; the instructor ruled these rows may be removed. Withdrawals (`W`) stay, because that code is only known after the race.
 
-The raw `results.csv` contains 26,759 rows. Cleaning resolves 85 duplicate driver-race groups and leaves 26,668 unique modeling rows.
+The raw `results.csv` contains 26,759 rows. Resolving 85 duplicate driver-race groups leaves 26,668 unique rows, and removing the 1,366 `F` rows leaves **25,302 modeling rows**. The cleaning EDA reports all three stages, so each step's effect is visible on its own: the shared-drive step leaves the podium rate at 12.7%, and the `F` step raises it to 13.4% because none of those rows is a podium.
 
 ### 2. Data-engineering questions
 
@@ -275,9 +278,9 @@ Leakage prevention is part of construction:
   - A: impute -> scale vs scale -> impute.
   - B: zero-fill -> scale vs scale -> zero-fill.
   - C: preprocessing fitted after the split (train only) vs before the split (all seasons).
-- Missing values are handled by an experiment, not by preference (`missing_value_experiments`). Median, mean, k-nearest-neighbour, and iterative imputation are compared with dropping the sparse qualifying columns, removing the missing flag, dropping training rows with no qualifying, and dropping rows with any missing feature. Median imputation with the flag is best or tied for best for logistic regression and the network, so we keep it.
-- Grid 0 is audited (`non_starter_audit`, `non_starter_experiment`). Most grid-0 rows are drivers who never raced, not pit-lane starts, and dropping them does not change validation scores, so every row is kept.
-- The split is chronological rather than random to prevent future seasons from teaching the model about earlier races. `split_summary` and `split_integrity` document and check it (complete, no shared races, strictly ordered dates), and `split_strategy_experiment` shows the same-race and future leakage that random row or random race splits would introduce. `split_window_experiment` scores four validation windows that all precede the test seasons, and `validation_uncertainty` bootstraps whole validation races, so the 39-race validation score comes with an interval.
+- Missing values are handled by an experiment, not by preference (`missing_value_experiments`). Median, mean, k-nearest-neighbour, and iterative imputation are compared with dropping the sparse qualifying columns, removing the missing flag, dropping training rows with no qualifying, and dropping rows with any missing feature. No alternative beats median imputation by more than noise: for logistic regression every alternative is within 0.005, and for the network the best alternative gains 0.008 (about one seed standard deviation) while dropping the flag, the columns, or the rows costs it 0.03 to 0.05. We keep median imputation with the flag.
+- Grid 0 and the `F` rows are audited (`non_starter_audit`, `non_starter_experiment`). Of the 1,635 grid-0 rows in the table before the `F` step, 1,346 were drivers who never raced, 202 are withdrawals, and only 87 are real pit-lane or exceptional starts. Following the instructor's ruling, the `F` rows are removed before features are built and the `W` rows stay. The experiment shows the choice moves validation PR-AUC by less than 0.004, so it rests on the ruling and on what a row means, not on a score. `pit_lane_start` now marks 289 rows (202 withdrawals and 87 real starts) instead of 1,635.
+- The split is chronological rather than random to prevent future seasons from teaching the model about earlier races. `split_summary` and `split_integrity` document and check it (complete, no shared races, strictly ordered dates), and `split_strategy_experiment` shows the same-race and future leakage that random row or random race splits would introduce. `split_window_experiment` scores four validation windows that all precede the test seasons, and `validation_uncertainty` bootstraps whole races, so the 39-race validation score comes with an interval. The same bootstrap is reported for the 68 test races; it resamples predictions that already exist, and nothing is chosen with it.
 
 ### 5. Predictive models and evaluation
 
@@ -285,13 +288,13 @@ All models receive the same rows and 17 features:
 
 - Logistic regression: interpretable statistical baseline.
 - Random forest: nonlinear tree ensemble, 240 trees, depth limited to 12, at least 30 rows per leaf.
-- Shallow MLP: two hidden layers with 32 and 12 units.
+- Shallow MLP: two hidden layers with 32 and 12 units, regularization alpha 0.02.
 
-Settings come from `hyperparameter_search`, which trains every setting in a small grid on 1950-2019 and scores it on 2020-2021 only (the network is averaged over three seeds). The forest's first settings (no depth limit, four rows per leaf) memorized the training seasons, so the search replaced them. The network's starting settings were best and logistic regression is insensitive, so both were kept. The test seasons never take part in the search.
+Settings come from `hyperparameter_search`, which trains every setting in a small grid on 1950-2019 and scores it on 2020-2021 only (the network is averaged over three seeds). The forest's first settings (no depth limit, four rows per leaf) memorized the training seasons, so the search replaced them with depth 12 and leaf size 30, which now ranks first. For the network, the starting alpha of 0.002 ranked second to 0.02; the gap (0.004) is inside the seed spread (about 0.007), but the stronger penalty is also the simpler model, so we adopted it. Logistic regression is insensitive (the top three settings tie within 0.0001), so it kept its starting settings. The test seasons never take part in the search.
 
 Every model reports ROC-AUC, PR-AUC, F1, precision, and recall. Each model's classification threshold maximizes F1 on validation only and is frozen before test evaluation. PR-AUC is primary because podium rows are rare; ROC-AUC is secondary.
 
-Notebook section 14.2 asks whether the added complexity earns its place. Test PR-AUC is 0.703 (logistic regression), 0.712 (forest), and 0.716 (network). The gaps sit inside the seed spread and the validation bootstrap, so we treat the three models as tied in ranking quality and keep logistic regression as the explainable baseline.
+Notebook section 14.2 asks whether the added complexity earns its place. Test PR-AUC is 0.704 (logistic regression), 0.717 (forest), and 0.717 (network). The forest and the network are level at the top and logistic regression is 0.013 behind, but a bootstrap over the 68 test races puts both differences inside an interval that includes zero (forest minus logistic regression +0.0135, interval -0.012 to +0.044; network minus logistic regression +0.0135, interval -0.012 to +0.039), and the validation intervals include zero too. We therefore treat the three models as tied in ranking quality and keep logistic regression as the explainable baseline.
 
 ### 6. Experiments and XAI
 
@@ -349,7 +352,7 @@ Run the complete analysis and regenerate `artifacts/`:
 .\.venv\Scripts\python.exe scripts\run_analysis.py
 ```
 
-Rebuild and execute the notebook:
+Rebuild and execute the notebook (run the analysis first, because the notebook text quotes `artifacts/`):
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\build_notebook.py
@@ -357,8 +360,11 @@ Rebuild and execute the notebook:
   --to notebook `
   --execute notebooks\milestone_1_f1_podium_prediction.ipynb `
   --output milestone_1_f1_podium_prediction.ipynb `
-  --ExecutePreprocessor.timeout=1200
+  --ExecutePreprocessor.kernel_name=<a Jupyter kernel that points at .venv> `
+  --ExecutePreprocessor.timeout=3600
 ```
+
+**Use a kernel that points at the project's `.venv`.** The default `python3` kernel can resolve to a different interpreter, for example a system Python with another scikit-learn version, and the random forest's numbers shift slightly between scikit-learn versions (logistic regression and the network did not move). The notebook text quotes the numbers of the `.venv` run, so executing it on another interpreter, or on Kaggle, can leave the commentary a little different from the tables printed beside it. The numbers in this repository come from Python 3.12 with scikit-learn 1.9.1. After a Kaggle run, check the forest's scores against the text before submitting.
 
 Rebuild the analytical report after regenerating artifacts:
 
@@ -379,6 +385,7 @@ Build order:
 ```text
 run_analysis.py or executed notebook
                 -> artifacts/
+                -> build_notebook.py      -> notebook text quotes the artifacts
                 -> build_report.py        -> reports/milestone_1_analytical_report.pdf (optional ReportLab preview, not submitted)
                 -> build_report_latex.py -> reports/milestone_1_analytical_report.tex
 ```
@@ -416,7 +423,7 @@ The first notebook cell searches `/kaggle/input` for `results.csv`. All analysis
 5. Deterministic duplicate cleaning under randomized row order.
 6. Correct race-start denominator for mechanical retirements.
 7. Current-race results cannot change their own feature values.
-8. Before/after cleaning EDA reaches unique driver-race grain without materially shifting the target rate.
+8. The cleaning EDA reports each stage: resolving shared drives reaches the unique grain without moving the target rate, and removing `F` rows loses no podium row.
 9. The split is complete, has no race in two splits, and is strictly ordered in time.
 10. Imputation fill values are training medians and only training is centred by the scaler.
 11. At least two preprocessing-order experiments are reported, and zero-fill order changes the filled value as expected.
@@ -424,23 +431,27 @@ The first notebook cell searches `/kaggle/input` for `results.csv`. All analysis
 13. Every model's current and starting settings are inside the hyperparameter grid, so "used" is one of the candidates.
 14. Alternative validation windows end before the test seasons and train only on earlier seasons.
 15. Sprint results end before the race but have no training rows, and no sprint column is a feature.
-16. The grid-0 audit covers every row, and drivers who did not qualify never podium and appear only in training.
+16. The non-starter audit covers every row, drivers who did not qualify never podium and appear only in training, and the audit records that `W` rows stay.
+17. Every model feature has its own EDA row, with its AUC computed on the training seasons.
+18. `F` rows leave before any feature is built and `W` rows stay: no podium is lost, field size and race counts use entered races only, and the validation and test rows are unchanged.
+19. The non-starter experiment compares the decision on the same validation rows.
+20. The race bootstrap covers validation and test without rescoring or choosing anything.
 
 ## Verified headline results
 
-- 26,668 unique driver-race rows after cleaning.
-- 12.7% overall podium rate.
+- 25,302 unique driver-race rows after cleaning (26,759 raw, 26,668 after shared drives, 25,302 after removing the `F` rows).
+- 13.4% overall podium rate (13.3% in training, 15.0% in validation and test).
 - Zero null or duplicated audited primary keys.
 - Zero orphan values in the audited foreign-key relationships.
-- The shallow neural network has the highest validation PR-AUC and remains slightly first on the unseen test set, but the lead is not significant. A bootstrap over the 39 validation races puts the network minus logistic regression difference at about +0.011, with an interval that includes zero. Averaged over three seeds the network scores slightly below logistic regression on validation.
+- The shallow neural network has the highest validation PR-AUC (0.735 on seed 42, 0.725 averaged over three seeds, which is slightly below logistic regression's 0.729). On the unseen test seasons the network and the forest are level (0.717) and logistic regression is 0.704. Bootstraps over the 39 validation races and the 68 test races both give model-minus-baseline intervals that include zero, so the three models are tied.
 - Grid is the most important feature group under ablation, permutation importance, and SHAP.
-- The random forest's first settings memorized the training seasons (training PR-AUC 0.92 against 0.70 on validation). After the validation search, its training score is 0.65 and its test PR-AUC rose from 0.689 to 0.712.
+- The random forest's first settings memorized the training seasons (training PR-AUC 0.92 against 0.70 on validation). The validation search replaced them with depth 12 and leaf size 30, which ranks first (training 0.65, validation 0.72).
 
 Exact scores, thresholds, plots, and sample sizes are stored in the executed notebook and analytical report rather than duplicated here.
 
 ## Piazza clarifications and how we responded
 
-The instructor answered the Milestone 1 questions on Piazza (folder `ms1`, posts @6 to @15). The general rule in almost every answer is the same: the choice is ours, but each one needs a justification backed by evidence, not "it felt right". This section records what was said, what we did about it, and what is still open, so anyone can answer the evaluator.
+The instructor answered the Milestone 1 questions on Piazza (folder `ms1`, posts @6 to @16, and the post titled "Removing F rows, Keeping W"). The general rule in almost every answer is the same: the choice is ours, but each one needs a justification backed by evidence, not "it felt right". This section records what was said, what we did about it, and what is still open, so anyone can answer the evaluator.
 
 ### Ruled on, and handled
 
@@ -449,6 +460,8 @@ The instructor answered the Milestone 1 questions on Piazza (folder `ms1`, posts
 | @9 Front-row question | The note about qualifying versus grid only reminds us the two do not map 1 to 1. The question is about the **grid** starting position. | Question 1 uses the final `grid`. Qualifying position stays a separate feature and is never used to define a front-row start. No change needed. |
 | @10 Mechanical retirements | Count Puncture, Tyre, Tyre puncture, Fire, and Safety belt as mechanical, but not Refuelling. | **Changed.** `Tyre puncture`, `Fire`, and `Safety belt` were missing from `MECHANICAL_TERMS` and were added; `Puncture` and `Tyre` were already there; `Refuelling` stays out. A test now locks this in. We regenerated every output. None of the three new statuses occurs in 2014-2024, so the answer to Question 3 did not move (329 failures in 2014-2021, 83 in 2022-2024). |
 | @12 Shared drives | Mixing pre-race fields from one row with the result of another uses post-race information to fill a gap, which is leakage. | No mixing. We keep one real row per `(raceId, driverId)`: the car that started (`grid > 0`), then the better classification, then the lowest `resultId`. The better-classification step does look at a post-race column, but only to break a tie between rows that both started, so it never fills a pre-race field from another row. |
+| @16 Shared-drive tie-break | Choosing the row of the car the driver finished in, instead of the one they started in, is **not** a post-race cut-off violation ("no"). | No change needed. The tie-break may look at the finishing position. In this dataset the "started first" step never changes the result: 82 of the 85 duplicate groups have every row started and 3 have none, so the finishing position decides and the rule keeps exactly the rows that "best finish, then lowest `resultId`" would. |
+| "Removing F rows, Keeping W" (follows the old @15 question) | Only `F` rows may be removed, because they are the only ones known before the race starts. `W` rows may not be, because that code is only known after the race and a grid of 0 can also be a pit-lane start. | **Changed.** The 1,366 `F` rows (did not qualify, did not prequalify, or failed the 107% rule; all in 1952-2012 and in training) are removed in `build_modeling_table` **before any feature is built** (`DID_NOT_ENTER_CODE`), so a skipped weekend no longer counts as a race in the form windows or in the field size. `W` rows stay. Everything was regenerated: 25,302 rows instead of 26,668, podium rate 13.4%. Validation and test rows are unchanged, and the validation PR-AUC moves by less than 0.004 either way. Questions 1 and 3 are identical; Question 2 loses 20 rows from the 16+ band and its rates do not move. `non_starter_audit` and `non_starter_experiment` now run on a table that still holds the `F` rows and record the evidence. |
 | @7 GitHub repository | Download the notebook and upload it to GitHub. | The executed notebook is in `notebooks/`, next to the tested source. |
 | @14 Report format | LaTeX or Word, exported as PDF, alongside the notebook. | `scripts/build_report_latex.py` renders the report as LaTeX (`reports/milestone_1_analytical_report.tex`) for Overleaf, and the PDF compiled from it is the submission. The ReportLab PDF in `reports/` carries the same content. |
 
@@ -459,10 +472,9 @@ These answers said the decision is ours. Each one now has an experiment in the p
 | Post | Instructor ruling | What we did |
 | --- | --- | --- |
 | @6 and @8 Split | The intro split (`<= 2019`) was only a naive example. Assess whether it is the best choice. A time split is not mandatory, but must be justified, and leakage must be handled. | We keep the chronological split: train 1950-2019, validation 2020-2021, test 2022-2024. `split_strategy_experiment` shows that random splits leak same-race and future information. `split_window_experiment` scores four validation windows that all end before the test seasons: the 2020-2021 window sits at the top of the range, so validation scores are somewhat optimistic. `validation_uncertainty` bootstraps the 39 races and shows that the differences between the models are inside the noise. |
-| @11 and @13 Missing values | Null values can hurt the model. Experiment thoroughly with imputation (and which method) versus dropping (and which rows). Justify the result. | `missing_value_experiments` compares four imputers, dropping the sparse columns, dropping the missing flag, and dropping rows. Median imputation with the `qualifying_missing` flag is best or tied for best, and it keeps all 24,529 training rows. Dropping rows keeps only 7,374 to 8,356 and lowers both models. |
-| @6 Neural network and baseline | Linear regression is not a classifier. The network must not be a deliberately weak model; we must actually try to improve it. | Logistic regression is the baseline. `hyperparameter_search` tries 8 settings for logistic regression, 9 for the forest, and 12 for the network (one and two layers of 8 to 64 units, two regularization strengths, three seeds), on validation only. The forest improved: its first settings memorized the training seasons, and depth 12 with 30 rows per leaf replaced them (test PR-AUC 0.689 to 0.713). The network's starting setting was already the best, so it was confirmed rather than changed. Averaged over seeds, the network is not ahead of logistic regression. |
+| @11 and @13 Missing values | Null values can hurt the model. Experiment thoroughly with imputation (and which method) versus dropping (and which rows). Justify the result. | `missing_value_experiments` compares four imputers, dropping the sparse columns, dropping the missing flag, and dropping rows. No alternative beats median imputation with the `qualifying_missing` flag by more than noise, and it keeps all 23,163 training rows. Dropping rows keeps only 7,372 to 8,348 and lowers both models. |
+| @6 Neural network and baseline | Linear regression is not a classifier. The network must not be a deliberately weak model; we must actually try to improve it. | Logistic regression is the baseline. `hyperparameter_search` tries 8 settings for logistic regression, 9 for the forest, and 12 for the network (one and two layers of 8 to 64 units, two regularization strengths, three seeds), on validation only. The forest improved: its first settings memorized the training seasons (training PR-AUC 0.92 against 0.70 on validation), and depth 12 with 30 rows per leaf replaced them and now ranks first. The network's starting alpha of 0.002 ranked second to 0.02, by a gap inside the seed spread, so we adopted the stronger and simpler penalty. Averaged over seeds, the network is not ahead of logistic regression. |
 | @6 Sprint races | Decide whether sprints create a leakage problem, give the reason, and say how it is fixed. | `sprint_weekend_check` shows every sprint ends one day before the race, so it is not post-race information. We still leave it out: sprints exist only from 2021, so training has 0 sprint rows, and in 2021-2022 the sprint set the grid, which the grid features already contain. The hazard is a join on `raceId`, because sprint positions and points belong to a different race. |
-| @15 Non-starters (no reply yet) | None. Asks whether `F` and `W` rows can be dropped and whether grid 0 means a pit-lane start. | `non_starter_audit` shows 1,346 of the 1,635 grid-0 rows are drivers who did not qualify, only 87 are real pit-lane starts, and all `F` rows are in 1952-2012 and in training. Dropping them changes validation PR-AUC by less than 0.003, so we keep every row. A `W` code cannot be shown to be known before the start. The caveat is that in training `pit_lane_start` is mostly a did-not-qualify marker. If the instructor rules that they did not enter the race, dropping the `F` rows is a one-line change. |
 | @6 Feature justification | EDA can justify a feature up front, but can hide an effect that appears in the model. Evidence matters, not a gut feeling. | `feature_eda` gives every one of the 17 features a table row and a panel (notebook section 10.2, report section 5.3), computed on training seasons only. It also shows which features are weak on their own (`field_size`, `driver_age`, `qualifying_time_seconds`, the two flags, and especially `round` and `year`), so the claim for them rests on the ablation and the era-control argument, not on a single-feature signal. |
 
 ### Still open
@@ -482,6 +494,7 @@ These answers said the decision is ours. Each one now has an experiment in the p
 - The home-country analysis uses a documented but incomplete nationality-to-country mapping.
 - Mechanical-status classification is rules-based and may miss rare ambiguous failures. Engine fire and Heat shield fire are not on the list because the instructor only named plain Fire.
 - The validation set contains only 39 races from 2020-2021.
+- The `F` filter reads `positionText`, a result column that is normally post-race. We use it only as a row filter, because the instructor ruled that the code is known before the race; it is never a feature.
 - Model probabilities were evaluated for ranking and threshold performance, not formal calibration.
 - Permutation importance and SHAP explain associations inside fitted models, not causes of podium finishes.
 
@@ -619,7 +632,8 @@ Main code locations:
   - `audit_tables`
   - `_time_to_seconds`
   - `clean_results`
-  - `build_modeling_table`
+  - `build_modeling_table` and `DID_NOT_ENTER_CODE`
+  - `non_starter_audit`
   - `cleaning_eda`
   - `run_analysis`
 - `tests/test_pipeline.py`
@@ -643,6 +657,7 @@ Key points for Ali:
 - Why shared drives violate the required modeling grain.
 - The exact deterministic rule for retaining a shared-drive row.
 - Why grid zero becomes a pit-lane flag instead of numeric pole position.
+- Why the `F` rows are removed before any feature is built, and why the `W` rows stay (Piazza ruling).
 - How the complete pipeline flows from raw CSVs to artifacts, notebook, and report.
 - Which files are generated, ignored, or intended for submission.
 

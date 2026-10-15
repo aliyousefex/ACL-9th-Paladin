@@ -216,23 +216,27 @@ def hbar(frac, title, names, values, *, xlabel, color="navy", height=None, color
 
 
 def fig_cleaning(frac):
-    """Rows and unique pairs before and after cleaning, and the rates row selection could change."""
+    """Rows and unique pairs at each cleaning stage, and the rates row selection could change."""
     c = pd.read_csv(ART / "cleaning_eda.csv")
-    stages = ["Raw results", "Cleaned table"]
+    stages = ["Raw", "Shared drives resolved", "F rows removed"]
+    n = len(c)
     left = (
-        "\\nextgroupplot[ybar, bar width=11pt, title={Grain before and after cleaning}, ylabel={Rows / unique pairs}, "
-        f"xtick={{0,1}}, xticklabels={labels(stages)}, ymin=0, ymax=42000, scaled y ticks=false, legend pos=north east]\n"
-        f"\\addplot[fill=modelA, draw=none] coordinates {{{points(range(2), c.rows)}}};\n"
-        f"\\addplot[fill=modelB, draw=none] coordinates {{{points(range(2), c.unique_driver_races)}}};\n"
+        "\\nextgroupplot[ybar, bar width=9pt, title={Grain at each cleaning stage}, ylabel={Rows / unique pairs}, "
+        f"xtick={{0,1,2}}, xticklabels={labels(stages)}, xticklabel style={{font=\\tiny, text width=1.5cm, align=center}}, "
+        "ymin=0, ymax=42000, scaled y ticks=false, legend pos=north east]\n"
+        f"\\addplot[fill=modelA, draw=none] coordinates {{{points(range(n), c.rows)}}};\n"
+        f"\\addplot[fill=modelB, draw=none] coordinates {{{points(range(n), c.unique_driver_races)}}};\n"
         "\\legend{rows, unique driver-race pairs}\n"
     )
     measures = ["podium_rate", "pit_lane_share", "missing_finish_share"]
+    shades = ["modelA", "modelB", "modelC"]
+    series = "".join(
+        f"\\addplot[fill={shades[i]}, draw=none] coordinates {{{points(range(3), [c.loc[i, m] for m in measures])}}};\n"
+        for i in range(n))
     right = (
-        "\\nextgroupplot[ybar, bar width=11pt, title={Rates affected by row selection}, ylabel={Share of rows}, "
+        "\\nextgroupplot[ybar, bar width=7pt, title={Rates affected by row selection}, ylabel={Share of rows}, "
         f"xtick={{0,1,2}}, xticklabels={{podium,grid 0,missing finish}}, ymin=0, legend pos=north east]\n"
-        f"\\addplot[fill=modelA, draw=none] coordinates {{{points(range(3), [c.loc[0, m] for m in measures])}}};\n"
-        f"\\addplot[fill=modelB, draw=none] coordinates {{{points(range(3), [c.loc[1, m] for m in measures])}}};\n"
-        "\\legend{Raw results, Cleaned table}\n"
+        + series + "\\legend{Raw, Shared drives resolved, F rows removed}\n"
     )
     return (
         "\\begin{tikzpicture}\n\\begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.7cm}, "
@@ -422,8 +426,11 @@ def fig_model_comparison(frac):
 def fig_ablation(frac):
     """Change in validation PR-AUC when one feature group is removed."""
     a = pd.read_csv(ART / "ablation_results.csv")
+    # Fixed ticks with three decimals: the losses are a few thousandths, so two decimals repeat the same label.
     return hbar(frac, "Validation PR-AUC change", list(a.variant), list(a["PR-AUC_change"]),
-                xlabel="Change in validation PR-AUC (logistic regression)", color="modelA", height=4.6)
+                xlabel="Change in validation PR-AUC (logistic regression)", color="modelA", height=4.6,
+                extra="xtick distance=0.005, scaled x ticks=false, "
+                      "xticklabel style={/pgf/number format/fixed, /pgf/number format/precision=3}")
 
 
 def fig_permutation(frac):

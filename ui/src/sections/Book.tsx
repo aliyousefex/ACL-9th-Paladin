@@ -43,10 +43,18 @@ export function Book() {
         one row per driver per race. Early shared drives produce {site.diagnostics.duplicate_driver_race_groups}{" "}
         driver-race groups with more than one result. We keep one row, in this order: a car that
         actually started (grid greater than 0), then the better finish, then the smaller result
-        id. {integer(site.diagnostics.clean_rows)} rows remain, and each pair of race and driver
-        appears once. Grid position 0 is a pit-lane start, {pctSafe(site.pitLaneShare)} of rows.
-        We keep that as a flag and treat the numeric grid as missing, so the model cannot learn
-        that 0 is better than pole.
+        id. {integer(site.diagnostics.rows_after_shared_drive_resolution)} rows remain, and each
+        pair of race and driver appears once.
+      </Prose>
+      <Prose>
+        A second step removes the {integer(site.diagnostics.did_not_enter_rows_removed)} rows of
+        drivers who did not enter the race. Their finishing code is F: they did not qualify,
+        did not prequalify, or failed the 107% rule, which is settled before the lights go out.
+        Withdrawals stay, because that code is only known after the race.{" "}
+        {integer(site.diagnostics.clean_rows)} rows remain. Grid position 0 is a code, not a
+        position: a pit-lane start or a withdrawal, {pctSafe(site.pitLaneShare)} of rows. We keep
+        it as a flag and treat the numeric grid as missing, so the model cannot learn that 0 is
+        better than pole.
       </Prose>
       <h3 className="pt-4 text-[1.7rem]">Two results, one driver</h3>
       <SharedDrive />

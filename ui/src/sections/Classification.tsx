@@ -150,9 +150,10 @@ export function Classification() {
         finding as the reliable one.
       </Prose>
       <Takeaway>
-        The network is slightly ahead on the score we chose, and the test seasons still place
-        it first, but a 39-race validation set cannot separate the three models. Grid position
-        is the input both the ablation and the two explanations agree on.
+        The network is slightly ahead on the score we chose, and on the test seasons it is level
+        with the forest and ahead of logistic regression, but neither the 39 validation races nor
+        the 68 test races separate the three models. Grid position is the input both the
+        ablation and the two explanations agree on.
       </Takeaway>
     </Section>
   );

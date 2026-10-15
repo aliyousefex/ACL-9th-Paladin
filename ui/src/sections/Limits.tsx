@@ -33,11 +33,13 @@ export function Limits() {
       </Prose>
       <Prose>
         What the evidence supports is narrower, and enough. After{" "}
-        {site.diagnostics.duplicate_driver_race_groups} shared-drive groups are resolved,{" "}
-        {integer(site.diagnostics.clean_rows)} rows remain, {pct(site.podiumRate)} of them
+        {site.diagnostics.duplicate_driver_race_groups} shared-drive groups are resolved and the{" "}
+        {integer(site.diagnostics.did_not_enter_rows_removed)} rows of drivers who did not enter
+        are removed, {integer(site.diagnostics.clean_rows)} rows remain, {pct(site.podiumRate)} of them
         podiums. The grid carries the description, the ablation, and both forest explanations.
-        The network is the model the validation score selects, and the test seasons still
-        place it slightly first. The three models are close enough that validation cannot rank them.
+        The network is the model the validation score selects, and the test seasons place it
+        level with the forest and ahead of logistic regression. The three models are close
+        enough that neither validation nor test can rank them.
       </Prose>
       <p className="text-steel">
         Paladin. Numbers on this page are exported from the analysis artifacts, the same run

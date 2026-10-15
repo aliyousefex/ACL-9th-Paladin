@@ -1,6 +1,6 @@
 import { useState } from "react";
 import site from "../data/site.json";
-import { integer, pct } from "../lib/format";
+import { integer } from "../lib/format";
 import { haptic } from "../lib/haptic";
 
 type Drive = { resultId: number; grid: number; positionOrder: number };
@@ -86,7 +86,7 @@ export function SharedDrive() {
         })}
       </ul>
       <p className="mt-4 max-w-[68ch] text-steel">
-        Prefer a start, grid greater than 0. Then the better finish. Then the smaller result id. The file itself has {site.diagnostics.duplicate_driver_race_groups} duplicate driver-race groups inside {integer(site.diagnostics.raw_result_rows)} result rows. Cleaning leaves {integer(site.diagnostics.clean_rows)} rows, and the podium rate stays {pct(site.podiumRate)}.
+        Prefer a start, grid greater than 0. Then the better finish. Then the smaller result id. The file itself has {site.diagnostics.duplicate_driver_race_groups} duplicate driver-race groups inside {integer(site.diagnostics.raw_result_rows)} result rows. Resolving them leaves {integer(site.diagnostics.rows_after_shared_drive_resolution)} rows, and the podium rate barely moves.
       </p>
     </div>
   );
