@@ -210,6 +210,14 @@ def build_modeling_table(tables: dict[str, pd.DataFrame],
     base = base.merge(dprev, on=["raceId", "driverId"], how="left", validate="one_to_one")
     base = base.merge(cprev, on=["raceId", "constructorId"], how="left", validate="many_to_one")
 
+    # No standings row yet means nothing has been scored yet this season: round 1,
+    # a driver's or team's first race of the season, or 1950-1957 for constructors
+    # (their championship began in 1958). The true value is 0 points, not an unknown
+    # value for the median imputer to guess.
+    for who in ["driver", "constructor"]:
+        base[f"{who}_points_before"] = base[f"{who}_points_before"].fillna(0)
+        base[f"{who}_rank_before"] = base[f"{who}_rank_before"].fillna(0)
+
     base = base.sort_values(["date", "raceId", "driverId"]).reset_index(drop=True)
     # Shift before rolling so a driver's current result cannot enter its own feature.
     base["driver_podium_rate_5"] = base.groupby("driverId")["podium"].transform(lambda s: s.shift().rolling(5, min_periods=1).mean())
