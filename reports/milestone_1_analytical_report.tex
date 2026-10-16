@@ -1397,7 +1397,7 @@ We should not read 0.387 as the historical podium rate of cars that start third.
 Qualifying coverage is a property of this snapshot. We described it, and we kept a missingness flag, but we cannot tell from the chart alone how much of the pre-1994 gap is history and how much is the way the public tables were filled.
 
 
-Constructor identifiers reset when a team is renamed, so form and standings for the new name start again. We left it that way on purpose, which means a works team that changes its entry name looks like a new constructor to us.
+Constructor form is built per constructor identifier, and a renamed team usually gets a new one, so its form starts empty: Toro Rosso became AlphaTauri in 2020, Renault became Alpine in 2021, and AlphaTauri became RB in 2024. A few old identifiers are also reused years later, so Aston Martin in 2021 is linked to the unrelated 1959-1960 Aston Martin. Standings restart every season and driver form follows the driver, so only constructor form is touched, and only in the first five races of such a season: 30 of 780 validation rows and 20 of 1,359 test rows. None of them is a podium, and their constructor form is 0 or empty, which the imputer fills with the training median of 0. We keep the identifiers as they are rather than hand-map renames, because each link is a judgement (a rebrand is not the same as a sale to a new owner), and the evaluation would barely move.
 
 
 The home analysis depends on a nationality-to-country map. Drivers we could not map are excluded, and drivers with more than one sporting nationality are forced into one label. The small home samples in the front of the grid mean a one-point gap is not something we would defend as a precise estimate.

@@ -87,6 +87,7 @@ tuning = load("hyperparameter_search.csv")
 metrics = load("model_metrics.csv")
 ablation = load("ablation_results.csv").set_index("variant")
 context = load("context_feature_experiment.csv")
+history = load("constructor_history_audit.csv")
 
 
 def mget(model: str, which: str, col: str) -> float:
@@ -394,6 +395,26 @@ md(f"""
 **Why one seed is not enough.** The main results table trains each model once, with seed 42. With `round`, the network's seed-42 score was {f4(ctx('put round back', NN, 'seed_42_PR-AUC'))}, {f3(SEED_GAP)} above its own three-seed average of {f4(ctx('put round back', NN))}. Without `round`, seed 42 scores {f4(ctx('used (no round)', NN, 'seed_42_PR-AUC'))} and the average is {f4(ctx('used (no round)', NN))}. The average barely moved, but the single seed fell, and that alone changes which model looks best in section 14. This is why we read single-seed network differences of about {f3(SEED_GAP)} as noise throughout the notebook.
 """)
 
+md("""
+### 10.4 Team renames and reused constructor ids
+""")
+code('display(results["constructor_history"])')
+_late = history[history.split.ne("train")]
+_n_val, _n_test = (int(_late[_late.split.eq(s)].rows_in_first_5_races.sum()) for s in ("validation", "test"))
+_form_fill = float(eff.loc["constructor_podium_rate_5", "fill_value"])
+assert (_late.podiums == 0).all() and (_late.max_constructor_form.fillna(0) == 0).all(), \
+    "an affected validation or test row now has a podium or a non-zero constructor form; rewrite 10.4"
+assert _form_fill == 0, "the training median of constructor form is no longer 0; rewrite 10.4"
+_named = {("AlphaTauri", 2020), ("Alpine F1 Team", 2021), ("RB F1 Team", 2024), ("Aston Martin", 2021), ("Sauber", 2024)}
+assert _named <= set(zip(history.constructor_name, history.year)), "a team named in the 10.4 text is no longer in the table"
+md(f"""
+**What happens.** Constructor form (`constructor_podium_rate_5`, the team's podium rate over its last five races) is computed per `constructorId`. When a team is renamed, the dataset usually gives it a new id, so its form starts empty: Toro Rosso became AlphaTauri in 2020, Renault became Alpine in 2021, and AlphaTauri became RB in 2024. The opposite also happens. Some old ids are used again years later, so a team inherits an earlier history: Aston Martin in 2021 reuses the id of the unrelated 1959-1960 Aston Martin, and Sauber in 2024 continues the Sauber id last used in 2018 (the same team, which raced as Alfa Romeo in between). The table lists every such team-season since 2014.
+
+**How much it matters.** Only constructor form is affected. Standings restart every season, so a rename never carries over into them, and driver form follows the driver from team to team. Because the form window is five races, only the first five races of each listed season are touched: {_n_val} of {n(split.loc['validation', 'rows'])} validation rows and {_n_test} of {n(split.loc['test', 'rows'])} test rows. None of these rows is a podium, and their constructor form is 0 or empty. An empty value is filled with the training median, which is {_form_fill:g}, so a reset team and a team with no recent podiums look the same to the model.
+
+**Decision.** We keep the ids as they are in the data and document the reset. Linking renamed teams would need a judgement for every case: Toro Rosso to AlphaTauri was a rebrand of the same team, but Force India to Racing Point followed a sale out of administration, and a merged history would also join eras with different owners, budgets and engines. With {_n_val + _n_test} affected validation and test rows, no podiums among them, and a feature that is already 0 for them, a hand-made mapping would add assumptions for very little effect on the evaluation. The reset stays listed as a limitation in section 18.
+""")
+
 
 md("## 11. Proper train / validation / test split")
 code("""
@@ -611,7 +632,7 @@ md("""
 
 - Qualifying coverage is sparse and era-dependent in older seasons.
 - Regulations, field size, reliability, and competitive structure change over time.
-- Constructor identifiers do not necessarily bridge team renames.
+- Constructor identifiers do not bridge team renames, and a few old identifiers are reused by unrelated later teams (section 10.4).
 - The nationality-to-country mapping is incomplete and cannot represent multiple nationalities.
 - Mechanical status classification is rules-based and can miss ambiguous causes.
 - Validation contains only the 2020-2021 seasons, so selection estimates have sampling uncertainty.

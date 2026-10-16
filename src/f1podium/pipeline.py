@@ -894,6 +894,34 @@ def hyperparameter_search(frame: pd.DataFrame) -> pd.DataFrame:
     return result.sort_values(["model", "rank_within_model"]).reset_index(drop=True)
 
 
+def constructor_history_audit(frame: pd.DataFrame) -> pd.DataFrame:
+    """Show where team renames and reused constructor ids reach the constructor form feature.
+
+    Constructor form (`constructor_podium_rate_5`) is built per `constructorId`. A renamed
+    team gets a new id, so its form starts empty. An old id that is used again links the
+    new team to an unrelated earlier era. Standings are not affected, because they restart
+    every season, and driver form follows the driver. Only the first five races of such a
+    season are affected, because the form window is five races long.
+    """
+    races = (frame[["constructorId", "raceId", "date", "year"]].drop_duplicates(["constructorId", "raceId"])
+             .sort_values(["constructorId", "date", "raceId"]))
+    races["race_in_season"] = races.groupby(["constructorId", "year"]).cumcount()
+    start = races[races.race_in_season.eq(0)].copy()
+    # Seasons since this id last raced: missing for a brand-new id.
+    start["gap"] = start.year - start.groupby("constructorId").year.shift()
+    start = start[start.year.ge(2014) & (start.gap.isna() | start.gap.ge(3))]
+    start["case"] = [("new id: form starts empty" if pd.isna(gap) else f"reused id: form comes from {int(year - gap)}")
+                     for year, gap in zip(start.year, start.gap)]
+    early = races[races.race_in_season.lt(5)][["constructorId", "raceId"]]
+    hit = frame.merge(early, on=["constructorId", "raceId"]).merge(start[["constructorId", "year", "case"]],
+                                                                   on=["constructorId", "year"])
+    result = (hit.groupby(["constructor_name", "constructorId", "year", "case"], as_index=False)
+              .agg(rows_in_first_5_races=("podium", "size"), podiums=("podium", "sum"),
+                   max_constructor_form=("constructor_podium_rate_5", "max")))
+    result["split"] = [next(name for name, (first, last) in SPLIT_YEARS.items() if first <= year <= last)
+                       for year in result.year]
+    return result.sort_values(["year", "constructor_name"]).reset_index(drop=True)
+
 @_quiet
 def context_feature_experiment(frame: pd.DataFrame) -> pd.DataFrame:
     """Test the two calendar features: put `round` back, or also remove `year`.
@@ -1325,6 +1353,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     missing_experiments = missing_value_experiments(frame)
     tuning = hyperparameter_search(frame)
     context_experiment = context_feature_experiment(frame)
+    constructor_history = constructor_history_audit(frame)
     sprint_check = sprint_weekend_check(frame, tables)
     # The audit and experiment need the table that still contains the F rows.
     with_f, _ = build_modeling_table(tables, drop_did_not_enter=False)
@@ -1354,6 +1383,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     missing_experiments.to_csv(out / "missing_value_experiments.csv", index=False)
     tuning.to_csv(out / "hyperparameter_search.csv", index=False)
     context_experiment.to_csv(out / "context_feature_experiment.csv", index=False)
+    constructor_history.to_csv(out / "constructor_history_audit.csv", index=False)
     sprint_check.to_csv(out / "sprint_weekend_check.csv", index=False)
     non_starters.to_csv(out / "non_starter_audit.csv", index=False)
     feature_summary.to_csv(out / "feature_eda.csv", index=False)
@@ -1385,6 +1415,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
             "test_uncertainty": test_uncertainty,
             "missing_experiments": missing_experiments, "tuning": tuning, "sprint_check": sprint_check,
             "context_experiment": context_experiment,
+            "constructor_history": constructor_history,
             "non_starters": non_starters, "non_starter_experiment": non_starter_runs, "feature_eda": feature_summary,
             "ablations": ablations, "cleaning_eda": cleaning, "plots": plots,
             "shap_global": shap_global, "shap_local": shap_local, "lime_local": lime_local,

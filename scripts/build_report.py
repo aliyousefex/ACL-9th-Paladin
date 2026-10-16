@@ -375,6 +375,7 @@ def load():
         "non_starter_runs": "non_starter_experiment",
         "feature_eda": "feature_eda",
         "context": "context_feature_experiment",
+        "history": "constructor_history_audit",
     }.items()}
     return {
         **extra,
@@ -2058,10 +2059,22 @@ def main():
         "a missingness flag, but we cannot tell from the chart alone how much of the pre-1994 "
         "gap is history and how much is the way the public tables were filled."
     ))
+    history = data["history"]
+    late = history[history.split.ne("train")]
+    late_rows = {s: int(late[late.split.eq(s)].rows_in_first_5_races.sum()) for s in ("validation", "test")}
+    assert (late.podiums == 0).all() and (late.max_constructor_form.fillna(0) == 0).all(), \
+        "an affected validation or test row now has a podium or a non-zero constructor form; rewrite this paragraph"
     story.append(P(
-        "Constructor identifiers reset when a team is renamed, so form and standings for the "
-        "new name start again. We left it that way on purpose, which means a works team that "
-        "changes its entry name looks like a new constructor to us."
+        "Constructor form is built per constructor identifier, and a renamed team usually gets a new one, so its "
+        "form starts empty: Toro Rosso became AlphaTauri in 2020, Renault became Alpine in 2021, and AlphaTauri became "
+        "RB in 2024. A few old identifiers are also reused years later, so Aston Martin in 2021 is linked to the "
+        "unrelated 1959-1960 Aston Martin. Standings restart every season and driver form follows the driver, so only "
+        "constructor form is touched, and only in the first five races of such a season: "
+        f"{late_rows['validation']} of {integer(len(splits['Validation']))} validation rows and {late_rows['test']} of "
+        f"{integer(len(splits['Test']))} test rows. None of them is a podium, and their constructor form is 0 or empty, "
+        "which the imputer fills with the training median of 0. We keep the identifiers as they are rather than "
+        "hand-map renames, because each link is a judgement (a rebrand is not the same as a sale to a new owner), and "
+        "the evaluation would barely move."
     ))
     story.append(P(
         "The home analysis depends on a nationality-to-country map. Drivers we could not "
