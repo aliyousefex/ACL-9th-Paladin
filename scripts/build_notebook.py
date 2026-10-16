@@ -86,6 +86,7 @@ missing = load("missing_value_experiments.csv")
 tuning = load("hyperparameter_search.csv")
 metrics = load("model_metrics.csv")
 ablation = load("ablation_results.csv").set_index("variant")
+context = load("context_feature_experiment.csv")
 
 
 def mget(model: str, which: str, col: str) -> float:
@@ -127,6 +128,13 @@ def auc(feature: str, col: str = "auc_train") -> str:
     """One-feature AUC from the feature evidence table."""
     return f2(fe.loc[feature, col])
 
+def ctx(variant: str, model: str, col: str = "validation_PR-AUC") -> float:
+    """One value of the calendar-feature (year / round) experiment."""
+    return float(context[context.variant.eq(variant) & context.model.eq(model)][col].iloc[0])
+
+# How far one network seed can sit from its own three-seed average. The old 17-feature
+# network (with `round`) is the clearest example, so it is the yardstick for single-seed changes.
+SEED_GAP = abs(ctx("put round back", NN, "seed_42_PR-AUC") - ctx("put round back", NN))
 
 nb = nbf.v4.new_notebook()
 nb["metadata"] = {
@@ -255,15 +263,17 @@ display(results["non_starter_experiment"].round(4))
 _f, _w, _r = (audit.loc[audit.index.str.startswith(p)].iloc[0] for p in ("F:", "W:", "grid 0 but raced"))
 _f_zero, _w_zero = round(_f.rows * _f.grid_zero_share), round(_w.rows * _w.grid_zero_share)
 _keep, _tail, _both = ("keep F rows in the history and", "keep F rows in the history, drop", "also drop W rows")
-_seed = float(tuned(NN, "current")["validation_PR-AUC_std"])
-_small = max(abs(run_change(p, m)) for p in (_keep, _tail) for m in (LR, NN))
+_lr_small = max(abs(run_change(p, LR)) for p in (_keep, _tail))
+_nn_small = max(abs(run_change(p, NN)) for p in (_keep, _tail))
+assert _lr_small < 0.002, "keeping the F rows now moves logistic regression noticeably; rewrite 8.1"
+assert _nn_small < 1.5 * SEED_GAP, "the network change is now well beyond single-seed noise; rewrite 8.1"
 _fs = runs.groupby("variant").train_field_size.first()
 md(f"""
 **What the audit shows.** Before the `F` rows are removed, {pc(c_shared.pit_lane_share)} of rows have grid 0, and the flag name `pit_lane_start` makes them sound like pit-lane starts. They are mostly not. Of the {n(_f_zero + _w_zero + _r.rows)} grid-0 rows, {n(_f_zero)} are drivers who never raced (positionText `F`: did not qualify, did not prequalify, or failed the 107% rule), {n(_w_zero)} are withdrawals, and only {n(_r.rows)} are real pit-lane or exceptional starts. All {n(_f.rows)} `F` rows are in {int(_f.first_year)}-{int(_f.last_year)}, all are in training, and none finished on the podium. Validation and test contain no `F` rows.
 
 **Decision: remove the `F` rows, keep everything else (instructor ruling).** The instructor ruled that `F` rows are known before the race starts and may be removed, and that withdrawals (`W`) may not, because that code is only known after the race. A driver who did not qualify did not enter the race, so the row does not belong in a table of one driver entering one race. We remove the `F` rows *before* any feature is built. A skipped weekend therefore no longer counts as a race in `driver_podium_rate_5` or `driver_races_before`, and it no longer inflates `field_size` (training mean {f2(_fs['keep F rows in the history and in training'])} with them, {f2(_fs['drop F rows before features (used)'])} without).
 
-**Evidence that the choice is safe.** The experiment scores four variants on the same 2020-2021 validation rows. Keeping the `F` rows instead changes validation PR-AUC by {sg(run_change(_keep, LR), 4)} for logistic regression and {sg(run_change(_keep, NN), 4)} for the network. Keeping them in the history but dropping them from the training rows only changes it by {sg(run_change(_tail, LR), 4)} and {sg(run_change(_tail, NN), 4)}. The largest of these four changes is {f4(_small)}, against a seed-to-seed spread of about {f3(_seed)} for the network, so the choice rests on the ruling and on what a row means, not on a score. Removing the `W` rows as well, which the ruling does not allow, would change the network by {sg(run_change(_both, NN), 4)}.
+**Evidence that the choice is safe.** The experiment scores four variants on the same 2020-2021 validation rows. Keeping the `F` rows instead changes validation PR-AUC by {sg(run_change(_keep, LR), 4)} for logistic regression and {sg(run_change(_keep, NN), 4)} for the network. Keeping them in the history but dropping them from the training rows only changes it by {sg(run_change(_tail, LR), 4)} and {sg(run_change(_tail, NN), 4)}. Logistic regression, which has no random seed, moves by at most {f4(_lr_small)}. The network moves by up to {f4(_nn_small)}, but a single network seed can sit {f3(SEED_GAP)} away from its own three-seed average (section 10.3), so the network cannot separate these options. The choice rests on the ruling and on what a row means, not on a score. Removing the `W` rows as well, which the ruling does not allow, would change the network by {sg(run_change(_both, NN), 4)}.
 
 **What changes.** `pit_lane_start` now marks {n(_w_zero + _r.rows)} rows: {n(_w_zero)} withdrawals with grid 0 and {n(_r.rows)} drivers who raced from the pit lane or an exceptional start. It is no longer a did-not-qualify marker, but it is still not a pure pit-lane flag.
 """)
@@ -311,7 +321,7 @@ print("Round-1 driver rank values:", r1["driver_rank_before"].unique())
 print("Empty standings cells left (should be 0):", mt[cols].isna().sum().sum())
 """)
 md("""
-**Result:** Every round-1 row now has 0 points and rank 0, and no standings cell is left empty. We also tested adding flags to mark these rows, since rank 0 could look better than first place. They gave no validation gain (logistic regression unchanged, forest and network lower), so the model keeps the original 17 features.
+**Result:** Every round-1 row now has 0 points and rank 0, and no standings cell is left empty. We also tested adding flags to mark these rows, since rank 0 could look better than first place. They gave no validation gain (logistic regression unchanged, forest and network lower), so no flags were added.
 """)
 
 
@@ -347,14 +357,43 @@ assert fe.loc["grid_position", "podium_rate_when_missing"] == 0, "rows without a
 _losses = ablation.drop(index="all features")["PR-AUC_change"].abs()
 assert _losses.idxmin() == "without context", "context is no longer the smallest ablation loss"
 md(f"""
-The table and figure use **training seasons only**. For each of the 17 features they show the share of missing cells, the podium rate in its lowest and highest bin, and a one-feature ROC-AUC (above 0.5 means a higher value goes with more podiums, below 0.5 the reverse). The same AUC on validation checks that the pattern still holds in later seasons. Missing cells are left out of the AUC and the bins, and the orange bar in the figure shows the podium rate of the rows where the feature is missing.
+The table and figure use **training seasons only**. For each of the {len(fe)} features they show the share of missing cells, the podium rate in its lowest and highest bin, and a one-feature ROC-AUC (above 0.5 means a higher value goes with more podiums, below 0.5 the reverse). The same AUC on validation checks that the pattern still holds in later seasons. Missing cells are left out of the AUC and the bins, and the orange bar in the figure shows the podium rate of the rows where the feature is missing.
 
 **Strong single signals.** Position features carry the most: `qualifying_position` (AUC {auc('qualifying_position')}, so lower is better, measured on the {pc(1 - fe.loc['qualifying_position', 'missing_share_train'], 0)} of rows that have it) and `grid_position` ({auc('grid_position')}). The podium rate falls from {pc(fe.loc['grid_position', 'podium_rate_lowest_bin'], 0)} (grid) and {pc(fe.loc['qualifying_position', 'podium_rate_lowest_bin'], 0)} (qualifying) in the best bin to {pc(fe.loc['grid_position', 'podium_rate_highest_bin'])} and {pc(fe.loc['qualifying_position', 'podium_rate_highest_bin'])} in the worst. The standings ranks ({auc('driver_rank_before')} and {auc('constructor_rank_before')}), form rates ({auc('driver_podium_rate_5')} and {auc('constructor_podium_rate_5')}), and points ({auc('driver_points_before')} and {auc('constructor_points_before')}) are next, and `front_row` ({auc('front_row')}) and `driver_races_before` ({auc('driver_races_before')}) are clear but smaller. All of these keep the same direction on validation (for example {auc('grid_position', 'auc_validation')} for grid and {auc('driver_podium_rate_5', 'auc_validation')} and {auc('constructor_podium_rate_5', 'auc_validation')} for form).
 
-**Weak single signals, kept for a different reason.** `field_size` ({auc('field_size')}), `driver_age` ({auc('driver_age')}), `qualifying_time_seconds` ({auc('qualifying_time_seconds')}), `pit_lane_start` ({auc('pit_lane_start')}), and `qualifying_missing` ({auc('qualifying_missing')}) are close to 0.5 on their own. The qualifying time is not comparable across circuits and eras, so a raw time says little without the rest of the row. The two flags are indicators: the missing-value experiment in section 13.1 shows removing `qualifying_missing` changes the network's PR-AUC by {sg(miss_change('median, without', NN))}, and rows with no grid position (withdrawals and pit-lane starts) never podium, while rows with no qualifying record podium at about the average rate ({pc(fe.loc['qualifying_position', 'podium_rate_when_missing'])} against {pc(split.loc['train', 'podium_rate'])}). `round` ({auc('round')}) and `year` ({auc('year')}) have essentially no single-feature signal, and `field_size`, `round`, and `year` are flat or constant on validation (every 2020-2021 race has 20 starters). We keep them as context and era controls, and the ablation shows the whole context group adds the least of the five ({f3(abl_loss('without context'))} PR-AUC). We have not shown that `round` or `year` help on their own, so they are the first candidates to remove.
+**Weak single signals, kept for a different reason.** `field_size` ({auc('field_size')}), `driver_age` ({auc('driver_age')}), `qualifying_time_seconds` ({auc('qualifying_time_seconds')}), `pit_lane_start` ({auc('pit_lane_start')}), and `qualifying_missing` ({auc('qualifying_missing')}) are close to 0.5 on their own. The qualifying time is not comparable across circuits and eras, so a raw time says little without the rest of the row. The two flags are indicators: removing `qualifying_missing` changes validation PR-AUC only slightly (section 13.1), but the flag records which rows were imputed, and rows with no grid position (withdrawals and pit-lane starts) never podium, while rows with no qualifying record podium at about the average rate ({pc(fe.loc['qualifying_position', 'podium_rate_when_missing'])} against {pc(split.loc['train', 'podium_rate'])}). `year` ({auc('year')}) has essentially no single-feature signal, and `field_size` and `year` are flat or constant on validation (every 2020-2021 race has 20 starters). The ablation shows the whole context group adds the least of the five ({f3(abl_loss('without context'))} PR-AUC). Section 10.3 tests the two calendar features one at a time: `year` is kept and `round` was removed.
 
-**What this evidence does and does not show.** A one-feature AUC ignores the other 16 features, so a feature that looks weak here can still help in combination, and a strong feature can add little once the grid is present (the ablation shows qualifying adds only {f3(abl_loss('without qualifying'))} on top of the grid). The AUCs describe association in past races and are not causal effects.
+**What this evidence does and does not show.** A one-feature AUC ignores the other {len(fe) - 1} features, so a feature that looks weak here can still help in combination, and a strong feature can add little once the grid is present (the ablation shows qualifying adds only {f3(abl_loss('without qualifying'))} on top of the grid). The AUCs describe association in past races and are not causal effects.
 """)
+
+
+md("""
+### 10.3 Calendar features: keep `year`, remove `round`
+""")
+code('''
+context = results["context_experiment"]
+display(context.round(4))
+display(context.pivot_table(index="variant", columns="model", values="PR-AUC_change_vs_used", sort=False).round(4))
+''')
+_round = {m: ctx("put round back", m, "PR-AUC_change_vs_used") for m in (LR, RF, NN)}
+_year = {m: ctx("also remove year", m, "PR-AUC_change_vs_used") for m in (LR, RF, NN)}
+# The same test inside the old 17-feature model: remove year while round is still there.
+_year_old = {m: ctx("round back, year removed", m) - ctx("put round back", m) for m in (LR, RF, NN)}
+assert _year_old[NN] < 0 and _year_old[RF] < 0, "removing year from the old model no longer hurts the nonlinear models; rewrite 10.3"
+_nn_sd = max(ctx("used (no round)", NN, "validation_PR-AUC_std"), ctx("put round back", NN, "validation_PR-AUC_std"))
+_avg_noise = _nn_sd / 3 ** 0.5  # a three-seed average is steadier than one seed
+assert max(abs(v) for v in _round.values()) < 0.005, "putting round back now changes a model noticeably; rewrite 10.3"
+assert _year[NN] < -1.5 * _avg_noise and _year[NN] == min(_year.values()), "removing year no longer clearly hurts the network; rewrite 10.3"
+md(f"""
+**Question.** `year` and `round` were added as context: the era and the point in the season. On their own neither separates podiums from the rest (single-feature AUC {auc('year')} for `year`, and about 0.50 for `round` in the earlier run), so we tested each one inside the full models. Every variant is trained on 1950-2019 and scored on 2020-2021 only. The network is averaged over three seeds, the same as the settings search in section 14.1.
+
+**`round` adds nothing, so we removed it.** Putting `round` back changes validation PR-AUC by {sg(_round[LR], 4)} for logistic regression, {sg(_round[RF], 4)} for the forest and {sg(_round[NN], 4)} for the network (three-seed average). All three are far smaller than the network's seed spread of up to {f3(_nn_sd)}, and they do not even agree in direction. The information is also already in the standings: points and rank build up race by race, so they tell the model how far into the season it is. Finally, `round` does not mean the same thing across eras. A season had about 8 races in the 1950s and 24 in 2024, so round 8 was a season finale then and an early race now. With no measurable gain and an unstable meaning, the simpler model wins.
+
+**`year` helps, so we kept it.** Removing `year` changes the score by {sg(_year[LR], 4)} for logistic regression, {sg(_year[RF], 4)} for the forest and {sg(_year[NN], 4)} for the network. The network loses the most of the three models, about {abs(_year[NN]) / _avg_noise:.0f} times the noise of a three-seed average (about {f3(_avg_noise)}, the seed spread divided by the square root of 3). On its own `year` says nothing, but together with grid and form it lets the nonlinear models adjust for the era: larger fields, worse reliability, and missing qualifying in the older seasons. The same test inside the old 17-feature model, with `round` still there, gives {sg(_year_old[LR], 4)}, {sg(_year_old[RF], 4)} and {sg(_year_old[NN], 4)}, so `year` helps the nonlinear models with or without `round`. That old model without `year` is also unstable: its network seed spread is {f3(ctx('round back, year removed', NN, 'validation_PR-AUC_std'))}. One caveat: the test seasons (2022-2024) lie outside the training years (1950-2019), so the models must extrapolate `year`. A tree cannot extrapolate, so the forest treats 2022 like 2019.
+
+**Why one seed is not enough.** The main results table trains each model once, with seed 42. With `round`, the network's seed-42 score was {f4(ctx('put round back', NN, 'seed_42_PR-AUC'))}, {f3(SEED_GAP)} above its own three-seed average of {f4(ctx('put round back', NN))}. Without `round`, seed 42 scores {f4(ctx('used (no round)', NN, 'seed_42_PR-AUC'))} and the average is {f4(ctx('used (no round)', NN))}. The average barely moved, but the single seed fell, and that alone changes which model looks best in section 14. This is why we read single-seed network differences of about {f3(SEED_GAP)} as noise throughout the notebook.
+""")
+
 
 md("## 11. Proper train / validation / test split")
 code("""
@@ -458,20 +497,19 @@ _rows = {p: int(missing[missing.variant.str.startswith(p)].train_rows.iloc[0])
 _full = int(missing[missing.variant.str.endswith("(used)")].train_rows.iloc[0])
 _lr_alt = missing[missing.model.eq(LR) & ~missing.variant.str.endswith("(used)")]["PR-AUC_change_vs_used"].abs().max()
 _alts = missing[~missing.variant.str.endswith("(used)")]
-_best_gain = float(_alts[_alts.model.eq(NN)]["PR-AUC_change_vs_used"].max())
-_seed_sd = float(tuned(NN, "current")["validation_PR-AUC_std"])
-_costly = _alts[_alts.model.eq(NN) & _alts.approach.isin(["flag", "drop columns", "drop rows"])]["PR-AUC_change_vs_used"]
-assert _best_gain < 2 * _seed_sd, "an alternative now beats median imputation by more than two seed deviations; rewrite the decision text"
-assert (_costly < 0).all() and _costly.abs().min() > 3 * max(_best_gain, 1e-9), \
-    "dropping the flag, columns, or rows no longer costs the network several times the best imputer gain; rewrite the decision text"
+_nn_alts = _alts[_alts.model.eq(NN)]["PR-AUC_change_vs_used"]
+assert _lr_alt < 0.01, "an alternative now moves logistic regression by 0.01 or more; rewrite the decision text"
+assert _nn_alts.max() < 1.5 * SEED_GAP, "a network gain is now well beyond single-seed noise; rewrite the decision text"
+assert _nn_alts.idxmin() == _alts[_alts.model.eq(NN) & _alts.approach.eq("drop columns")].index[0], \
+    "dropping the sparse columns is no longer the network's largest loss; rewrite the decision text"
 md(f"""
-**Imputers.** Mean, k-nearest-neighbour, and iterative regression imputation change logistic regression's validation PR-AUC by {sg(miss_change('mean imputation', LR), 4)}, {sg(miss_change('KNN', LR), 4)}, and {sg(miss_change('iterative', LR), 4)} against median imputation. For the network the changes are {sg(miss_change('mean imputation', NN))}, {sg(miss_change('KNN', NN))}, and {sg(miss_change('iterative', NN))}. The network's seed-to-seed spread is about {f3(tuned(NN, 'current')['validation_PR-AUC_std'])} (see section 14.1), so a difference of that size is within noise.
+**Imputers.** Mean, k-nearest-neighbour, and iterative regression imputation change logistic regression's validation PR-AUC by {sg(miss_change('mean imputation', LR), 4)}, {sg(miss_change('KNN', LR), 4)}, and {sg(miss_change('iterative', LR), 4)} against median imputation. For the network the changes are {sg(miss_change('mean imputation', NN))}, {sg(miss_change('KNN', NN))}, and {sg(miss_change('iterative', NN))}. These network numbers come from a single seed, and a single seed can sit {f3(SEED_GAP)} away from its own average (section 10.3), so changes of this size are within noise.
 
-**Dropping columns.** Removing the two columns with more than 50% missing values (`qualifying_position` and `qualifying_time_seconds`) changes the score by {sg(miss_change('drop the sparse', LR))} for logistic regression and {sg(miss_change('drop the sparse', NN))} for the network. Removing the `qualifying_missing` flag instead changes the network by {sg(miss_change('median, without', NN))}, so the network relies on the flag as well as on the values.
+**Dropping columns.** Removing the two columns with more than 50% missing values (`qualifying_position` and `qualifying_time_seconds`) changes the score by {sg(miss_change('drop the sparse', LR))} for logistic regression and {sg(miss_change('drop the sparse', NN))} for the network. Removing the `qualifying_missing` flag instead changes logistic regression by {sg(miss_change('median, without', LR), 4)} and the network by {sg(miss_change('median, without', NN))}.
 
 **Dropping rows.** Keeping only training rows with qualifying data (1994 onward) leaves {n(_rows['drop training rows with no qualifying'])} of {n(_full)} rows and changes the score by {sg(miss_change('drop training rows with no qualifying', LR))} (logistic regression) and {sg(miss_change('drop training rows with no qualifying', NN))} (network). Keeping only complete rows leaves {n(_rows['drop training rows with any missing'])} and changes it by {sg(miss_change('drop training rows with any missing', LR))} and {sg(miss_change('drop training rows with any missing', NN))}. Dropping rows throws away about two thirds of the history, including most of the long driver and team form.
 
-**Decision.** Median imputation plus the missing-indicator flag, fitted on training rows only, keeps all {n(_full)} training rows and is never meaningfully beaten. For logistic regression every alternative is within {f4(_lr_alt)}. For the network the largest gain from any imputer is {sg(_best_gain)}, about {_best_gain / _seed_sd:.1f} seed standard deviations of a single seed, so it is inside the noise, while dropping the flag, the columns, or the rows costs it at least {_costly.abs().min() / max(_best_gain, 1e-9):.1f} times as much. We keep median imputation. Leaving the nulls, dropping columns, and dropping rows were all tested against it, and none of them helped enough to justify what it throws away.
+**Decision.** Median imputation plus the missing-indicator flag, fitted on training rows only, keeps all {n(_full)} training rows and is never meaningfully beaten. We judge it on logistic regression, the selected model, because it has no random seed: every alternative is within {f4(_lr_alt)} of median imputation. The network's single-seed changes run from {sg(_nn_alts.min())} to {sg(_nn_alts.max())}. One seed can move by {f3(SEED_GAP)} on its own, so these numbers cannot rank the imputers. Only the {sg(_nn_alts.min())} from dropping the qualifying columns stands out, and it argues against dropping them. We keep median imputation. Leaving the nulls, dropping columns, and dropping rows were all tested against it, and none of them helped enough to justify what it throws away, such as the two thirds of training history lost when rows are dropped.
 """)
 
 md("## 14. Model comparison: train, validation, and unseen test")
@@ -504,23 +542,24 @@ _rf0, _rf1 = tuned(RF, "initial"), tuned(RF, "current")
 _nn0, _nn1 = tuned(NN, "initial"), tuned(NN, "current")
 _lr_all, _lr1, _lrb = tuning[tuning.model.eq(LR)], tuned(LR, "current"), tuned(LR, "best")
 _nn_others = tuning[tuning.model.eq(NN) & ~tuning.settings.str.contains(r"\(32, 12\)")]
-assert _nn1.rank_within_model == 1, "the adopted network setting is no longer top-ranked"
 _rf_best = tuning[tuning.model.eq(RF) & tuning.rank_within_model.eq(1)].iloc[0]
-assert _nn_others["validation_PR-AUC"].max() < _nn1["validation_PR-AUC"], "another network architecture now wins"
-assert 0 < _nn1["validation_PR-AUC"] - _nn0["validation_PR-AUC"] < _nn1["validation_PR-AUC_std"], "the network gain is no longer inside the seed spread"
+_nn_best = tuning[tuning.model.eq(NN) & tuning.rank_within_model.eq(1)].iloc[0]
+_nn_gap = float(_nn_best["validation_PR-AUC"] - _nn1["validation_PR-AUC"])
+_nn_sds = tuning[tuning.model.eq(NN)]["validation_PR-AUC_std"]
+assert _nn_gap < _nn_sds.max(), "the best network setting now beats the adopted one by more than the largest seed spread; rewrite 14.1"
 _val = pd.Series({m: mget(m, "validation", "PR-AUC") for m in (LR, RF, NN)})
-assert _val.max() - _val.min() < 2 * _nn1["validation_PR-AUC_std"], "validation gaps now exceed twice the seed spread"
 _lr_gap_value = float(_lrb["validation_PR-AUC"] - _lr1["validation_PR-AUC"])
 _lr_gap = "ties for best (within 0.0005)" if _lr_gap_value < 5e-4 else f"is within {_lr_gap_value:.4f} of the best"
 _vs_lr = "above" if _nn1["validation_PR-AUC"] > mget(LR, "validation", "PR-AUC") else "below"
+assert _val.idxmax() == LR and _vs_lr == "below", "logistic regression no longer leads validation; rewrite 14.1 and 14.2"
 md(f"""
 **Random forest: improved.** The starting forest (unlimited depth, leaf size 4) scored {f3(_rf0['validation_PR-AUC'])} on validation but {f3(_rf0['train_PR-AUC'])} on training, a memorized fit. The search ranked it {ordinal(int(_rf0.rank_within_model))} of {int(_sizes[RF])}. Depth 12 with leaf size 30 scores {f3(_rf1['validation_PR-AUC'])} on validation and ranks {ordinal(int(_rf1.rank_within_model))} of {int(_sizes[RF])}. The best setting ({_rf_best.settings}) is only {f3(_rf_best['validation_PR-AUC'] - _rf1['validation_PR-AUC'])} higher, far inside the validation noise shown in section 11.1, so we keep the depth limit as the more constrained model. Its training PR-AUC falls from {f3(_rf0['train_PR-AUC'])} to {f3(_rf1['train_PR-AUC'])}, so it no longer memorizes the training seasons. The test set did not influence the choice.
 
-**Shallow neural network: improved slightly.** We tried one hidden layer of 8, 16, 32, and 64 units and two layers (32, 12) and (64, 32), each with two regularization strengths. The two-layer (32, 12) network with the stronger penalty (alpha 0.02) ranks first at {f4(_nn1['validation_PR-AUC'])} averaged over three seeds, ahead of the starting alpha of 0.002 ({f4(_nn0['validation_PR-AUC'])}). That gap of {f4(_nn1['validation_PR-AUC'] - _nn0['validation_PR-AUC'])} is inside the seed spread (about {f3(_nn1['validation_PR-AUC_std'])}), but the stronger penalty is also the simpler model, so we adopted it. Wider and deeper networks did not help. The network is not a deliberately weak model: smaller ones are worse and larger ones are no better.
+**Shallow neural network: a noisy search.** We tried one hidden layer of 8, 16, 32, and 64 units and two layers (32, 12) and (64, 32), each with two regularization strengths, every one averaged over three seeds. The adopted two-layer (32, 12) network with alpha 0.02 scores {f4(_nn1['validation_PR-AUC'])} and ranks {ordinal(int(_nn1.rank_within_model))} of {int(_sizes[NN])}, against {f4(_nn0['validation_PR-AUC'])} for the starting alpha of 0.002. The best setting ({_nn_best.settings}) scores {f4(_nn_best['validation_PR-AUC'])}, only {f3(_nn_gap)} higher, while the seed spread of a single setting reaches {f3(_nn_sds.max())} in this search. The ranking is also unstable: with `round` in the features, the adopted setting ranked first. Chasing the top of a ranking that moves with one input and one seed would be selecting noise, so we keep the adopted network. Small networks with 8 units are clearly worse, so the network is not a deliberately weak model.
 
 **Logistic regression: insensitive.** L1 and L2 penalties and C from 0.01 to 10 all fall between {f3(_lr_all['validation_PR-AUC'].min())} and {f3(_lr_all['validation_PR-AUC'].max())}. The starting C = 1 with L2 {_lr_gap}, so we keep it.
 
-**A caution about the headline number.** The network's {f4(mget(NN, 'validation', 'PR-AUC'))} validation score in section 14 comes from seed 42. Averaged over three seeds the same setting scores {f4(_nn1['validation_PR-AUC'])}, with a seed standard deviation of {f3(_nn1['validation_PR-AUC_std'])}, which is {_vs_lr} logistic regression's {f4(mget(LR, 'validation', 'PR-AUC'))}. The validation gaps between the three models are at most {f3(_val.max() - _val.min())}, no more than about twice that spread, and the bootstrap in section 11.1 shows they sit inside the race-to-race noise.
+**A caution about the headline number.** The network's {f4(mget(NN, 'validation', 'PR-AUC'))} validation score in section 14 comes from seed 42. Averaged over three seeds the same setting scores {f4(_nn1['validation_PR-AUC'])}, with a seed standard deviation of {f3(_nn1['validation_PR-AUC_std'])}, which is {_vs_lr} logistic regression's {f4(mget(LR, 'validation', 'PR-AUC'))}. Logistic regression is highest on validation by the seed-42 table and by the three-seed average, so the selection does not depend on the seed. The validation gaps between the three models are at most {f3(_val.max() - _val.min())}, and the bootstrap in section 11.1 shows they sit inside the race-to-race noise.
 """)
 
 md("""
@@ -537,7 +576,7 @@ assert _tp[LR] < min(_tp[RF], _tp[NN]) and abs(_tp[RF] - _tp[NN]) < 0.005, "the 
 md(f"""
 On unseen test seasons (2022-2024) PR-AUC is {f3(_tp[LR])} for logistic regression, {f3(_tp[RF])} for the random forest and {f3(_tp[NN])} for the network; ROC-AUC is {f3(mget(LR, 'test', 'ROC-AUC'))}, {f3(mget(RF, 'test', 'ROC-AUC'))} and {f3(mget(NN, 'test', 'ROC-AUC'))}. The forest and the network are level at the top, and logistic regression is about {f3(min(_tp[RF], _tp[NN]) - _tp[LR])} behind. To see whether that gap is real we bootstrapped the {int(_ut.races.iloc[0])} test races (table above). The bootstrap resamples predictions we already had and chooses nothing, and we ran it after every choice was frozen. The forest minus logistic regression difference is {sg(_t_rf['test_PR-AUC'], 4)} with an interval of {sg(_t_rf['ci_low_2.5%'])} to {sg(_t_rf['ci_high_97.5%'])}, and for the network it is {sg(_t_nn['test_PR-AUC'], 4)} with an interval of {sg(_t_nn['ci_low_2.5%'])} to {sg(_t_nn['ci_high_97.5%'])}. Both intervals include zero, and so do the validation intervals in section 11.1. **The data do not support claiming that a more complex model is better.**
 
-We therefore treat the three models as equivalent in ranking quality and use the other properties to decide. Logistic regression is the baseline and the easiest to defend and explain: its coefficients are directly readable, it is stable across seeds, and it needs no tuning to behave. The network is nominally highest on validation PR-AUC, the score we selected on, so it is the model used for the inference demo, and it ties the forest on test PR-AUC, but we report that its edge is within noise. The reason a nonlinear model gains so little is that the strongest signals (grid, qualifying position, and recent form) act close to monotonically on podium odds, which a linear model already captures. PR-AUC is primary because only about one in eight entrants finishes on the podium, so ROC-AUC rewards correctly ranking the many easy non-podium rows; ROC-AUC stays as the secondary metric.
+We therefore treat the three models as equivalent in ranking quality and use the other properties to decide. Logistic regression is the baseline and the easiest to defend and explain: its coefficients are directly readable, it is stable across seeds, and it needs no tuning to behave. It is also nominally highest on validation PR-AUC, the score we select on, so logistic regression is the selected model and the one used for the inference demo. On test the forest and the network are slightly higher, but the bootstrap shows that edge is within noise, and the test seasons are never used to choose. The reason a nonlinear model gains so little is that the strongest signals (grid, qualifying position, and recent form) act close to monotonically on podium odds, which a linear model already captures. PR-AUC is primary because only about one in eight entrants finishes on the podium, so ROC-AUC rewards correctly ranking the many easy non-podium rows; ROC-AUC stays as the secondary metric.
 """)
 
 md("## 15. Feature-group ablation")

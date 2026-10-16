@@ -55,7 +55,9 @@ FEATURE_GROUPS = {
     "qualifying": ["qualifying_position", "qualifying_time_seconds", "qualifying_missing"],
     "form": ["driver_podium_rate_5", "constructor_podium_rate_5", "driver_races_before"],
     "standings": ["driver_points_before", "driver_rank_before", "constructor_points_before", "constructor_rank_before"],
-    "context": ["driver_age", "round", "year"],
+    # `round` was removed after context_feature_experiment showed it changes validation
+    # PR-AUC by far less than the network's seed spread in every model. `year` stays.
+    "context": ["driver_age", "year"],
 }
 FEATURES = [feature for group in FEATURE_GROUPS.values() for feature in group]
 
@@ -371,11 +373,13 @@ def _pipeline(model: Any, scale: bool = True, strategy: str = "median") -> Pipel
 def model_definitions(random_state: int = 42) -> dict[str, Pipeline]:
     """Return the three candidate models with reproducible settings.
 
-    The forest and the network use the settings that won ``hyperparameter_search`` on
+    The forest and the network use settings chosen with ``hyperparameter_search`` on
     validation: depth 12 with leaf size 30 for the forest (its starting settings, an
     unlimited depth with leaf size 4, memorized the training seasons), and a stronger
-    regularization of 0.02 for the network (the starting 0.002 ranked second). Logistic
-    regression kept its starting settings because the top three tie within 0.0001.
+    regularization of 0.02 for the network. Neither is the top of its grid in every run:
+    the gaps to the best setting are inside the seed and race noise, so they are kept as
+    the more constrained choices. Logistic regression kept its starting settings because
+    the top settings tie within 0.0005.
     """
     return {
         "Logistic regression": _pipeline(LogisticRegression(max_iter=2000, solver="liblinear", class_weight="balanced", random_state=random_state)),
@@ -891,6 +895,41 @@ def hyperparameter_search(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 @_quiet
+def context_feature_experiment(frame: pd.DataFrame) -> pd.DataFrame:
+    """Test the two calendar features: put `round` back, or also remove `year`.
+
+    Every variant is trained on 1950-2019 and scored on 2020-2021 only; the test seasons
+    are never used. The network is averaged over the same three seeds as the settings
+    search, so a change can be compared with its seed spread.
+    """
+    splits = split_by_time(frame)
+    train, val = splits["train"], splits["validation"]
+        # The old 17-feature list: `round` back in its original place, just before `year`.
+    with_round = FEATURES[:FEATURES.index("year")] + ["round"] + FEATURES[FEATURES.index("year"):]
+    variants = {
+        "used (no round)": FEATURES,
+        "put round back": with_round,
+        "also remove year": [f for f in FEATURES if f != "year"],
+        "round back, year removed": [f for f in with_round if f != "year"],
+    }
+    rows = []
+    for variant, features in variants.items():
+        for name in model_definitions():
+            scores = []
+            for seed in SEARCH_SEEDS[name]:
+                model = model_definitions(random_state=seed)[name].fit(train[features], train.podium)
+                scores.append(average_precision_score(val.podium, model.predict_proba(val[features])[:, 1]))
+            rows.append({"variant": variant, "model": name, "features": len(features),
+                        "validation_PR-AUC": float(np.mean(scores)), "validation_PR-AUC_std": float(np.std(scores)),
+                         # Seed 42 alone is what the main metrics table uses for every model.
+                         "seed_42_PR-AUC": float(scores[0])})
+    result = pd.DataFrame(rows)
+    used = result[result.variant.eq("used (no round)")].set_index("model")["validation_PR-AUC"]
+    # Negative means the variant is worse than the features we use.
+    result["PR-AUC_change_vs_used"] = result["validation_PR-AUC"] - result.model.map(used)
+    return result
+
+@_quiet
 def split_window_experiment(frame: pd.DataFrame, random_state: int = 42) -> pd.DataFrame:
     """Score the same two models on four validation windows that all precede the test seasons.
 
@@ -1285,6 +1324,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     test_uncertainty = validation_uncertainty(frame, trained, split="test")
     missing_experiments = missing_value_experiments(frame)
     tuning = hyperparameter_search(frame)
+    context_experiment = context_feature_experiment(frame)
     sprint_check = sprint_weekend_check(frame, tables)
     # The audit and experiment need the table that still contains the F rows.
     with_f, _ = build_modeling_table(tables, drop_did_not_enter=False)
@@ -1313,6 +1353,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     test_uncertainty.to_csv(out / "test_uncertainty.csv", index=False)
     missing_experiments.to_csv(out / "missing_value_experiments.csv", index=False)
     tuning.to_csv(out / "hyperparameter_search.csv", index=False)
+    context_experiment.to_csv(out / "context_feature_experiment.csv", index=False)
     sprint_check.to_csv(out / "sprint_weekend_check.csv", index=False)
     non_starters.to_csv(out / "non_starter_audit.csv", index=False)
     feature_summary.to_csv(out / "feature_eda.csv", index=False)
@@ -1322,7 +1363,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     # Check a complete historical row and an intentionally partial input using the
     # model selected on validation PR-AUC.
     complete = frame.loc[frame.year.ge(2022), FEATURES].dropna().iloc[0].to_dict()
-    partial = {"grid_position": 3, "pit_lane_start": 0, "front_row": 0, "field_size": 20, "year": 2024, "round": 5}
+    partial = {"grid_position": 3, "pit_lane_start": 0, "front_row": 0, "field_size": 20, "year": 2024}
     best_name = metrics[metrics.split.eq("validation")].sort_values("PR-AUC", ascending=False).iloc[0].model
     demos = {"model": best_name,
              "complete_record": predict_podium(complete, trained[best_name], thresholds[best_name]),
@@ -1343,6 +1384,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
             "split_windows": split_windows, "validation_uncertainty": uncertainty,
             "test_uncertainty": test_uncertainty,
             "missing_experiments": missing_experiments, "tuning": tuning, "sprint_check": sprint_check,
+            "context_experiment": context_experiment,
             "non_starters": non_starters, "non_starter_experiment": non_starter_runs, "feature_eda": feature_summary,
             "ablations": ablations, "cleaning_eda": cleaning, "plots": plots,
             "shap_global": shap_global, "shap_local": shap_local, "lime_local": lime_local,
