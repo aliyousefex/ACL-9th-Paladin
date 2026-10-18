@@ -620,6 +620,46 @@ display(results["shap_local"].head(12))
 md("""
 Permutation importance measures the validation PR-AUC change after shuffling one feature, and global SHAP summarizes average contribution magnitude. Local LIME explains one fixed validation prediction with 5,000 perturbations around that row and a distance-weighted ridge surrogate; its weighted R² reports local fidelity. Positive LIME weights push the surrogate toward a podium and negative weights push it away. Local SHAP is retained as a supplementary cross-check. Correlated predictors can divide importance differently across methods. These values describe fitted-model reliance and are **not causal effects**.
 """)
+md("### 16.1 Explaining the selected model directly: logistic regression weights")
+code("""
+# The selected model is logistic regression, which is intrinsically interpretable (Lab 4),
+# so we read the explanation straight from its weights instead of only from the forest.
+lr_model = results["models"]["Logistic regression"]
+lr = lr_model.named_steps["model"]
+
+# Global explanation: one weight per standardized feature.
+weights = pd.Series(lr.coef_[0], index=FEATURES).sort_values()
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.barh(weights.index, weights.values, color=["#2a9d8f" if w > 0 else "#e76f51" for w in weights])
+ax.axvline(0, color="black", lw=1)
+ax.set_xlabel("Weight (effect of +1 standard deviation on log-odds of a podium)")
+ax.set_title("Logistic regression: what the selected model relies on")
+fig.tight_layout(); fig.savefig(OUT / "figures" / "logistic_weights.png", dpi=150, bbox_inches="tight"); plt.close(fig)
+display(Image(filename=str(OUT / "figures" / "logistic_weights.png")))
+
+# Local explanation: the same validation row that LIME and SHAP explain.
+val = split_by_time(results["modeling_table"])["validation"]
+driver = val.sample(1, random_state=42)
+display(driver[["year", "name", "grid_position", "driver_podium_rate_5", "podium"]])
+print("Podium probability:", round(lr_model.predict_proba(driver[FEATURES])[0, 1], 3),
+      "| threshold:", round(results["thresholds"]["Logistic regression"], 3))
+
+# Each feature's push = its weight x the driver's standardized value (relative to the average training driver).
+scaled_values = lr_model.named_steps["preprocess"].transform(driver[FEATURES])[0]
+push = pd.Series(scaled_values * lr.coef_[0], index=FEATURES).sort_values()
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.barh(push.index, push.values, color=["#2a9d8f" if v > 0 else "#e76f51" for v in push])
+ax.axvline(0, color="black", lw=1)
+ax.set_xlabel("Contribution to log-odds of a podium for this driver")
+ax.set_title("Logistic regression: one prediction (2021 Dutch GP, grid P11)")
+fig.tight_layout(); fig.savefig(OUT / "figures" / "logistic_local.png", dpi=150, bbox_inches="tight"); plt.close(fig)
+display(Image(filename=str(OUT / "figures" / "logistic_local.png")))
+""")
+md("""
+**Logistic regression is the selected model and is intrinsically interpretable, so we explain it directly from its own weights rather than only through the random forest.** Because every input is standardized on the training seasons, each weight is the change in the log-odds of a podium for a one-standard-deviation increase in that feature, which makes the weights comparable with each other. Globally, `grid_position` dominates (−1.44, about five times larger than any other weight): starting further back strongly lowers the predicted podium probability, which agrees with the ablation, permutation importance and SHAP results. A pit-lane start (−0.63) also pushes strongly away from a podium, while recent constructor form (+0.29), driver points so far (+0.25), experience (+0.24) and recent driver form (+0.22) push towards one. `constructor_points_before` has a small negative weight even though more points should help. It overlaps heavily with constructor rank and constructor form, and when predictors are correlated the model can split the credit between them in ways that are hard to read one weight at a time.
+
+For a local explanation we use the same validation row explained by LIME and SHAP: a driver starting P11 at the 2021 Dutch Grand Prix. Each feature's contribution is its weight multiplied by the driver's standardized value, so it is measured **relative to the average training driver** (1950–2019). The model predicts a 13% podium probability, below the 0.625 threshold, and the driver indeed did not finish on the podium. The largest push down comes from `year` (−0.60), because 2021 is far later than the training average and the model learned a negative weight for later seasons. Grid P11 pushes slightly *up* (+0.21) because it is a little better than the historical average start of P12. The random-forest SHAP explanation ranks the same grid position as the main negative factor, which shows that each explanation depends on its model and its reference point. These weights describe what the fitted model relies on and are **not causal effects**.
+""")
 
 md("## 17. Complete and partially missing inference")
 code('display(results["summary"]["inference_demos"])')
