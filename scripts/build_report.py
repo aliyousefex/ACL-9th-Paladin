@@ -1236,9 +1236,10 @@ def main():
     )
     story.append(P(
         "<b>Round adds nothing, so we removed it.</b> Putting round back changes validation PR-AUC by "
-        f"{round_back[LR]:+.4f} for logistic regression, {round_back[RF]:+.4f} for the forest and "
-        f"{round_back[NN]:+.4f} for the network. All three are far smaller than the network's seed spread of up to "
-        f"{nn_sd:.3f}, and they do not agree in direction. The standings already carry the same information, because "
+        f"{round_back[LR]:+.4f} for logistic regression, which has no random seed, by {round_back[RF]:+.4f} for the "
+        f"forest, and by {round_back[NN]:+.4f} for the network, far inside the noise of a three-seed average (about "
+        f"{avg_noise:.3f}). None of these comes close to a real effect such as removing year ({no_year[NN]:+.4f} for the "
+        "network), and they do not agree in direction. The standings already carry the same information, because "
         "points and rank build up race by race. Round also changes meaning across eras: a season had about 8 races in "
         "the 1950s and 24 in 2024, so round 8 was a finale then and an early race now. With no measurable gain and an "
         "unstable meaning, the simpler model wins."
