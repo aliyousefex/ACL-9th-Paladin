@@ -1,4 +1,4 @@
-"""Data preparation, modeling, evaluation, and explanations for the F1 project.
+"""Data preparation, modelling, evaluation, and explanations for the F1 project.
 
 Every model input is available after qualifying and before the race starts. Post-race
 columns are only used for the target, lagged history, and the descriptive questions.
@@ -11,6 +11,7 @@ from __future__ import annotations
 import functools
 import json
 import re
+import sys
 import warnings
 from pathlib import Path
 from typing import Any
@@ -21,8 +22,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import sklearn
 from sklearn.base import clone
-from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.experimental import enable_iterative_imputer  # noqa: F401  (activates IterativeImputer)
@@ -68,6 +69,9 @@ PRIMARY_KEYS = {
     "drivers": ["driverId"], "driver_standings": ["driverStandingsId"],
     "races": ["raceId"], "results": ["resultId"],
     "qualifying": ["qualifyId"], "seasons": ["year"], "status": ["statusId"],
+    "lap_times": ["raceId", "driverId", "lap"],
+    "pit_stops": ["raceId", "driverId", "stop"],
+    "sprint_results": ["resultId"],
 }
 
 FOREIGN_KEYS = [
@@ -78,8 +82,21 @@ FOREIGN_KEYS = [
     ("results", "statusId", "status", "statusId"),
     ("qualifying", "raceId", "races", "raceId"),
     ("qualifying", "driverId", "drivers", "driverId"),
+    ("qualifying", "constructorId", "constructors", "constructorId"),
     ("driver_standings", "raceId", "races", "raceId"),
+    ("driver_standings", "driverId", "drivers", "driverId"),
     ("constructor_standings", "raceId", "races", "raceId"),
+    ("constructor_standings", "constructorId", "constructors", "constructorId"),
+    ("constructor_results", "raceId", "races", "raceId"),
+    ("constructor_results", "constructorId", "constructors", "constructorId"),
+    ("lap_times", "raceId", "races", "raceId"),
+    ("lap_times", "driverId", "drivers", "driverId"),
+    ("pit_stops", "raceId", "races", "raceId"),
+    ("pit_stops", "driverId", "drivers", "driverId"),
+    ("sprint_results", "raceId", "races", "raceId"),
+    ("sprint_results", "driverId", "drivers", "driverId"),
+    ("sprint_results", "constructorId", "constructors", "constructorId"),
+    ("sprint_results", "statusId", "status", "statusId"),
 ]
 
 
@@ -113,6 +130,23 @@ def audit_tables(tables: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame, pd.Data
         fk_rows.append({"relationship": f"{child}.{col} -> {parent}.{parent_col}",
                         "checked": len(values), "orphans": int(orphan.sum())})
     return pd.DataFrame(pk_rows), pd.DataFrame(fk_rows)
+
+
+def raw_table_profile(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """Programmatic initial EDA for every raw table before cleaning or joining."""
+    rows = []
+    for name, frame in sorted(tables.items()):
+        numeric = frame.select_dtypes(include=np.number)
+        rows.append({
+            "table": name, "rows": int(len(frame)), "columns": int(frame.shape[1]),
+            "missing_cells": int(frame.isna().sum().sum()),
+            "missing_share": float(frame.isna().mean().mean()),
+            "columns_with_missing": int(frame.isna().any().sum()),
+            "duplicate_full_rows": int(frame.duplicated().sum()),
+            "numeric_columns": int(numeric.shape[1]),
+            "object_columns": int(frame.select_dtypes(include=["object", "string"]).shape[1]),
+        })
+    return pd.DataFrame(rows)
 
 
 def _time_to_seconds(value: Any) -> float:
@@ -338,7 +372,7 @@ def cleaning_eda(raw_results: pd.DataFrame, cleaned: pd.DataFrame) -> pd.DataFra
     """Compare row counts and key rates at each cleaning stage.
 
     Three stages show what each step does on its own: the raw results, the table after
-    shared drives are resolved (the grain fix), and the final modeling table after the
+    shared drives are resolved (the grain fix), and the final modelling table after the
     drivers who did not enter the race are removed.
     """
     raw = raw_results.copy()
@@ -375,7 +409,7 @@ def model_definitions(random_state: int = 42) -> dict[str, Pipeline]:
 
     The forest and the network use settings chosen with ``hyperparameter_search`` on
     validation: depth 12 with leaf size 30 for the forest (its starting settings, an
-    unlimited depth with leaf size 4, memorized the training seasons), and a stronger
+    unlimited depth with leaf size 4, memorised the training seasons), and a stronger
     regularization of 0.02 for the network. Neither is the top of its grid in every run:
     the gaps to the best setting are inside the seed and race noise, so they are kept as
     the more constrained choices. Logistic regression kept its starting settings because
@@ -868,7 +902,7 @@ def hyperparameter_search(frame: pd.DataFrame) -> pd.DataFrame:
     """Search each model's settings on validation only; the test seasons are never touched.
 
     Every setting is trained on 1950-2019 and scored on 2020-2021. The network is
-    averaged over three seeds because its score moves with the random initialization,
+    averaged over three seeds because its score moves with the random initialisation,
     and the spread is reported so a gain smaller than the noise is not mistaken for progress.
     """
     splits = split_by_time(frame)
@@ -1132,6 +1166,20 @@ MECHANICAL_TERMS = {
     
 }
 
+# A deliberately conservative alternative used only for sensitivity analysis.  These
+# labels name internal systems directly; damage-prone labels such as wing, wheel,
+# suspension, tyre and puncture are omitted.  The official answer continues to use
+# MECHANICAL_TERMS because that list follows the documented instructor ruling.
+CORE_MECHANICAL_TERMS = {
+    "Alternator", "Battery", "Brakes", "Clutch", "Cooling system", "Differential",
+    "Driveshaft", "Drivetrain", "ERS", "Electrical", "Electronics", "Engine",
+    "Engine fire", "Engine misfire", "Exhaust", "Fuel leak", "Fuel pressure",
+    "Fuel pump", "Fuel system", "Gearbox", "Hydraulics", "Mechanical", "Oil leak",
+    "Oil pressure", "Overheating", "Power Unit", "Power loss", "Radiator",
+    "Spark plugs", "Steering", "Technical", "Throttle", "Transmission", "Turbo",
+    "Vibrations", "Water leak", "Water pressure", "Water pump",
+}
+
 # Exclude recorded non-starters from the mechanical-failure denominator. The F rows are
 # already gone from the modeling table, so "Did not qualify" and "Did not prequalify" only
 # matter if someone builds the table with ``drop_did_not_enter=False``.
@@ -1150,47 +1198,104 @@ NATIONALITY_TO_COUNTRY = {
 
 def engineering_answers(frame: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
     """Build the result tables for the three required data-engineering questions."""
+    status = tables["status"].set_index("statusId")["status"]
+    starters = frame.assign(status_text=frame.statusId.map(status))
+    starters = starters[~starters.status_text.isin(NON_START_STATUSES)].copy()
     # Use the final grid for the front-row question because penalties can change a
     # driver's position between qualifying and the actual start.
-    q1_source = frame[frame.grid.isin([1, 2])].copy()
+    q1_source = starters[starters.grid.isin([1, 2])].copy()
     q1_source["era"] = np.where(q1_source.year >= 2014, "2014-2024", "1950-2013")
+    front_overall = q1_source.groupby("era").podium.agg(["mean", "count"]).reset_index()
+    starter_era = starters.assign(era=np.where(starters.year >= 2014, "2014-2024", "1950-2013"))
+    starter_overall = starter_era.groupby("era").podium.agg(["mean", "count"]).reset_index()
     q1 = (q1_source.groupby(["era", "circuit_name"]).podium.agg(["mean", "count"]).reset_index()
           .query("count >= 10").sort_values(["era", "mean"], ascending=[True, False]))
 
     # Compare home and away drivers within broad grid bands. This does not make the
     # result causal, but it avoids comparing front-row and back-row starts directly.
-    home = frame.copy()
+    home = starters.copy()
     home["home_country"] = home.driver_nationality.map(NATIONALITY_TO_COUNTRY)
     home = home[home.home_country.notna() & home.grid_position.notna()].copy()
     home["home_race"] = home.home_country.eq(home.country)
     home["grid_band"] = pd.cut(home.grid_position, [0, 3, 6, 10, 15, 100], labels=["1-3", "4-6", "7-10", "11-15", "16+"])
     q2 = home.groupby(["grid_band", "home_race"], observed=True).podium.agg(["mean", "count"]).reset_index()
+    exact = home.groupby(["grid_position", "home_race"]).podium.agg(["mean", "sum", "count"]).reset_index()
+
+    # Build a race x exact-grid x (home, outcome) count cube. Resampling this cube
+    # gives a race-cluster bootstrap without refitting hundreds of row-level models.
+    races = np.sort(home.raceId.unique()); grids = np.sort(home.grid_position.unique())
+    race_ix = {v: i for i, v in enumerate(races)}; grid_ix = {v: i for i, v in enumerate(grids)}
+    cube = np.zeros((len(races), len(grids), 2, 2), dtype=float)
+    for row in home[["raceId", "grid_position", "home_race", "podium"]].itertuples(index=False):
+        cube[race_ix[row.raceId], grid_ix[row.grid_position], int(row.home_race), int(row.podium)] += 1
+
+    def common_odds_ratio(counts: np.ndarray) -> float:
+        """Mantel-Haenszel home/away odds ratio from exact-grid count strata."""
+        by_grid = counts.sum(axis=0)
+        away_no, away_yes = by_grid[:, 0, 0], by_grid[:, 0, 1]
+        home_no, home_yes = by_grid[:, 1, 0], by_grid[:, 1, 1]
+        n = by_grid.sum(axis=(1, 2)); valid = n > 0
+        num = np.sum(home_yes[valid] * away_no[valid] / n[valid])
+        den = np.sum(home_no[valid] * away_yes[valid] / n[valid])
+        return num / den if den else np.nan
+
+    observed_or = common_odds_ratio(cube)
+    rng = np.random.default_rng(42)
+    boot = [common_odds_ratio(cube[rng.integers(0, len(races), len(races))]) for _ in range(1000)]
+    home_adjusted = pd.DataFrame([{
+        "method": "Mantel-Haenszel, exact grid-position strata",
+        "home_odds_ratio": observed_or,
+        "ci_low_2.5%": float(np.nanpercentile(boot, 2.5)),
+        "ci_high_97.5%": float(np.nanpercentile(boot, 97.5)),
+        "home_rows": int(home.home_race.sum()), "away_rows": int((~home.home_race).sum()),
+        "excluded_unmapped_or_no_grid": int(len(starters) - len(home)),
+    }])
 
     # Count only the component failures listed above. Ambiguous statuses stay out of
     # the numerator, and recorded non-starters stay out of the denominator.
-    status = tables["status"].set_index("statusId")["status"]
-    q3_source = frame[frame.year.between(2014, 2024)].copy()
+    q3_source = starters[starters.year.between(2014, 2024)].copy()
     q3_source["status_text"] = q3_source.statusId.map(status)
     q3_source = q3_source[~q3_source.status_text.isin(NON_START_STATUSES)].copy()
     q3_source["mechanical"] = q3_source.status_text.isin(MECHANICAL_TERMS)
     q3_source["era"] = np.where(q3_source.year <= 2021, "2014-2021", "2022-2024")
     q3 = q3_source.groupby(["era", "constructor_name"]).mechanical.agg(["mean", "sum", "count"]).reset_index()
     q3 = q3[q3["count"] >= 20].sort_values(["era", "mean"], ascending=[True, False])
-    return {"front_row_circuits": q1, "home_effect": q2, "mechanical_retirements": q3}
+    sensitivity = []
+    for definition, terms in [("official instructor list", MECHANICAL_TERMS),
+                              ("conservative internal-system list", CORE_MECHANICAL_TERMS)]:
+        marked = q3_source.status_text.isin(terms)
+        for era, part in q3_source.assign(marked=marked).groupby("era"):
+            sensitivity.append({"definition": definition, "era": era, "failures": int(part.marked.sum()),
+                                "starts": int(len(part)), "rate": float(part.marked.mean())})
+    return {"front_row_circuits": q1, "front_row_overall": front_overall,
+            "starter_overall": starter_overall, "home_effect": q2, "home_exact_grid": exact,
+            "home_adjusted": home_adjusted, "mechanical_retirements": q3,
+            "mechanical_sensitivity": pd.DataFrame(sensitivity)}
 
 
-def create_plots(frame: pd.DataFrame, cleaning: pd.DataFrame,
-                 answers: dict[str, pd.DataFrame], metrics: pd.DataFrame,
-                 ablations: pd.DataFrame, trained: dict[str, Pipeline], out_dir: str | Path) -> dict[str, str]:
-    """Create the report figures and return their output paths."""
-    out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
-    sns.set_theme(style="whitegrid", context="notebook")
-    paths = {}
-    def save(name: str):
-        """Apply the shared layout, save the active figure, and close it."""
-        path = out / f"{name}.png"; plt.tight_layout(); plt.savefig(path, dpi=150, bbox_inches="tight"); plt.close(); paths[name] = str(path)
+def _save_current_plot(out: Path, name: str) -> str:
+    """Apply the shared layout and save the active Matplotlib figure."""
+    path = out / f"{name}.png"
+    plt.tight_layout()
+    plt.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close()
+    return str(path)
 
-    # Show whether each cleaning step changed the grain or important outcome rates.
+
+def _plot_raw_table_profile(raw_profile: pd.DataFrame, out: Path) -> str:
+    """Plot raw-table sizes and missingness for the initial EDA."""
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    shown = raw_profile.sort_values("rows")
+    axes[0].barh(shown.table, shown.rows, color="#264653"); axes[0].set_xscale("log")
+    axes[0].set_title("Rows in every raw table (log scale)"); axes[0].set_xlabel("rows")
+    axes[1].barh(shown.table, shown.missing_share, color="#e76f51")
+    axes[1].set_title("Missing-cell share before cleaning"); axes[1].set_xlabel("share")
+    fig.tight_layout(); fig.savefig(out / "raw_table_profile.png", dpi=180, bbox_inches="tight"); plt.close(fig)
+    return str(out / "raw_table_profile.png")
+
+
+def _plot_cleaning_effects(cleaning: pd.DataFrame, out: Path) -> str:
+    """Compare grain and outcome rates before and after each cleaning step."""
     staged = cleaning.assign(stage=cleaning.stage.str.replace(" (", "\n(", regex=False))
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.4))
     counts = staged.melt(id_vars="stage", value_vars=["rows", "unique_driver_races"],
@@ -1205,32 +1310,64 @@ def create_plots(frame: pd.DataFrame, cleaning: pd.DataFrame,
     axes[1].set_xlabel(""); axes[1].set_ylabel("Share of rows")
     axes[1].tick_params(axis="x", rotation=15)
     fig.tight_layout(); fig.savefig(out / "cleaning_before_after.png", dpi=150, bbox_inches="tight"); plt.close(fig)
-    paths["cleaning_before_after"] = str(out / "cleaning_before_after.png")
+    return str(out / "cleaning_before_after.png")
+
+
+def _plot_analysis_results(frame: pd.DataFrame, answers: dict[str, pd.DataFrame],
+                           metrics: pd.DataFrame, ablations: pd.DataFrame, out: Path) -> dict[str, str]:
+    """Plot coverage, engineering answers, model scores, and ablation results."""
+    paths = {}
 
     coverage = frame.groupby("year").qualifying_position.apply(lambda x: x.notna().mean()).reset_index(name="coverage")
-    plt.figure(figsize=(10, 4)); sns.lineplot(coverage, x="year", y="coverage"); plt.ylabel("Qualifying coverage"); plt.title("Qualifying coverage by season"); save("qualifying_coverage")
+    plt.figure(figsize=(10, 4)); sns.lineplot(coverage, x="year", y="coverage"); plt.ylabel("Qualifying coverage"); plt.title("Qualifying coverage by season"); paths["qualifying_coverage"] = _save_current_plot(out, "qualifying_coverage")
 
     q1 = answers["front_row_circuits"].groupby("era").head(10)
-    plt.figure(figsize=(10, 6)); sns.barplot(q1, y="circuit_name", x="mean", hue="era"); plt.xlabel("Front-row to podium rate"); plt.ylabel(""); save("front_row_conversion")
+    plt.figure(figsize=(10, 6)); sns.barplot(q1, y="circuit_name", x="mean", hue="era"); plt.xlabel("Front-row to podium rate"); plt.ylabel(""); paths["front_row_conversion"] = _save_current_plot(out, "front_row_conversion")
 
     q2 = answers["home_effect"]
-    plt.figure(figsize=(8, 4)); sns.lineplot(q2, x="grid_band", y="mean", hue="home_race", marker="o"); plt.ylabel("Podium rate"); plt.xlabel("Starting-grid band"); save("home_effect")
+    plt.figure(figsize=(8, 4)); sns.lineplot(q2, x="grid_band", y="mean", hue="home_race", marker="o"); plt.ylabel("Podium rate"); plt.xlabel("Starting-grid band"); paths["home_effect"] = _save_current_plot(out, "home_effect")
+
+    q2_exact = answers["home_exact_grid"]
+    plt.figure(figsize=(10, 4.8)); sns.lineplot(q2_exact, x="grid_position", y="mean", hue="home_race", marker="o")
+    plt.ylabel("Podium rate"); plt.xlabel("Exact starting-grid position"); plt.xlim(1, 24); paths["home_effect_exact_grid"] = _save_current_plot(out, "home_effect_exact_grid")
 
     q3 = answers["mechanical_retirements"].groupby("era").head(10)
-    plt.figure(figsize=(10, 6)); sns.barplot(q3, y="constructor_name", x="mean", hue="era"); plt.xlabel("Mechanical-retirement rate"); plt.ylabel(""); save("mechanical_retirements")
+    plt.figure(figsize=(10, 6)); sns.barplot(q3, y="constructor_name", x="mean", hue="era"); plt.xlabel("Mechanical-retirement rate"); plt.ylabel(""); paths["mechanical_retirements"] = _save_current_plot(out, "mechanical_retirements")
 
     test_metrics = metrics[metrics.split.eq("test")].melt(id_vars=["model", "split", "threshold"], value_vars=["ROC-AUC", "PR-AUC", "F1", "Precision", "Recall"], var_name="metric", value_name="score")
-    plt.figure(figsize=(10, 5)); sns.barplot(test_metrics, x="metric", y="score", hue="model"); plt.ylim(0, 1); save("model_comparison")
+    plt.figure(figsize=(10, 5)); sns.barplot(test_metrics, x="metric", y="score", hue="model"); plt.ylim(0, 1); paths["model_comparison"] = _save_current_plot(out, "model_comparison")
 
-    plt.figure(figsize=(9, 4)); sns.barplot(ablations, y="variant", x="PR-AUC_change"); plt.axvline(0, color="black", lw=1); save("ablation")
+    plt.figure(figsize=(9, 4)); sns.barplot(ablations, y="variant", x="PR-AUC_change"); plt.axvline(0, color="black", lw=1); paths["ablation"] = _save_current_plot(out, "ablation")
+    return paths
+
+
+def _plot_permutation_importance(frame: pd.DataFrame, trained: dict[str, Pipeline], out: Path) -> str:
+    """Measure and plot validation permutation importance for the forest."""
 
     # Use a fixed validation sample to keep repeated permutation scoring manageable.
     split = split_by_time(frame); forest = trained["Random forest"]
     sample = split["validation"].sample(min(1000, len(split["validation"])), random_state=42)
     perm = permutation_importance(forest, sample[FEATURES], sample.podium, scoring="average_precision", n_repeats=5, random_state=42, n_jobs=1)
     importance = pd.DataFrame({"feature": FEATURES, "importance": perm.importances_mean}).sort_values("importance", ascending=False)
-    plt.figure(figsize=(9, 6)); sns.barplot(importance.head(12), y="feature", x="importance"); save("permutation_importance")
+    plt.figure(figsize=(9, 6)); sns.barplot(importance.head(12), y="feature", x="importance")
+    path = _save_current_plot(out, "permutation_importance")
     importance.to_csv(out / "permutation_importance.csv", index=False)
+    return path
+
+
+def create_plots(frame: pd.DataFrame, raw_profile: pd.DataFrame, cleaning: pd.DataFrame,
+                 answers: dict[str, pd.DataFrame], metrics: pd.DataFrame,
+                 ablations: pd.DataFrame, trained: dict[str, Pipeline], out_dir: str | Path) -> dict[str, str]:
+    """Create the report figures and return their output paths."""
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    sns.set_theme(style="whitegrid", context="notebook")
+    paths = {
+        "raw_table_profile": _plot_raw_table_profile(raw_profile, out),
+        "cleaning_before_after": _plot_cleaning_effects(cleaning, out),
+    }
+    paths.update(_plot_analysis_results(frame, answers, metrics, ablations, out))
+    paths["permutation_importance"] = _plot_permutation_importance(frame, trained, out)
     return paths
 
 
@@ -1325,11 +1462,63 @@ def lime_explanation(frame: pd.DataFrame, trained: dict[str, Pipeline], out_dir:
     return local_df
 
 
+def logistic_explanations(frame: pd.DataFrame, trained: dict[str, Pipeline],
+                          out_dir: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Save global weights and an exact local log-odds decomposition for the selected model."""
+    out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    model = trained["Logistic regression"]
+    estimator = model.named_steps["model"]
+    weights = np.asarray(estimator.coef_[0], dtype=float)
+    global_df = pd.DataFrame({"feature": FEATURES, "coefficient": weights}).sort_values(
+        "coefficient", key=np.abs, ascending=False
+    )
+
+    explained = split_by_time(frame)["validation"].sample(1, random_state=42).iloc[0]
+    scaled = np.asarray(model.named_steps["preprocess"].transform(pd.DataFrame([explained[FEATURES]]))[0], dtype=float)
+    contributions = scaled * weights
+    intercept = float(estimator.intercept_[0])
+    log_odds = float(intercept + contributions.sum())
+    probability = float(model.predict_proba(pd.DataFrame([explained[FEATURES]]))[0, 1])
+    local_df = pd.DataFrame({
+        "feature": FEATURES,
+        "standardized_value": scaled,
+        "coefficient": weights,
+        "log_odds_contribution": contributions,
+        "observed_value": explained[FEATURES].values,
+        "intercept": intercept,
+        "total_log_odds": log_odds,
+        "model_probability": probability,
+        "year": int(explained["year"]),
+        "driver_id": int(explained["driverId"]),
+        "race_name": explained["name"],
+        "podium": int(explained["podium"]),
+    }).sort_values("log_odds_contribution", key=np.abs, ascending=False)
+
+    colors = np.where(global_df.coefficient.ge(0), "#2a9d8f", "#e76f51")
+    plt.figure(figsize=(9, 6)); plt.barh(global_df.feature[::-1], global_df.coefficient[::-1], color=colors[::-1])
+    plt.axvline(0, color="black", lw=1); plt.xlabel("Coefficient per +1 training standard deviation")
+    plt.title("Selected logistic model: global standardized coefficients")
+    plt.tight_layout(); plt.savefig(out / "logistic_weights.png", dpi=150, bbox_inches="tight"); plt.close()
+
+    colors = np.where(local_df.log_odds_contribution.ge(0), "#2a9d8f", "#e76f51")
+    plt.figure(figsize=(9, 6)); plt.barh(local_df.feature[::-1], local_df.log_odds_contribution[::-1], color=colors[::-1])
+    plt.axvline(0, color="black", lw=1); plt.xlabel("Contribution to this prediction's log-odds")
+    plt.title("Selected logistic model: local decomposition")
+    plt.tight_layout(); plt.savefig(out / "logistic_local.png", dpi=150, bbox_inches="tight"); plt.close()
+    global_df.to_csv(out / "logistic_weights.csv", index=False)
+    local_df.to_csv(out / "logistic_local.csv", index=False)
+    return global_df, local_df
+
+
 def predict_podium(record: dict[str, Any], model: Pipeline, threshold: float) -> dict[str, Any]:
-    """Score one pre-race record, leaving omitted fields for the fitted imputer."""
+    """Score one pre-race record and disclose every field delegated to imputation."""
     row = pd.DataFrame([{feature: record.get(feature, np.nan) for feature in FEATURES}])
     probability = float(model.predict_proba(row)[0, 1])
-    return {"podium_probability": probability, "predicted_podium": bool(probability >= threshold), "threshold": threshold}
+    missing = [feature for feature in FEATURES if pd.isna(row.at[0, feature])]
+    return {"podium_probability": probability, "predicted_podium": bool(probability >= threshold),
+            "threshold": threshold, "missing_features": missing,
+            "imputation_warning": (f"{len(missing)} of {len(FEATURES)} features were missing and filled by the training-fitted imputer."
+                                   if missing else None)}
 
 
 def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artifacts") -> dict[str, Any]:
@@ -1337,6 +1526,7 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     tables = load_raw_tables(data_dir)
     pk, fk = audit_tables(tables)
+    raw_profile = raw_table_profile(tables)
     frame, diagnostics = build_modeling_table(tables)
     cleaning = cleaning_eda(tables["results"], frame)
     answers = engineering_answers(frame, tables)
@@ -1360,17 +1550,19 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
     non_starters, non_starter_runs = non_starter_audit(with_f, tables), non_starter_experiment(with_f, frame)
     feature_summary = feature_eda(frame)
     ablations = ablation_experiments(frame)
-    plots = create_plots(frame, cleaning, answers, metrics, ablations, trained, out / "figures")
+    plots = create_plots(frame, raw_profile, cleaning, answers, metrics, ablations, trained, out / "figures")
     plots.update(preprocessing_plots(frame, effects, out / "figures"))
     plots["chronological_split"] = split_plot(frame, out / "figures")
     plots["feature_eda"] = feature_eda_plot(frame, out / "figures")
     shap_global, shap_local = shap_explanations(frame, trained, out / "figures")
     lime_local = lime_explanation(frame, trained, out / "figures")
+    logistic_global, logistic_local = logistic_explanations(frame, trained, out / "figures")
 
     # Save the intermediate evidence so the report can be rebuilt without retraining.
     frame.to_csv(out / "modeling_table.csv", index=False)
     cleaning.to_csv(out / "cleaning_eda.csv", index=False)
     pk.to_csv(out / "primary_key_audit.csv", index=False); fk.to_csv(out / "foreign_key_audit.csv", index=False)
+    raw_profile.to_csv(out / "raw_table_profile.csv", index=False)
     metrics.to_csv(out / "model_metrics.csv", index=False); preprocessing.to_csv(out / "preprocessing_experiments.csv", index=False)
     effects.to_csv(out / "preprocessing_effects.csv", index=False)
     engineering_effects.to_csv(out / "feature_engineering_effects.csv", index=False)
@@ -1404,9 +1596,13 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
         "inference_demos": demos,
         "mechanical_statuses": sorted(MECHANICAL_TERMS),
         "non_start_statuses": sorted(NON_START_STATUSES),
+        "runtime_versions": {"python": sys.version.split()[0], "numpy": np.__version__,
+                             "pandas": pd.__version__, "scikit-learn": sklearn.__version__,
+                             "matplotlib": matplotlib.__version__, "seaborn": sns.__version__},
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return {"tables": tables, "modeling_table": frame, "pk_audit": pk, "fk_audit": fk,
+            "raw_table_profile": raw_profile,
             "answers": answers, "models": trained, "metrics": metrics, "thresholds": thresholds,
             "preprocessing": preprocessing, "preprocessing_effects": effects,
             "feature_engineering_effects": engineering_effects, "preprocessing_order": order_experiments,
@@ -1419,5 +1615,6 @@ def run_analysis(data_dir: str | Path = "data/raw", out_dir: str | Path = "artif
             "non_starters": non_starters, "non_starter_experiment": non_starter_runs, "feature_eda": feature_summary,
             "ablations": ablations, "cleaning_eda": cleaning, "plots": plots,
             "shap_global": shap_global, "shap_local": shap_local, "lime_local": lime_local,
+            "logistic_global": logistic_global, "logistic_local": logistic_local,
             "summary": summary}
 

@@ -161,30 +161,66 @@ def source_section(source: str, start: str, end: str | None = None) -> str:
 
 source = PIPELINE.read_text(encoding="utf-8")
 implementation_sections = [
-    ("## 1. Imports, analytical contract, and relational schema",
-     "The constants define the features, primary keys, and foreign-key relationships used throughout the analysis.",
+    ("## 1. Imports and analytical contract",
+     "We begin with the libraries, feature groups, and relational keys used by every later stage.",
      source_section(source, "from __future__ import annotations", "def load_raw_tables")),
-    ("## 2. Loading, auditing, cleaning, and feature engineering",
-     "Literal `\\N` values become missing values. Dates and qualifying durations receive semantic types. Shared-drive duplicates are resolved deterministically before leakage-safe historical features are constructed.",
-     source_section(source, "def load_raw_tables", "def split_by_time")),
-    ("## 3. EDA, chronological splitting, preprocessing, and models",
-     "Training covers 1950-2019, validation 2020-2021, and test 2022-2024. Preprocessing is fitted on training rows only, and all three models use identical rows and features.",
-     source_section(source, "def split_by_time", "MECHANICAL_TERMS =")),
-    ("## 4. Data-engineering questions",
-     "These functions answer the three required multi-hop relational questions and document the status and nationality mappings used by them.",
-     source_section(source, "MECHANICAL_TERMS =", "def create_plots")),
-    ("## 5. Visual evidence and explainability",
-     "The figures cover cleaning, missingness, all analytical questions, model comparison, ablation, permutation importance, global SHAP, local LIME, and a local SHAP cross-check.",
-     source_section(source, "def create_plots", "def predict_podium")),
+    ("## 2. Loading and relational audits",
+     "These helpers load immutable CSVs and check every declared primary and foreign key before any joins are made.",
+     source_section(source, "def load_raw_tables", "def _time_to_seconds")),
+    ("### 2.1 Cleaning the race results",
+     "Qualifying durations receive numeric units, and shared-drive duplicates are resolved before the driver-race grain is built.",
+     source_section(source, "def _time_to_seconds", "def _previous_standings")),
+    ("### 2.2 Building the modelling table",
+     "Previous standings are shifted to the next race, while form features use only earlier starts. This is the main leakage-control boundary.",
+     source_section(source, "def _previous_standings", "SPLIT_YEARS =")),
+    ("## 3. Chronological splitting and split checks",
+     "The split helpers keep whole seasons and races together, then compare the chosen chronological split with tempting random alternatives.",
+     source_section(source, "SPLIT_YEARS =", "def cleaning_eda")),
+    ("## 4. Cleaning EDA and model definitions",
+     "We measure the effect of cleaning, define the three comparable models, and keep threshold selection on validation data only.",
+     source_section(source, "def cleaning_eda", "def preprocessing_experiments")),
+    ("### 4.1 Preprocessing evidence",
+     "These experiments compare imputation strategies and record how feature distributions change after imputation and scaling.",
+     source_section(source, "def preprocessing_experiments", "def preprocessing_plots")),
+    ("### 4.2 Preprocessing visualisations",
+     "The following plotting helpers show distribution, range, and chronological-split effects without changing the data used by the models.",
+     source_section(source, "def preprocessing_plots", "def ablation_experiments")),
+    ("### 4.3 Feature evidence and ablation",
+     "Ablation measures each feature group's contribution, while the feature-level EDA records missingness, outcome rates, and one-feature AUCs.",
+     source_section(source, "def ablation_experiments", "def _validation_scores")),
+    ("### 4.4 Missing-value experiments",
+     "We compare imputation and row/column removal on the same validation seasons before choosing the final preprocessing path.",
+     source_section(source, "def _validation_scores", "SEARCH_SPACE =")),
+    ("### 4.5 Hyperparameter search",
+     "Small, explicit search spaces keep the three model families comparable and prevent the test seasons from influencing settings.",
+     source_section(source, "SEARCH_SPACE =", "def constructor_history_audit")),
+    ("### 4.6 Robustness and historical checks",
+     "These checks cover constructor identity changes, calendar features, alternate validation windows, and race-level uncertainty.",
+     source_section(source, "def constructor_history_audit", "def sprint_weekend_check")),
+    ("### 4.7 Sprints and recorded non-starters",
+     "Sprint timing and non-starter choices are tested explicitly because both can alter the meaning of a driver-race row.",
+     source_section(source, "def sprint_weekend_check", "MECHANICAL_TERMS =")),
+    ("## 5. Data-engineering questions",
+     "The status and nationality rules below support the three required multi-table questions.",
+     source_section(source, "MECHANICAL_TERMS =", "def _save_current_plot")),
+    ("### 5.1 Core result plots",
+     "Each helper owns one family of figures: raw-table EDA, cleaning effects, analytical results, or permutation importance.",
+     source_section(source, "def _save_current_plot", "def shap_explanations")),
+    ("### 5.2 Random-forest explanations",
+     "Global and local SHAP plus a local LIME surrogate explain the forest from complementary reference points.",
+     source_section(source, "def shap_explanations", "def logistic_explanations")),
+    ("### 5.3 Selected logistic-model explanations",
+     "Standardised coefficients give the global view, and their exact log-odds contributions explain one selected prediction.",
+     source_section(source, "def logistic_explanations", "def predict_podium")),
     ("## 6. Inference and end-to-end execution",
-     "The inference function accepts complete and partial records. The runner rebuilds every table, experiment, metric, explanation, and figure used below.",
+     "The inference helper discloses every imputed field. The runner then rebuilds all tables, experiments, metrics, explanations, and figures.",
      source_section(source, "def predict_podium")),
 ]
 
 md("""
 # Milestone 1: Formula 1 Podium Prediction Companion
 
-This is the complete, self-contained Kaggle submission notebook. Every function used for loading, auditing, cleaning, joining, feature engineering, modeling, evaluation, experimentation, explainability, plotting, and inference appears in visible cells below. The notebook does **not** import project code from `pipeline.py`.
+This notebook contains our complete Kaggle submission. The cells below include the code for loading, auditing, cleaning, joining, feature engineering, modelling, evaluation, experiments, explanations, plots, and inference. We keep the implementation visible instead of importing it from `pipeline.py`.
 
 The prediction cutoff is after qualifying and before the race starts. The unit of analysis is one driver entering one race, and the binary target is `positionOrder <= 3`. PR-AUC is primary because podiums are rare; ROC-AUC is secondary. F1, precision, and recall are calculated at thresholds selected from validation data only.
 """)
@@ -228,11 +264,13 @@ for heading, explanation, implementation in implementation_sections:
 md("""
 ## 7. Run the complete pipeline
 
-This call rebuilds all evidence from the attached raw data. There are no hidden manual cells and no imported project implementation.
+This cell runs the whole analysis from the attached raw data. It does not depend on hidden cells or a separate project module.
 """)
 code("""
 from IPython.display import Image, display
 
+pd.set_option("display.max_rows", 200)
+pd.set_option("display.max_colwidth", None)
 results = run_analysis(DATA, OUT)
 display(results["summary"])
 """)
@@ -245,10 +283,12 @@ The audit checks key uniqueness, null keys, and orphan references. The cleaning 
 code("""
 display(results["pk_audit"])
 display(results["fk_audit"])
+display(results["raw_table_profile"])
 display(results["summary"]["diagnostics"])
 display(results["cleaning_eda"])
 display(Image(filename=str(OUT / "figures" / "cleaning_before_after.png")))
 display(Image(filename=str(OUT / "figures" / "qualifying_coverage.png")))
+display(Image(filename=str(OUT / "figures" / "raw_table_profile.png")))
 """)
 md(f"""
 Cleaning has two steps. The first fixes the grain: resolving {n(diag['duplicate_driver_race_groups'])} shared-drive groups removes {n(c_raw.rows - c_shared.rows)} rows and leaves exactly one row per `(raceId, driverId)`, without moving the target ({pc(c_raw.podium_rate, 2)} to {pc(c_shared.podium_rate, 2)}) or the median grid ({c_shared.median_grid:g}). The second step removes the {n(diag['did_not_enter_rows_removed'])} rows of drivers who did not enter the race (section 8.1). None of them is a podium, so the podium rate rises to {pc(c_final.podium_rate, 2)} by arithmetic alone, and the grid-0 share falls from {pc(c_shared.pit_lane_share)} to {pc(c_final.pit_lane_share)}. Qualifying coverage is sparse in older seasons, so we retain an explicit missingness flag and use final grid as the historically broader pre-race signal rather than discarding early history.
@@ -290,15 +330,15 @@ display(results["summary"]["mechanical_statuses"])
 print("Statuses excluded as non-starts:")
 display(results["summary"]["non_start_statuses"])
 
-for figure in ["front_row_conversion", "home_effect", "mechanical_retirements"]:
+for figure in ["front_row_conversion", "home_effect", "home_effect_exact_grid", "mechanical_retirements"]:
     display(Image(filename=str(OUT / "figures" / f"{figure}.png")))
 """)
 md("""
-**Front-row conversion.** Rankings are separated at the 2014 hybrid-era boundary and require at least ten front-row starts per circuit-era. Final grid positions 1-2 define the front row because penalties can make qualifying order differ from the actual start.
+**Front-row conversion.** Rankings are separated at the 2014 hybrid-era boundary and require at least ten front-row starts per circuit-era. Final grid positions 1-2 define the front row because penalties can make qualifying order differ from the actual start. Recorded non-starters are excluded from this descriptive denominator.
 
-**Home-country effect.** Home and away rates are compared inside the same grid bands. This controls the dominant starting-position pattern transparently, but the result remains descriptive rather than causal.
+**Home-country effect.** Home and away rates are shown by broad bands and exact grid slot, excluding recorded non-starters. The Mantel-Haenszel exact-grid odds ratio and its race-cluster bootstrap interval provide the adjusted check; an interval spanning 1 does not establish a home advantage or disadvantage. The result remains associational rather than causal.
 
-**Mechanical retirements.** Rates use recorded race starters as the denominator and documented component-status labels as the numerator, with at least twenty starts per constructor-era. Ambiguous status coding remains a limitation. Engine fire and engine misfire are counted as mechanical because they are engine failures; heat shield fire is not counted, following TA feedback. None of these statuses occur in 2014-2024, so this choice does not change the rates.
+**Mechanical retirements.** Rates use recorded race starters as the denominator and documented component-status labels as the numerator, with at least twenty starts per constructor-era. The official instructor list is shown beside a conservative internal-system-only sensitivity definition. Ambiguous status coding remains a limitation, and the original Piazza export is not archived in this repository.
 """)
 
 md("## 10. Leakage-safe features")
@@ -597,7 +637,7 @@ assert _tp[LR] < min(_tp[RF], _tp[NN]) and abs(_tp[RF] - _tp[NN]) < 0.005, "the 
 md(f"""
 On unseen test seasons (2022-2024) PR-AUC is {f3(_tp[LR])} for logistic regression, {f3(_tp[RF])} for the random forest and {f3(_tp[NN])} for the network; ROC-AUC is {f3(mget(LR, 'test', 'ROC-AUC'))}, {f3(mget(RF, 'test', 'ROC-AUC'))} and {f3(mget(NN, 'test', 'ROC-AUC'))}. The forest and the network are level at the top, and logistic regression is about {f3(min(_tp[RF], _tp[NN]) - _tp[LR])} behind. To see whether that gap is real we bootstrapped the {int(_ut.races.iloc[0])} test races (table above). The bootstrap resamples predictions we already had and chooses nothing, and we ran it after every choice was frozen. The forest minus logistic regression difference is {sg(_t_rf['test_PR-AUC'], 4)} with an interval of {sg(_t_rf['ci_low_2.5%'])} to {sg(_t_rf['ci_high_97.5%'])}, and for the network it is {sg(_t_nn['test_PR-AUC'], 4)} with an interval of {sg(_t_nn['ci_low_2.5%'])} to {sg(_t_nn['ci_high_97.5%'])}. Both intervals include zero, and so do the validation intervals in section 11.1. **The data do not support claiming that a more complex model is better.**
 
-We therefore treat the three models as equivalent in ranking quality and use the other properties to decide. Logistic regression is the baseline and the easiest to defend and explain: its coefficients are directly readable, it is stable across seeds, and it needs no tuning to behave. It is also nominally highest on validation PR-AUC, the score we select on, so logistic regression is the selected model and the one used for the inference demo. On test the forest and the network are slightly higher, but the bootstrap shows that edge is within noise, and the test seasons are never used to choose. The reason a nonlinear model gains so little is that the strongest signals (grid, qualifying position, and recent form) act close to monotonically on podium odds, which a linear model already captures. PR-AUC is primary because only about one in eight entrants finishes on the podium, so ROC-AUC rewards correctly ranking the many easy non-podium rows; ROC-AUC stays as the secondary metric.
+We treat the three models as equivalent in ranking quality and use their other properties to decide. Logistic regression is our baseline and the easiest to explain: its coefficients are readable, it is stable across seeds, and it does not need much tuning. It is also nominally highest on validation PR-AUC, the score used for selection, so we use it for the inference demo. The forest and network score slightly higher on test, but the bootstrap puts that difference within the race-to-race noise, and the test seasons were not used to choose a model. The nonlinear models gain little because the strongest signals (grid, qualifying position, and recent form) are close to monotonic in podium odds, which the linear model already captures. PR-AUC is primary because only about one in eight entrants reaches the podium; ROC-AUC remains our secondary metric.
 """)
 
 md("## 15. Feature-group ablation")
@@ -618,42 +658,16 @@ display(results["lime_local"].head(12))
 display(results["shap_local"].head(12))
 """)
 md("""
-Permutation importance measures the validation PR-AUC change after shuffling one feature, and global SHAP summarizes average contribution magnitude. Local LIME explains one fixed validation prediction with 5,000 perturbations around that row and a distance-weighted ridge surrogate; its weighted R² reports local fidelity. Positive LIME weights push the surrogate toward a podium and negative weights push it away. Local SHAP is retained as a supplementary cross-check. Correlated predictors can divide importance differently across methods. These values describe fitted-model reliance and are **not causal effects**.
+Permutation importance measures the validation PR-AUC change after shuffling one feature, and global SHAP summarizes average contribution magnitude. Local LIME explains one fixed validation prediction with 5,000 perturbations around that row and a distance-weighted ridge surrogate. Its weighted R-squared is only about 0.20, so its coefficients are weak, unstable local evidence rather than a faithful decomposition. Positive weights push the surrogate toward a podium and negative weights push it away. Local SHAP is retained as a supplementary cross-check. Correlated predictors can divide importance differently across methods. These values describe fitted-model reliance and are **not causal effects**.
 """)
 md("### 16.1 Explaining the selected model directly: logistic regression weights")
 code("""
-# The selected model is logistic regression, which is intrinsically interpretable (Lab 4),
-# so we read the explanation straight from its weights instead of only from the forest.
-lr_model = results["models"]["Logistic regression"]
-lr = lr_model.named_steps["model"]
-
-# Global explanation: one weight per standardized feature.
-weights = pd.Series(lr.coef_[0], index=FEATURES).sort_values()
-fig, ax = plt.subplots(figsize=(8, 6))
-ax.barh(weights.index, weights.values, color=["#2a9d8f" if w > 0 else "#e76f51" for w in weights])
-ax.axvline(0, color="black", lw=1)
-ax.set_xlabel("Weight (effect of +1 standard deviation on log-odds of a podium)")
-ax.set_title("Logistic regression: what the selected model relies on")
-fig.tight_layout(); fig.savefig(OUT / "figures" / "logistic_weights.png", dpi=150, bbox_inches="tight"); plt.close(fig)
+# Both tables and both figures were written by run_analysis from the same fitted pipeline
+# used for model_metrics.csv. The report reads these exact CSVs too.
 display(Image(filename=str(OUT / "figures" / "logistic_weights.png")))
-
-# Local explanation: the same validation row that LIME and SHAP explain.
-val = split_by_time(results["modeling_table"])["validation"]
-driver = val.sample(1, random_state=42)
-display(driver[["year", "name", "grid_position", "driver_podium_rate_5", "podium"]])
-print("Podium probability:", round(lr_model.predict_proba(driver[FEATURES])[0, 1], 3),
-      "| threshold:", round(results["thresholds"]["Logistic regression"], 3))
-
-# Each feature's push = its weight x the driver's standardized value (relative to the average training driver).
-scaled_values = lr_model.named_steps["preprocess"].transform(driver[FEATURES])[0]
-push = pd.Series(scaled_values * lr.coef_[0], index=FEATURES).sort_values()
-fig, ax = plt.subplots(figsize=(8, 6))
-ax.barh(push.index, push.values, color=["#2a9d8f" if v > 0 else "#e76f51" for v in push])
-ax.axvline(0, color="black", lw=1)
-ax.set_xlabel("Contribution to log-odds of a podium for this driver")
-ax.set_title("Logistic regression: one prediction (2021 Dutch GP, grid P11)")
-fig.tight_layout(); fig.savefig(OUT / "figures" / "logistic_local.png", dpi=150, bbox_inches="tight"); plt.close(fig)
+display(results["logistic_global"])
 display(Image(filename=str(OUT / "figures" / "logistic_local.png")))
+display(results["logistic_local"])
 """)
 md("""
 **Logistic regression is the selected model and is intrinsically interpretable, so we explain it directly from its own weights rather than only through the random forest.** Because every input is standardized on the training seasons, each weight is the change in the log-odds of a podium for a one-standard-deviation increase in that feature, which makes the weights comparable with each other. Globally, `grid_position` dominates (−1.44, about five times larger than any other weight): starting further back strongly lowers the predicted podium probability, which agrees with the ablation, permutation importance and SHAP results. A pit-lane start (−0.63) also pushes strongly away from a podium, while recent constructor form (+0.29), driver points so far (+0.25), experience (+0.24) and recent driver form (+0.22) push towards one. `constructor_points_before` has a small negative weight even though more points should help. It overlaps heavily with constructor rank and constructor form, and when predictors are correlated the model can split the credit between them in ways that are hard to read one weight at a time.
@@ -664,7 +678,7 @@ For a local explanation we use the same validation row explained by LIME and SHA
 md("## 17. Complete and partially missing inference")
 code('display(results["summary"]["inference_demos"])')
 md("""
-The complete example follows the normal inference path. The partial example demonstrates that missing inputs are handled by the imputer fitted on training seasons, without consulting validation or test data. Its output demonstrates software robustness rather than a historical base rate.
+The complete example follows the normal inference path. The partial example demonstrates that missing inputs are handled by the imputer fitted on training seasons, without consulting validation or test data. The API returns `missing_features` and an explicit `imputation_warning`, so silent mass imputation is impossible. Its probability demonstrates software robustness rather than a historical base rate.
 """)
 
 md("""
@@ -675,6 +689,7 @@ md("""
 - Constructor identifiers do not bridge team renames, and a few old identifiers are reused by unrelated later teams (section 10.4).
 - The nationality-to-country mapping is incomplete and cannot represent multiple nationalities.
 - Mechanical status classification is rules-based and can miss ambiguous causes.
+- The original Piazza/TA ruling export is not archived in this repository; the sensitivity table shows how a stricter definition changes the totals.
 - Validation contains only the 2020-2021 seasons, so selection estimates have sampling uncertainty.
 - Probabilities were evaluated for ranking and threshold classification, not formal calibration.
 - Permutation importance, SHAP, and LIME explain associations inside fitted models, not causes of podium finishes.

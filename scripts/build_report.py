@@ -197,12 +197,12 @@ def build_styles():
 STYLES = build_styles()
 COUNTERS = {"fig": 0, "tab": 0}
 
-# Team Paladin, as shown on the title page. Rana's email was not given to us.
+# Paladin, as shown on the title page.
 TEAM = [
     ("Ali Ussama Youssef", "58-2854", "ali.ussama@student.guc.edu.eg", "T-25"),
     ("Yehia Wael Raafat Abdelfattah", "58-5798", "yehia.abdelfattah@student.guc.edu.eg", "T-25"),
     ("Aya Ahmed Elkelany", "58-1764", "aya.elkelany@student.guc.edu.eg", "T-14"),
-    ("Rana Tamer Elsayed", "58-6459", "", "T-13"),
+    ("Rana Tamer Elsayed", "58-6459", "Rana.bakry@student.guc.edu.eg", "T-13"),
 ]
 
 
@@ -282,10 +282,8 @@ def add_title_page(story):
     story.append(Spacer(1, 170))
     story.append(P("ACL-903 Milestone 1", "Subtitle"))
     story.append(P("Formula 1 podium prediction", "Title"))
-    story.append(P("An analytical report on leakage-safe prediction after qualifying", "Subtitle"))
-    story.append(Spacer(1, 10))
-    story.append(HRFlowable(width="100%", thickness=1, color=NAVY, spaceAfter=14))
-    story.append(P("Team Paladin", "Title"))
+    story.append(Spacer(1, 16))
+    story.append(P("Paladin", "Title"))
     story.append(Spacer(1, 8))
     story.append(make_table(
         ["Name", "ID", "Email", "Tutorial"],
@@ -358,6 +356,8 @@ def load():
     shap = pd.read_csv(FIG / "shap_global.csv")
     local = pd.read_csv(FIG / "shap_local.csv")
     lime = pd.read_csv(FIG / "lime_local.csv")
+    logistic_global = pd.read_csv(FIG / "logistic_weights.csv")
+    logistic_local = pd.read_csv(FIG / "logistic_local.csv")
     perm = pd.read_csv(FIG / "permutation_importance.csv")
     extra = {name: pd.read_csv(ART / f"{file}.csv") for name, file in {
         "effects": "preprocessing_effects",
@@ -376,6 +376,12 @@ def load():
         "feature_eda": "feature_eda",
         "context": "context_feature_experiment",
         "history": "constructor_history_audit",
+        "raw_profile": "raw_table_profile",
+        "home_adjusted": "home_adjusted",
+        "home_exact": "home_exact_grid",
+        "mechanical_sensitivity": "mechanical_sensitivity",
+        "front_overall": "front_row_overall",
+        "starter_overall": "starter_overall",
     }.items()}
     return {
         **extra,
@@ -393,6 +399,8 @@ def load():
         "shap": shap,
         "local": local,
         "lime": lime,
+        "logistic_global": logistic_global,
+        "logistic_local": logistic_local,
         "perm": perm,
     }
 
@@ -457,12 +465,8 @@ def main():
     }
 
     coverage = frame.groupby("year")["qualifying_position"].apply(lambda s: float(s.notna().mean()))
-    front = frame[frame.grid.isin([1, 2])].copy()
-    front["era"] = front.year.map(lambda y: "2014-2024" if y >= 2014 else "1950-2013")
-    front_overall = front.groupby("era").podium.agg(["mean", "count"])
-    base = frame.copy()
-    base["era"] = base.year.map(lambda y: "2014-2024" if y >= 2014 else "1950-2013")
-    base_overall = base.groupby("era").podium.agg(["mean", "count"])
+    front_overall = data["front_overall"].set_index("era")
+    base_overall = data["starter_overall"].set_index("era")
 
     story: list = []
     add_title_page(story)
@@ -506,7 +510,7 @@ def main():
         "depend on."
     ))
     story.append(P(
-        f"Table {COUNTERS['tab'] + 1} covers the eleven tables with a single-column primary key. Together they "
+        f"Table {COUNTERS['tab'] + 1} covers all fourteen supplied tables, including composite keys for lap times and pit stops. Together they "
         f"hold {integer(data['pk'].rows.sum())} rows. Every audited key is non-null, and "
         "none of these keys is duplicated. That is the check we needed before treating "
         "circuitId, driverId, raceId, and the other identifiers as safe join keys."
@@ -542,6 +546,14 @@ def main():
         "Foreign-key audit. An orphan is a child value with no matching parent key. None were found.",
         numeric_from=1,
     )
+    story.append(P(
+        "Before cleaning, we also profiled every table programmatically: row and column counts, missing-cell share, "
+        "columns with missing values, numeric/object columns, and duplicate full rows. This replaces manual inspection "
+        "with a reproducible initial EDA across the entire relational dataset."
+    ))
+    add_figure(story, "raw_table_profile",
+               "Initial EDA of all fourteen raw tables: row counts and missing-cell shares before cleaning.",
+               width=CONTENT_W * 0.92)
     raw_eda, shared_eda, clean_eda = (data["cleaning"].iloc[i] for i in range(3))
     story.append(P(
         f"The results file has {integer(diag['raw_result_rows'])} rows, but it is not yet "
@@ -588,7 +600,7 @@ def main():
         ["Stage", "Rows", "Unique pairs", "Duplicate rows", "Podiums", "Grid 0", "Missing finish", "Median grid"],
         cleaning_rows,
         [1.55 * inch, .6 * inch, .72 * inch, .78 * inch, .6 * inch, .52 * inch, .75 * inch, .68 * inch],
-        "Cleaning diagnostics at each stage, computed from the raw results and the final modeling table.",
+        "Cleaning diagnostics at each stage, computed from the raw results and the final modelling table.",
         numeric_from=1,
     )
     story.append(P(
@@ -666,7 +678,8 @@ def main():
 
     h2(story, "4.1 Front-row starts convert to podiums much more often than other starts")
     story.append(P(
-        "A front-row start means grid position 1 or 2 on the final grid. We do not use "
+        "A front-row start means grid position 1 or 2 on the final grid. Recorded non-starters are removed from "
+        "this descriptive denominator, even though withdrawals remain in the prediction table to respect the cutoff. We do not use "
         "qualifying position for this definition. A penalty can move a driver back between "
         "qualifying and the start, and the car that lines up first is the one we want. "
         "Results are joined to races and then to circuits. We split the history at 2014, "
@@ -709,7 +722,7 @@ def main():
     suzuka = circuit_row(q1, "2014-2024", "Suzuka Circuit")
     istanbul = circuit_row(q1, "1950-2013", "Istanbul Park")
     story.append(P(
-        f"What we see is a shift in level, not just a change of leader. Across circuits that "
+        f"We found a shift in the overall level, not just a different leading circuit. Across circuits that "
         f"pass the ten-start rule, the median front-row podium rate is {pct(early['mean'].median())} "
         f"in 1950-2013 and {pct(modern['mean'].median())} in 2014-2024. The early range runs "
         f"from {pct(early_low['mean'])} at {early_low.circuit_name} "
@@ -727,7 +740,7 @@ def main():
         f"podium rate among all starters, not just the front row, is "
         f"{pct(base_overall.loc['1950-2013', 'mean'])} and "
         f"{pct(base_overall.loc['2014-2024', 'mean'])} in those same eras. A front-row car "
-        "is therefore several times more likely to podium than a typical starter. The "
+        "is several times more likely to podium than a typical starter. The "
         "modern front row converts at a higher rate than the historical front row, while "
         f"the all-starter rate only moves from {pct(base_overall.loc['1950-2013', 'mean'], 0)} to "
         f"{pct(base_overall.loc['2014-2024', 'mean'], 0)}."
@@ -767,6 +780,11 @@ def main():
         "(home_race = False). The two lines fall together as the start position gets worse.",
         width=CONTENT_W * 0.82,
     )
+    add_figure(
+        story, "home_effect_exact_grid",
+        "Podium rate at each exact starting-grid position for home and away starts. Recorded non-starters are excluded.",
+        width=CONTENT_W * 0.9,
+    )
     home_rows = []
     gaps = []
     for band in ["1-3", "4-6", "7-10", "11-15", "16+"]:
@@ -792,7 +810,7 @@ def main():
         numeric_from=1,
     )
     story.append(P(
-        f"What we find in Figure {COUNTERS['fig']} and Table {COUNTERS['tab']} is the grid, not the passport. Away drivers "
+        f"Figure {COUNTERS['fig']} and Table {COUNTERS['tab']} mainly show the effect of the grid, not the passport. Away drivers "
         f"podium {pct(gaps[0][3]['mean'])} of the time from positions 1-3 "
         f"({integer(gaps[0][3]['count'])} starts), {pct(gaps[1][3]['mean'])} from 4-6, "
         f"{pct(gaps[2][3]['mean'])} from 7-10, {pct(gaps[3][3]['mean'])} from 11-15, and "
@@ -817,9 +835,16 @@ def main():
         "This suggests that a raw home-versus-away average would mostly pick up who starts "
         "near the front, not a separate home advantage. The stratification is a control, "
         "not a causal model. The nationality map also misses drivers we could not assign, "
-        "and it cannot represent dual nationality. We therefore report a descriptive "
+        "and it cannot represent dual nationality. We report a descriptive "
         "result: inside a grid band, home drivers in this table do not show a consistent "
         "podium advantage."
+    ))
+    adjusted = data["home_adjusted"].iloc[0]
+    story.append(P(
+        f"As a stricter check, a Mantel-Haenszel comparison stratified by every exact grid slot gives a home-race "
+        f"odds ratio of {float(adjusted.home_odds_ratio):.3f}. A race-cluster bootstrap gives a 95% interval from "
+        f"{float(adjusted['ci_low_2.5%']):.3f} to {float(adjusted['ci_high_97.5%']):.3f}. Because the interval includes "
+        "1, the adjusted evidence does not establish either a home advantage or disadvantage. This is an association, not a causal effect."
     ))
     story.append(P(
         "<b>Takeaway.</b> Starting position sorts podium rates into a steep ladder. Home "
@@ -852,6 +877,13 @@ def main():
         "statuses occur in 2014-2024, so this choice does not change the rates.",
         "Small",
     ))
+    sens = data["mechanical_sensitivity"]
+    sens_rows = [[r.definition, r.era, integer(r.failures), integer(r.starts), pct(r.rate)]
+                 for r in sens.itertuples(index=False)]
+    add_table(story, ["Definition", "Era", "Failures", "Starts", "Rate"], sens_rows,
+              [2.45 * inch, 1.05 * inch, .8 * inch, .8 * inch, .75 * inch],
+              "Mechanical-retirement sensitivity. The official instructor list is compared with a conservative list of internal-system labels.",
+              numeric_from=2)
     add_figure(
         story,
         "mechanical_retirements",
@@ -1615,7 +1647,7 @@ def main():
         f"small grid. Our grid held {int(tuning.groupby('model').size()[LR])} settings for logistic regression, "
         f"{int(tuning.groupby('model').size()[RF])} for the forest, and {int(tuning.groupby('model').size()[NN])} "
         "for the network. We averaged the network over three seeds because its score depends "
-        "on the initialization. We did not use the test seasons "
+        "on the initialisation. We did not use the test seasons "
         f"(Table {COUNTERS['tab'] + 1})."
     ))
     add_table(
@@ -1643,7 +1675,7 @@ def main():
     story.append(P(
         f"<b>Random forest: improved.</b> The starting forest (no depth limit, 4 rows per leaf) ranked "
         f"{ordinal(int(rf0.rank_within_model))} of {int(sizes[RF])}. It scored {float(rf0['validation_PR-AUC']):.3f} on "
-        f"validation but {float(rf0['train_PR-AUC']):.3f} on training, a memorized fit. A depth limit of 12 with "
+        f"validation but {float(rf0['train_PR-AUC']):.3f} on training, a memorised fit. A depth limit of 12 with "
         f"30 rows per leaf scores {float(rf1['validation_PR-AUC']):.3f} and ranks "
         f"{ordinal(int(rf1.rank_within_model))} of {int(sizes[RF])}. The best setting "
         f"({esc(rf_best.settings.strip('{}').replace(chr(39), ''))}) is only "
@@ -1703,7 +1735,7 @@ def main():
         f"about {ci_width:.1f} wide. The difference between the network and logistic regression is "
         f"{uncertainty.iloc[4]['validation_PR-AUC']:+.3f} with an interval from "
         f"{uncertainty.iloc[4]['ci_low_2.5%']:+.3f} to {uncertainty.iloc[4]['ci_high_97.5%']:+.3f}, "
-        "and the forest's difference also includes zero. The data therefore do not show that any "
+        "and the forest's difference also includes zero. These results do not show that any "
         "model beats the baseline, and we report the ranking as a tie within validation "
         "uncertainty. The chronological split stays because it is the only one with no same-race "
         "and no future leakage."
@@ -1815,12 +1847,13 @@ def main():
         "Takeaway",
     ))
 
-    # Explain forest behavior globally and locally without treating it as causal.
-    h1(story, "9. What the forest relies on, and where the two explanations differ")
+    # Explain the selected logistic model directly, then retain the forest checks.
+    h1(story, "9. What the selected model relies on, with forest cross-checks")
     story.append(P(
-        "The explanations in this section are for the random forest, not for logistic "
-        "regression, the model we selected in Section 7. Tree explanations apply directly to the forest. "
-        "We do not borrow them as an account of the other models. Permutation importance "
+        "Logistic regression is the selected model, so we first explain it directly through its standardized "
+        "coefficients and an exact local log-odds decomposition. We then retain permutation importance, SHAP, "
+        "and LIME as separate checks on the random forest. Tree explanations apply directly to the forest; "
+        "we do not borrow them as an account of logistic regression. Permutation importance "
         "shuffles one validation column at a time and measures the drop in PR-AUC. Global "
         "SHAP averages the size of each feature's push across 400 validation rows. Local "
         "SHAP is one of those rows. A positive value pushes that row toward a podium "
@@ -1828,7 +1861,62 @@ def main():
         "associations inside the fitted forest. They are not estimates of what would happen "
         "if we moved a driver up the grid."
     ))
-    h2(story, "9.1 Permutation importance")
+    h2(story, "9.1 Direct explanation of the selected logistic model")
+    logistic_global = data["logistic_global"].sort_values("coefficient", key=lambda s: s.abs(), ascending=False)
+    logistic_local = data["logistic_local"].sort_values("log_odds_contribution", key=lambda s: s.abs(), ascending=False)
+    add_figure(
+        story,
+        "logistic_weights",
+        "Standardized coefficients of the selected logistic model. Each coefficient is the change in podium "
+        "log-odds for a one-training-standard-deviation increase in that feature, holding the others fixed.",
+        width=CONTENT_W * 0.78,
+    )
+    add_table(
+        story,
+        ["Feature", "Standardized coefficient"],
+        [[r.feature, f"{float(r.coefficient):+.3f}"] for r in logistic_global.head(8).itertuples(index=False)],
+        [3.8 * inch, 2.9 * inch],
+        "Eight largest absolute standardized coefficients of the selected logistic model.",
+        numeric_from=1,
+    )
+    leading = logistic_global.iloc[0]
+    story.append(P(
+        f"The largest absolute coefficient is {esc(leading.feature)} at {float(leading.coefficient):+.3f}. "
+        "The sign gives the fitted direction after all other columns are held fixed; it is not a causal effect. "
+        "Because form and standings variables overlap, a small or counter-intuitive coefficient can reflect shared "
+        "credit rather than an absence of predictive information."
+    ))
+    local_probability = float(logistic_local.iloc[0].model_probability)
+    local_intercept = float(logistic_local.iloc[0].intercept)
+    local_total = float(logistic_local.iloc[0].total_log_odds)
+    local_driver = f"driver {int(logistic_local.iloc[0].driver_id)}"
+    local_race = str(logistic_local.iloc[0].race_name)
+    local_year = int(logistic_local.iloc[0].year)
+    add_figure(
+        story,
+        "logistic_local",
+        f"Exact local log-odds decomposition for {local_driver} at the {local_year} {local_race}, the same fixed validation row used "
+        f"for the forest explanations. The model probability is {local_probability:.3f}.",
+        width=CONTENT_W * 0.78,
+    )
+    add_table(
+        story,
+        ["Feature", "Observed", "Standardized", "Coefficient", "Log-odds contribution"],
+        [[r.feature, f"{float(r.observed_value):.2f}", f"{float(r.standardized_value):+.3f}",
+          f"{float(r.coefficient):+.3f}", f"{float(r.log_odds_contribution):+.3f}"]
+         for r in logistic_local.head(8).itertuples(index=False)],
+        [2.1 * inch, 0.9 * inch, 1.1 * inch, 1.0 * inch, 1.35 * inch],
+        "Eight largest absolute contributions to the selected model's local log-odds. The full decomposition, "
+        f"including intercept {local_intercept:+.3f}, sums to {local_total:+.3f}.",
+        numeric_from=1,
+    )
+    story.append(P(
+        "This decomposition is exact for the fitted logistic pipeline: standardized value multiplied by coefficient "
+        "gives each feature's contribution, and the contributions plus the intercept reproduce the reported probability. "
+        "It therefore explains the selected model itself, unlike the forest-only SHAP and LIME checks below."
+    ))
+
+    h2(story, "9.2 Random-forest permutation importance")
     add_figure(
         story,
         "permutation_importance",
@@ -1869,7 +1957,7 @@ def main():
         "rows. We do not read it as evidence that the feature causes worse finishes."
     ))
 
-    story.append(P("9.2 Global and local SHAP", "H2"))
+    story.append(P("9.3 Global and local SHAP", "H2"))
     story.append(P(
         f"Figure {COUNTERS['fig'] + 1} asks the same question with SHAP. Each validation prediction is split into "
         "one credit per feature, and we average the size of those credits. The sign is not "
@@ -1955,7 +2043,7 @@ def main():
             f"The largest push is {esc(top.feature)} ({float(top.shap_value):+.3f}). This is one example, "
             "and a single row is not a general law."
         ))
-    story.append(P("9.3 Local LIME explanation", "H2"))
+    story.append(P("9.4 Local LIME explanation", "H2"))
     lime = data["lime"]
     lime_fidelity = float(lime.iloc[0].local_fidelity_r2)
     lime_model_p = float(lime.iloc[0].model_probability)
@@ -1988,9 +2076,9 @@ def main():
         numeric_from=1,
     )
     story.append(P(
-        f"The weighted local R-squared is {lime_fidelity:.3f}. This fidelity value tells us how "
-        "closely the simple surrogate follows the forest in the sampled neighborhood, so we "
-        "read the local coefficients together with it rather than as global effects."
+        f"The weighted local R-squared is only {lime_fidelity:.3f}. This is low local fidelity: the linear surrogate "
+        "captures only a small share of the forest's variation in the sampled neighbourhood. The displayed coefficients "
+        "are therefore weak, unstable local evidence and must not be treated as a faithful decomposition or as global effects."
     ))
     story.append(P(
         "<b>Takeaway.</b> Grid position is the feature the explanation methods agree on, with "
@@ -2032,7 +2120,8 @@ def main():
     story.append(P(
         "The partial record supplies only what we chose to type in: grid position 3, not a "
         "pit-lane start, not a front-row start, a field of 20, and season 2024. Every "
-        f"other feature is missing and is replaced with the training median. {demo['model']} "
+        f"other feature is missing and is replaced with the training median. The API now returns the exact list and warns that "
+        f"{len(demo['partial_record']['missing_features'])} of 16 inputs were imputed. {demo['model']} "
         f"returns {demo['partial_record']['podium_probability']:.3f}, below the cutoff, "
         "so the predicted label is not a podium. This record has no true result, "
         "because it is not a driver who started a race."
@@ -2045,6 +2134,7 @@ def main():
         "this imputer does with a half-empty row. It is evidence that the function accepts "
         "missing fields. It is not evidence about the front of the grid."
     ))
+
     story.append(P(
         "<b>Takeaway.</b> On a real 2022 row, the selected model correctly predicted a podium "
         "for a fifth-place start backed by a perfect recent podium run. On a "
@@ -2097,7 +2187,7 @@ def main():
         f"{num(mget(LR, 'test', 'PR-AUC'))} for logistic regression, {num(mget(RF, 'test', 'PR-AUC'))} for the forest "
         f"and {num(mget(NN, 'test', 'PR-AUC'))} for the network. Logistic regression is "
         f"{num(min(test_pr[RF], test_pr[NN]) - test_pr[LR])} behind, but a bootstrap over the {int(test_unc.races.iloc[0])} "
-        "test races puts both differences from it inside an interval that includes zero (Section 7.2). We therefore do "
+        "test races puts both differences from it inside an interval that includes zero (Section 7.2). We do "
         "not claim that the more complex models are better. We treat the three as tied in ranking quality and keep "
         "logistic regression as the readable baseline. Regulation changes in 2014 and 2022 sit inside the eras we compared. "
         "The models are associating historical patterns. They do not tell a team what would "
@@ -2105,7 +2195,7 @@ def main():
         "about the next race."
     ))
 
-    # Close by connecting the cleaning, modeling, and explanation evidence.
+    # Close by connecting the cleaning, modelling, and explanation evidence.
     h1(story, "12. What the evidence supports")
     story.append(P(
         f"The tables join, and after {integer(diag['duplicate_driver_race_groups'])} shared-drive groups are resolved "
@@ -2123,7 +2213,7 @@ def main():
         "and the highest rates belong to shorter entries."
     ))
     story.append(P(
-        "Predictively, logistic regression, a random forest, and a shallow network all "
+        "For prediction, logistic regression, a random forest, and a shallow network all "
         "clear the PR-AUC baseline of the recent seasons by a wide margin. Logistic regression is "
         "the one we select from the validation scores, by seed 42 and by the three-seed average. The untouched "
         f"test seasons put the forest and the network slightly ahead ({num(test_pr[RF])} and {num(test_pr[NN])}, "
@@ -2134,6 +2224,19 @@ def main():
         "smaller features, and we do not force them to agree. The Hamilton "
         "example fits this picture in one row: a fifth-place start backed by a recent run of "
         "podiums lifted him over the cutoff, and he finished third."
+    ))
+
+    h1(story, "13. Data source and course notes")
+    story.append(P(
+        "We used Vopani's Formula 1 World Championship (1950-2024) dataset on Kaggle, a relational CSV version "
+        "of the Ergast Formula 1 data. We accessed it in October 2026: "
+        "https://www.kaggle.com/datasets/rohanrao/formula-1-world-championship-1950-2020."
+    ))
+    story.append(P(
+        "We followed Piazza post @10 and the related TA feedback for the status rules. Tyre, puncture, tyre puncture, "
+        "fire, and safety belt count as mechanical failures; refuelling does not. We removed positionText F rows before "
+        "feature construction and kept W rows. Since the Piazza export is not in the repository, we included the stricter "
+        "mechanical-failure sensitivity check shown earlier."
     ))
 
     OUT.parent.mkdir(parents=True, exist_ok=True)

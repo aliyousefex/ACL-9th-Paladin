@@ -284,7 +284,7 @@ Leakage prevention is part of construction:
 
 ### 5. Predictive models and evaluation
 
-All models receive the same rows and 17 features:
+All models receive the same rows and 16 final features:
 
 - Logistic regression: interpretable statistical baseline.
 - Random forest: nonlinear tree ensemble, 240 trees, depth limited to 12, at least 30 rows per leaf.
@@ -364,7 +364,7 @@ Rebuild and execute the notebook (run the analysis first, because the notebook t
   --ExecutePreprocessor.timeout=3600
 ```
 
-**Use a kernel that points at the project's `.venv`.** The default `python3` kernel can resolve to a different interpreter, for example a system Python with another scikit-learn version, and the random forest's numbers shift slightly between scikit-learn versions (logistic regression and the network did not move). The notebook text quotes the numbers of the `.venv` run, so executing it on another interpreter, or on Kaggle, can leave the commentary a little different from the tables printed beside it. The numbers in this repository come from Python 3.12 with scikit-learn 1.9.1. After a Kaggle run, check the forest's scores against the text before submitting.
+**Use the pinned environment in `requirements.txt`.** Exact versions are locked because the random forest and its XAI values can move across scikit-learn releases. The notebook prints its runtime versions, and the report must be regenerated from artifacts produced by that same environment. Do not submit outputs produced under a different dependency set.
 
 Rebuild the analytical report after regenerating artifacts:
 
@@ -475,7 +475,7 @@ These answers said the decision is ours. Each one now has an experiment in the p
 | @11 and @13 Missing values | Null values can hurt the model. Experiment thoroughly with imputation (and which method) versus dropping (and which rows). Justify the result. | `missing_value_experiments` compares four imputers, dropping the sparse columns, dropping the missing flag, and dropping rows. No alternative beats median imputation with the `qualifying_missing` flag by more than noise, and it keeps all 23,163 training rows. Dropping rows keeps only 7,372 to 8,348 and lowers both models. |
 | @6 Neural network and baseline | Linear regression is not a classifier. The network must not be a deliberately weak model; we must actually try to improve it. | Logistic regression is the baseline. `hyperparameter_search` tries 8 settings for logistic regression, 9 for the forest, and 12 for the network (one and two layers of 8 to 64 units, two regularization strengths, three seeds), on validation only. The forest improved: its first settings memorized the training seasons (training PR-AUC 0.92 against 0.70 on validation), and depth 12 with 30 rows per leaf replaced them and now ranks first. The network's starting alpha of 0.002 ranked second to 0.02, by a gap inside the seed spread, so we adopted the stronger and simpler penalty. Averaged over seeds, the network is not ahead of logistic regression. |
 | @6 Sprint races | Decide whether sprints create a leakage problem, give the reason, and say how it is fixed. | `sprint_weekend_check` shows every sprint ends one day before the race, so it is not post-race information. We still leave it out: sprints exist only from 2021, so training has 0 sprint rows, and in 2021-2022 the sprint set the grid, which the grid features already contain. The hazard is a join on `raceId`, because sprint positions and points belong to a different race. |
-| @6 Feature justification | EDA can justify a feature up front, but can hide an effect that appears in the model. Evidence matters, not a gut feeling. | `feature_eda` gives every one of the 17 features a table row and a panel (notebook section 10.2, report section 5.3), computed on training seasons only. It also shows which features are weak on their own (`field_size`, `driver_age`, `qualifying_time_seconds`, the two flags, and especially `round` and `year`), so the claim for them rests on the ablation and the era-control argument, not on a single-feature signal. |
+| @6 Feature justification | EDA can justify a feature up front, but can hide an effect that appears in the model. Evidence matters, not a gut feeling. | `feature_eda` gives every one of the 16 final features a table row and a panel (notebook section 10.2, report section 5.3), computed on training seasons only. It also shows which features are weak on their own (`field_size`, `driver_age`, `qualifying_time_seconds`, the two flags, and especially `year`), so the claim for them rests on the ablation and the era-control argument, not on a single-feature signal. |
 
 ### Still open
 
@@ -699,7 +699,7 @@ Main code locations:
 
 Key points for Aya:
 
-- All 17 features and their five groups.
+- All 16 final features and their five groups.
 - Why every feature is available after qualifying and before race start.
 - Why driver form uses `shift()` before `rolling()`.
 - Why constructor outcomes are aggregated by race before shifting.

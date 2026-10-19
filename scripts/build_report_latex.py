@@ -131,9 +131,8 @@ def add_title_page(story):
         "\\thispagestyle{empty}\n\\vspace*{0.17\\textheight}\n\\begin{center}\n"
         "{\\itshape\\color{muted}\\large ACL-903 Milestone 1\\par}\n\\vspace{8pt}\n"
         "{\\fontsize{27}{31}\\selectfont\\bfseries\\color{navy} Formula 1 podium prediction\\par}\n\\vspace{8pt}\n"
-        "{\\itshape\\color{muted} An analytical report on leakage-safe prediction after qualifying\\par}\n"
-        "\\vspace{16pt}\n{\\color{navy}\\rule{0.8\\linewidth}{0.8pt}}\\par\n\\vspace{16pt}\n"
-        "{\\LARGE\\bfseries\\color{navy} Team Paladin\\par}\n\\vspace{14pt}\n"
+        "\\vspace{22pt}\n"
+        "{\\LARGE\\bfseries\\color{navy} Paladin\\par}\n\\vspace{14pt}\n"
         "{\\small\\setlength{\\tabcolsep}{9pt}\\renewcommand{\\arraystretch}{1.35}\n"
         "\\begin{tabular}{llll}\n\\toprule\n"
         "\\textbf{Name} & \\textbf{ID} & \\textbf{Email} & \\textbf{Tutorial} \\\\\n\\midrule\n"
@@ -289,6 +288,30 @@ def fig_home(frac):
         "ymin=0, ymajorgrids, legend pos=north east, enlarge x limits=0.1]\n" + "\n".join(series)
         + "\n\\legend{Other races, Home races}\n\\end{axis}\n\\end{tikzpicture}"
     )
+
+
+def fig_home_exact(frac):
+    """Podium rate by exact grid position for home and away starts."""
+    q2 = pd.read_csv(ART / "home_exact_grid.csv")
+    series = []
+    for flag, color in [(False, "modelA"), (True, "modelB")]:
+        part = q2[q2.home_race == flag].sort_values("grid_position")
+        series.append(f"\\addplot[{color}, thick, mark=*, mark size=1.2pt] coordinates "
+                      f"{{{points(part.grid_position, part['mean'])}}};")
+    return ("\\begin{tikzpicture}\n\\begin{axis}[" f"width={0.9 * frac:.3f}\\linewidth, height=5.4cm, "
+            "xlabel={Exact starting-grid position}, ylabel={Podium rate}, xmin=1, xmax=24, ymin=0, "
+            "ymajorgrids, legend pos=north east]\n" + "\n".join(series)
+            + "\n\\legend{Other races, Home races}\n\\end{axis}\n\\end{tikzpicture}")
+
+
+def fig_raw_profile(frac):
+    """Initial table sizes and missing-cell shares for all fourteen source tables."""
+    d = pd.read_csv(ART / "raw_table_profile.csv").sort_values("rows")
+    left = hbar(frac, "Rows in raw table", list(d.table), list(np.log10(d.rows)), xlabel="log10(rows)",
+                color="modelA", height=7.0)
+    right = hbar(frac, "Missing cells before cleaning", list(d.table), list(d.missing_share),
+                 xlabel="Missing-cell share", color="modelB", height=7.0)
+    return left + "\n\\medskip\n" + right
 
 
 def fig_mechanical(frac):
@@ -464,6 +487,18 @@ def fig_lime_local(frac):
     return _signed(frac, FIG / "lime_local.csv", "lime_weight", "Local LIME", "LIME weight (toward podium is positive)")
 
 
+def fig_logistic_weights(frac):
+    """Standardized coefficients of the selected logistic model."""
+    return _signed(frac, FIG / "logistic_weights.csv", "coefficient", "Selected logistic model",
+                   "Coefficient per +1 training standard deviation")
+
+
+def fig_logistic_local(frac):
+    """Exact local log-odds decomposition of the selected logistic model."""
+    return _signed(frac, FIG / "logistic_local.csv", "log_odds_contribution", "Selected model: one prediction",
+                   "Contribution to log-odds (toward podium is positive)")
+
+
 def fig_feature_eda(frac):
     """Seventeen small panels: podium rate by feature bin on the training seasons."""
     frame = pd.read_csv(ART / "modeling_table.csv", low_memory=False, parse_dates=["date"])
@@ -484,8 +519,8 @@ def fig_feature_eda(frac):
             + "\n".join(plots) + "\n"
         )
     return (
-        "\\resizebox{\\linewidth}{!}{%\n\\begin{tikzpicture}\n\\begin{groupplot}[group style={group size=5 by 4, "
-        "horizontal sep=0.9cm, vertical sep=1.5cm}, width=3.6cm, height=2.8cm, ymajorgrids, "
+        "\\resizebox{\\linewidth}{!}{%\n\\begin{tikzpicture}\n\\begin{groupplot}[group style={group size=4 by 4, "
+        "horizontal sep=0.8cm, vertical sep=1.3cm}, width=4.2cm, height=3.2cm, ymajorgrids, "
         "tick label style={font=\\tiny}, label style={font=\\tiny}]\n" + "".join(axes)
         + "\\end{groupplot}\n\\end{tikzpicture}}"
     )
@@ -496,6 +531,8 @@ FIGURES = {
     "qualifying_coverage": fig_coverage,
     "front_row_conversion": fig_front_row,
     "home_effect": fig_home,
+    "home_effect_exact_grid": fig_home_exact,
+    "raw_table_profile": fig_raw_profile,
     "mechanical_retirements": fig_mechanical,
     "chronological_split": fig_split,
     "preprocessing_distributions": fig_preprocessing_distributions,
@@ -506,6 +543,8 @@ FIGURES = {
     "shap_global": fig_shap_global,
     "shap_local": fig_shap_local,
     "lime_local": fig_lime_local,
+    "logistic_weights": fig_logistic_weights,
+    "logistic_local": fig_logistic_local,
     "feature_eda": fig_feature_eda,
 }
 

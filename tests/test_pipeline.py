@@ -17,6 +17,8 @@ from f1podium.pipeline import (
     INITIAL_SETTINGS,
     SEARCH_SPACE,
     feature_eda,
+    audit_tables,
+    raw_table_profile,
     _current_params,
     _time_to_seconds,
     build_modeling_table,
@@ -35,6 +37,8 @@ from f1podium.pipeline import (
     sprint_weekend_check,
     train_and_evaluate,
     validation_uncertainty,
+    predict_podium,
+    logistic_explanations,
 )
 
 # These tests focus on mistakes that can make the final scores look believable
@@ -75,6 +79,18 @@ def test_real_modeling_table_grain_features_and_splits():
     assert splits["train"].year.max() == 2019
     assert set(splits["validation"].year.unique()) == {2020, 2021}
     assert splits["test"].year.min() == 2022
+
+
+def test_all_fourteen_tables_and_relational_keys_are_audited():
+    """The required audit covers every raw table and all declared relationships."""
+    tables = load_raw_tables("data/raw")
+    pk, fk = audit_tables(tables)
+    assert set(pk.table) == set(tables)
+    assert pk.null_keys.sum() == 0 and pk.duplicate_keys.sum() == 0
+    assert len(fk) >= 20 and fk.orphans.sum() == 0
+    profile = raw_table_profile(tables)
+    assert set(profile.table) == set(tables)
+    assert profile.duplicate_full_rows.sum() == 0
 
 
 def test_form_features_cannot_see_current_target():
@@ -136,6 +152,18 @@ def test_mechanical_statuses_follow_instructor_ruling():
         assert term in set(status), f"{term} is not a real status label"
         assert term in MECHANICAL_TERMS
     assert "Refuelling" not in MECHANICAL_TERMS
+
+
+def test_descriptive_questions_exclude_recorded_non_starters_and_report_sensitivity():
+    """Front-row/home denominators are true starts and Q3 exposes a strict sensitivity check."""
+    tables = load_raw_tables("data/raw")
+    frame, _ = build_modeling_table(tables)
+    answers = engineering_answers(frame, tables)
+    assert set(answers["mechanical_sensitivity"].definition) == {
+        "official instructor list", "conservative internal-system list"}
+    adjusted = answers["home_adjusted"].iloc[0]
+    assert adjusted["ci_low_2.5%"] < adjusted.home_odds_ratio < adjusted["ci_high_97.5%"]
+    assert adjusted["ci_low_2.5%"] < 1 < adjusted["ci_high_97.5%"]
 
 
 def test_current_race_result_cannot_change_its_own_features():
@@ -295,7 +323,7 @@ def test_non_starter_experiment_compares_the_decision_on_the_same_validation_row
 
 
 def test_every_model_feature_has_its_own_eda_row_from_training_only():
-    """Each of the 17 features gets evidence, and its AUC is computed on training seasons."""
+    """Each of the 16 features gets evidence, and its AUC is computed on training seasons."""
     frame, _ = build_modeling_table(load_raw_tables("data/raw"))
     summary = feature_eda(frame)
     assert list(summary.feature) == FEATURES
@@ -305,6 +333,28 @@ def test_every_model_feature_has_its_own_eda_row_from_training_only():
     top = summary.sort_values("signal_strength", ascending=False).iloc[0]
     assert top.feature in {"grid_position", "qualifying_position"}
     assert summary.set_index("feature").loc["grid_position", "signal_strength"] > 0.7
+
+
+def test_partial_inference_discloses_imputation():
+    """A partial record must say exactly which fields the fitted imputer supplied."""
+    frame, _ = build_modeling_table(load_raw_tables("data/raw"))
+    models, _, thresholds = train_and_evaluate(frame)
+    result = predict_podium({"grid_position": 3}, models["Logistic regression"],
+                            thresholds["Logistic regression"])
+    assert "qualifying_position" in result["missing_features"]
+    assert result["imputation_warning"].startswith("15 of 16")
+
+
+def test_selected_logistic_local_explanation_reconstructs_probability(tmp_path):
+    """The selected model's saved local contributions must exactly reproduce its prediction."""
+    frame, _ = build_modeling_table(load_raw_tables("data/raw"))
+    models, _, _ = train_and_evaluate(frame)
+    global_df, local_df = logistic_explanations(frame, models, tmp_path)
+    assert set(global_df.feature) == set(FEATURES)
+    log_odds = float(local_df.intercept.iloc[0] + local_df.log_odds_contribution.sum())
+    reconstructed = 1 / (1 + np.exp(-log_odds))
+    assert np.isclose(log_odds, local_df.total_log_odds.iloc[0])
+    assert np.isclose(reconstructed, local_df.model_probability.iloc[0])
 
 
 def test_bootstrap_can_report_the_test_seasons_without_rescoring_or_choosing():

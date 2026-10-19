@@ -1,0 +1,85 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}The question we are trying to answer}{2}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}What we checked before trusting the joins}{2}{section.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Primary-key audit of the raw tables. Null keys and duplicate keys are both zero in every audited table.}}{2}{table.caption.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Foreign-key audit. An orphan is a child value with no matching parent key. None were found.}}{3}{table.caption.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Initial EDA of all fourteen raw tables: row counts and missing-cell shares before cleaning.}}{4}{figure.caption.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Programmatic EDA at each cleaning stage. The left panel compares total rows with unique driver-race pairs; the right panel checks whether each step materially changes key rates.}}{5}{figure.caption.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Cleaning diagnostics at each stage, computed from the raw results and the final modelling table.}}{5}{table.caption.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Qualifying coverage is not stable across history}{5}{section.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Share of driver-race rows with a recorded qualifying position, by season. Coverage is essentially zero until the mid-1990s, unstable until 2003, and then close to complete.}}{5}{figure.caption.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Three questions about the races, before any model}{6}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Front-row starts convert to podiums much more often than other starts}{6}{subsection.4.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Ten circuits with the highest front-row podium rate in each era. The rate is podiums divided by front-row starts. Circuits with fewer than ten such starts are excluded.}}{6}{figure.caption.7}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Highest front-row podium rates in each era, among circuits with at least ten front-row starts. The rate is a proportion of starts, not a mean of lap times.}}{7}{table.caption.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Once the grid band is fixed, home drivers do not podium more often}{7}{subsection.4.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Podium rate by starting-grid band for home races (home\_race = True) and other races (home\_race = False). The two lines fall together as the start position gets worse.}}{7}{figure.caption.9}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Podium rate at each exact starting-grid position for home and away starts. Recorded non-starters are excluded.}}{8}{figure.caption.10}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Podium rate by grid band and home status. The last column is the home rate minus the away rate, in percentage points.}}{8}{table.caption.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Mechanical retirement rates are lower in 2022-2024, and small teams sit at the top of each list}{8}{subsection.4.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Mechanical-retirement sensitivity. The official instructor list is compared with a conservative list of internal-system labels.}}{9}{table.caption.12}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Ten constructors with the highest mechanical-retirement rate in each era, among those with at least 20 starts. The rate uses all starts as the denominator.}}{9}{figure.caption.13}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Highest and lowest mechanical-retirement rates in each era, plus a few large teams for scale. Rate = failures / starts, after removing non-starts.}}{10}{table.caption.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}What the model is allowed to see}{10}{section.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Feature groups. Post-race position, points scored today, laps, status, pit stops, and fastest lap are excluded.}}{10}{table.caption.15}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Time split used for every model. Starters per race is the number of modelling rows divided by races.}}{10}{table.caption.16}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Rows, podium rate, and qualifying missingness by season, coloured by split.}}{11}{figure.caption.17}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Split-strategy check with logistic regression. Leakage columns are shares of held-out rows.}}{11}{table.caption.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Sprint races: known before the start, but not a feature}{11}{subsection.5.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Sprint weekends. The last two columns are Spearman rank correlations of the main-race grid with the sprint finishing order and with qualifying position.}}{11}{table.caption.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Drivers who did not enter the race}{12}{subsection.5.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Who has grid 0 or a withdrawal code, by group, and what we do with each group.}}{12}{table.caption.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Evidence for each individual feature}{12}{subsection.5.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Podium rate by feature value on the training seasons. Each bar is one of five equal-count bins (labelled by its median value; tied values are split across bins, so a label can repeat), flags show 0 and 1, and the orange bar is the podium rate of the rows where the feature is missing.}}{13}{figure.caption.21}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces One-feature evidence on the training seasons. Missing cells are left out of the bins and the AUC. Valid. is the same AUC on 2020-2021.}}{13}{table.caption.22}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Calendar features: keep year, remove round}{14}{subsection.5.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Calendar-feature experiment on 2020-2021. Change is against the features we use (no round).}}{14}{table.caption.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Feature engineering and preprocessing: strategy, effect on the values, and order}{14}{section.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Preprocessing comparison for logistic regression on 2020-2021 only.}}{15}{table.caption.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}What feature engineering does to the values}{15}{subsection.6.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces Raw source columns against the engineered features built from them (all 1950-2024 rows).}}{15}{table.caption.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}What imputation and scaling do to the values}{15}{subsection.6.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Effect of median imputation and scaling, fitted on 1950-2019. Val. and test means are after the same training-fitted transform; training means are 0 by construction.}}{15}{table.caption.26}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Top: training values before and after median imputation (dashed line is the fill value, log scale). Bottom: training and validation after the training-fitted scaler.}}{16}{figure.caption.27}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Left: raw training range per feature. Right: range after scaling, with the validation mean.}}{16}{figure.caption.28}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Preprocessing-order experiments}{16}{subsection.6.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Preprocessing-order experiments on 2020-2021. Change is against the first order of the same experiment and model; for C it is against the train-only fit.}}{17}{table.caption.29}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Missing values: impute, drop columns, or drop rows?}{17}{subsection.6.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces Missing-value experiments on 2020-2021. Change is against median imputation, which is used.}}{17}{table.caption.30}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Three models, and why the scores are not interchangeable}{17}{section.7}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Test-set scores for 2022-2024. ROC-AUC is similar across models. Precision and recall differ because each model uses its own validation cutoff.}}{18}{figure.caption.31}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Scores by model and split. The cutoff maximises F1 on validation and is then frozen for training and test.}}{18}{table.caption.32}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Searching each model's settings, on validation only}{19}{subsection.7.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Search results for the starting settings, the adopted settings, and the top of each grid.}}{19}{table.caption.33}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}How much the validation score can be trusted}{19}{subsection.7.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {22}{\ignorespaces Validation PR-AUC on four windows that precede the test seasons.}}{19}{table.caption.34}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {23}{\ignorespaces Bootstrap over the 39 validation races. The last two rows are differences from logistic regression.}}{20}{table.caption.35}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {24}{\ignorespaces Bootstrap over the 68 test races. The last two rows are differences from logistic regression.}}{20}{table.caption.36}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Removing the grid hurts more than removing anything else}{20}{section.8}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Change in validation PR-AUC when one feature group is removed from logistic regression. Zero is the full 16-feature model.}}{20}{figure.caption.37}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {25}{\ignorespaces Ablation of logistic regression on the 2020-2021 validation seasons.}}{20}{table.caption.38}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}What the selected model relies on, with forest cross-checks}{21}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Direct explanation of the selected logistic model}{21}{subsection.9.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Standardized coefficients of the selected logistic model. Each coefficient is the change in podium log-odds for a one-training-standard-deviation increase in that feature, holding the others fixed.}}{21}{figure.caption.39}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {26}{\ignorespaces Eight largest absolute standardized coefficients of the selected logistic model.}}{21}{table.caption.40}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {15}{\ignorespaces Exact local log-odds decomposition for driver 847 at the 2021 Dutch Grand Prix, the same fixed validation row used for the forest explanations. The model probability is 0.130.}}{22}{figure.caption.41}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {27}{\ignorespaces Eight largest absolute contributions to the selected model's local log-odds. The full decomposition, including intercept $-$1.385, sums to $-$1.897.}}{22}{table.caption.42}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Random-forest permutation importance}{23}{subsection.9.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {16}{\ignorespaces Permutation importance on a validation sample, scored with PR-AUC. A taller bar means shuffling that column hurt the forest more.}}{23}{figure.caption.43}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {28}{\ignorespaces Largest positive permutation importances, followed by the three most negative. Computed on the random forest and a validation sample.}}{23}{table.caption.44}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Global and local SHAP}{23}{subsection.9.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {17}{\ignorespaces Mean absolute SHAP value by feature for the random forest, over 400 validation rows. This measures how large a feature's push is, not whether the push is positive.}}{24}{figure.caption.45}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {29}{\ignorespaces Eight largest mean absolute SHAP values for the random forest on the validation sample.}}{24}{table.caption.46}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {18}{\ignorespaces SHAP contributions for one validation row: Russell, Williams, 2021 Dutch Grand Prix, started 11th and did not podium. Negative values push the forest away from a podium.}}{25}{figure.caption.47}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {30}{\ignorespaces Largest SHAP contributions for the Russell validation row. The sign is the direction of the push.}}{25}{table.caption.48}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Local LIME explanation}{25}{subsection.9.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {19}{\ignorespaces Local LIME contributions for one fixed validation prediction. The black-box probability is 0.152, the local surrogate estimate is 0.152, and weighted local R-squared is 0.203.}}{26}{figure.caption.49}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {31}{\ignorespaces Largest absolute LIME weights for the fixed validation row.}}{26}{table.caption.50}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10}Two predictions from the selected model}{26}{section.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {11}What we do not want the results to be taken to say}{27}{section.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {12}What the evidence supports}{27}{section.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {13}Data source and course notes}{27}{section.13}\protected@file@percent }
+\gdef \@abspage@last{27}
