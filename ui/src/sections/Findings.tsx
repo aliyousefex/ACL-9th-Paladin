@@ -76,7 +76,7 @@ export function Findings() {
         in an era to enter the ranking. That leaves {earlyMedian.circuits} circuits before
         2014 and {modernMedian.circuits} from 2014 on.
       </Prose>
-      <div className="max-w-full overflow-x-auto">
+      <div className="max-w-full overflow-x-auto" role="region" aria-label="Front-row podium rates by era table, scrolls sideways on narrow screens" tabIndex={0}>
         <table className="sheet">
           <caption>
             Highest front-row podium rates in each era. The rate is podiums divided by front-row starts.
@@ -197,7 +197,7 @@ export function Findings() {
           </Choice>
         ))}
       </div>
-      <div className="max-w-full overflow-x-auto">
+      <div className="max-w-full overflow-x-auto" role="region" aria-label="Mechanical retirement rates table, scrolls sideways on narrow screens" tabIndex={0}>
         <table className="sheet">
           <caption>
             {mechEra === "All"

@@ -9,11 +9,11 @@ import { Prose, Section, Takeaway } from "../components/Section";
 const MODELS = [
   {
     name: "Logistic regression",
-    short: "Weighted straight-line baseline",
-    learns: "A coefficient for every input. Positive weights raise the podium score; negative weights lower it.",
-    strength: "Transparent, stable, and a strong reference point for every more complex model.",
-    caution: "It cannot discover curved rules or feature interactions unless those patterns are explicitly supplied.",
-    body: "One weighted sum of the 17 inputs, turned into a probability. Class weights keep the rare podium rows from disappearing. Median imputation and scaling are on. This is also the model the ablation retrains. Its validation cutoff is the number that maximises F1, not a probability we can compare with the other models.",
+    short: "The selected model",
+    learns: "A weight for every input. Positive weights raise the podium score; negative weights lower it.",
+    strength: "Transparent, stable, and it has no random seed to be lucky with. It had the best validation PR-AUC.",
+    caution: "It cannot discover curved rules or feature interactions unless those patterns are supplied, and its score is not a calibrated probability.",
+    body: "One weighted sum of the 16 inputs, turned into a score. Class weights keep the rare podium rows from disappearing. Median imputation and scaling are on. This is the model the validation scores select, the model the ablation retrains, and the model the prediction pages of this site run. Its cutoff is the value that maximises F1 on validation, so it is a decision rule for that model, not a probability we can compare with the other two.",
   },
   {
     name: "Random forest",
@@ -21,20 +21,20 @@ const MODELS = [
     learns: "Each tree repeatedly splits the rows, for example by grid position and recent form. Their probabilities are averaged.",
     strength: "Captures nonlinear thresholds and interactions without requiring us to write them by hand.",
     caution: "Left unconstrained it memorises the training years, so its depth and leaf size had to be limited using validation.",
-    body: "240 trees, depth capped at 12, at least 30 training rows in every leaf, no scaling. Those limits won a validation search. The first version, with no depth cap and four rows per leaf, memorised 1950-2019. A tree can ask for a strong recent record and a poor grid in the same path. This is the only model we explain with permutation importance and SHAP.",
+    body: "240 trees, depth capped at 12, at least 30 training rows in every leaf, no scaling. Those limits won a validation search. The first version, with no depth cap and four rows per leaf, memorised 1950-2019. A tree can ask for a strong recent record and a poor grid in the same path. We explain it with permutation importance and SHAP, as a cross-check on the selected model, never as an explanation of it.",
   },
   {
     name: "Shallow neural network",
     short: "Two compact hidden layers",
-    learns: "The 17 inputs pass through 32 hidden units, then 12, before one podium probability is produced.",
-    strength: "Learns smooth combinations of grid, form, standings, and context. It leads validation PR-AUC.",
-    caution: "Its internal weights are harder to interpret, and its raw probability scale differs from the other models.",
-    body: `Two hidden layers, 32 units then 12, with early stopping. We searched one and two hidden layers of 8 to 64 units, with two regularisation strengths, on validation and averaged three random seeds. 32 then 12 with the stronger regularisation (0.02) ranked first, ahead of the 0.002 we started with, so we use it. Its probabilities sit lower than the other two, which is why the cutoff is near ${num(thresholdAt("Shallow neural network"), 2)} rather than ${num(thresholdAt("Logistic regression"), 2)}. We selected it because it led validation PR-AUC, by less than the seed-to-seed spread. The case-file probabilities come from this network.`,
+    learns: "The 16 inputs pass through 32 hidden units, then 12, before one podium score is produced.",
+    strength: "Learns smooth combinations of grid, form, standings, and context.",
+    caution: "Its internal weights are harder to interpret, and its result moves with the random seed.",
+    body: `Two hidden layers, 32 units then 12, with early stopping. We searched one and two hidden layers of 8 to 64 units, with two regularisation strengths, on validation and averaged three random seeds. 32 then 12 with the stronger regularisation (0.02) ranked first, ahead of the 0.002 we started with, so we use it. Its scores sit lower than the other two, which is why its cutoff is near ${num(thresholdAt("Shallow neural network"), 2)} rather than ${num(thresholdAt("Logistic regression"), 2)}. A network depends on its seed: a single seed can land a little above or below its own average, so a lead of that size is noise.`,
   },
 ];
 
 export function Models() {
-  const [active, setActive] = useState("Shallow neural network");
+  const [active, setActive] = useState("Logistic regression");
   const validation = MODELS.map((model) => ({
     ...model,
     score: metricAt(model.name, "validation", "PR-AUC"),
@@ -56,7 +56,7 @@ export function Models() {
     <Section id="models" title="Inside the ML pipeline">
       <PipelineMap />
       <Prose>
-        All three see the same training rows and the same 17 features. Every setting and
+        All three see the same training rows and the same 16 features. Every setting and
         cutoff was chosen on 2020-2021 only. A cutoff of {num(thresholdAt("Shallow neural network"))} on the
         network is not automatically more aggressive than {num(thresholdAt("Logistic regression"))} on
         the logistic model. Precision and recall, in the next section, show what each cutoff
@@ -86,7 +86,7 @@ export function Models() {
           );
         })}
       </div>
-      <article
+      <div
         id="model-panel"
         role="tabpanel"
         aria-labelledby={`model-tab-${slug(open.name)}`}
@@ -123,11 +123,11 @@ export function Models() {
             </span>
           ))}
         </div>
-      </article>
+      </div>
       <Takeaway>
-        The network wins model selection on validation PR-AUC, by less than the noise of a 39-race validation set. The forest remains the
-        explainability model, so its SHAP and permutation results must not be presented as
-        explanations of the selected network.
+        Logistic regression is selected: it has the best validation PR-AUC and no random seed. The forest and the network are level with it within the noise of a
+        39-race validation set and a 68-race test set, so we keep the simplest model, explain it directly, and use the forest's SHAP and permutation results only as
+        cross-checks, never as explanations of the selected model.
       </Takeaway>
     </Section>
   );
@@ -141,7 +141,7 @@ const PIPELINE = [
   },
   {
     name: "Features",
-    status: "17 pre-race inputs",
+    status: "16 pre-race inputs",
     detail: "Grid, qualifying, recent form, prior standings, and context are known before lights out. Current-race outcomes are excluded.",
   },
   {
@@ -161,8 +161,8 @@ const PIPELINE = [
   },
   {
     name: "Explain",
-    status: "Ablation + SHAP + permutation",
-    detail: "Group ablation tests predictive contribution. SHAP and permutation importance describe the random forest, while individual network probabilities remain separate.",
+    status: "Weights + ablation + cross-checks",
+    detail: "The selected model is explained directly through its weights, and group ablation tests predictive contribution. SHAP and permutation importance describe the random forest as separate cross-checks.",
   },
 ] as const;
 

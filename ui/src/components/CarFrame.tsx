@@ -12,7 +12,7 @@ export type CarPhoto = {
 
 export const CARS = {
   mercedes: {
-    src: "/cars/mercedes-w13.jpg",
+    src: "/cars/mercedes-w13.webp",
     alt: "Lewis Hamilton driving the silver and teal Mercedes-AMG F1 W13 at the 2022 Emilia Romagna Grand Prix",
     team: "Mercedes",
     detail: "Lewis Hamilton, W13, Imola 2022.",
@@ -22,7 +22,7 @@ export const CARS = {
     licenseHref: "https://creativecommons.org/licenses/by-sa/4.0/",
   },
   williams: {
-    src: "/cars/williams-fw43.jpg",
+    src: "/cars/williams-fw43.webp",
     alt: "George Russell in the Williams FW43 during 2020 Formula 1 testing at Barcelona, with measuring rakes fitted",
     team: "Williams",
     detail: "George Russell, FW43, Barcelona 2020.",
@@ -32,7 +32,7 @@ export const CARS = {
     licenseHref: "https://creativecommons.org/licenses/by-sa/2.0/",
   },
   aston: {
-    src: "/cars/aston-amr23.jpg",
+    src: "/cars/aston-amr23.webp",
     alt: "Aston Martin AMR23 Formula 1 car on display, teal bodywork and a dark front wing",
     team: "Aston Martin",
     detail: "AMR23, 2023.",
@@ -42,7 +42,7 @@ export const CARS = {
     licenseHref: "https://creativecommons.org/publicdomain/zero/1.0/",
   },
   redbull: {
-    src: "/cars/redbull-rb18.jpg",
+    src: "/cars/redbull-rb18.webp",
     alt: "Red Bull RB18 Formula 1 show car, number 1, dark body with a yellow nose, indoors against a blue wall",
     team: "Red Bull",
     detail: "RB18.",
@@ -53,7 +53,7 @@ export const CARS = {
     crop: "object-[center_46%]",
   },
   mclaren: {
-    src: "/cars/mclaren-mcl60.jpg",
+    src: "/cars/mclaren-mcl60.webp",
     alt: "McLaren MCL60 Formula 1 show car, number 4, papaya and black, on an outdoor display stand",
     team: "McLaren",
     detail: "MCL60, 2023.",
@@ -64,7 +64,7 @@ export const CARS = {
     crop: "object-center",
   },
   alpine: {
-    src: "/cars/alpine-a522.jpg",
+    src: "/cars/alpine-a522.webp",
     alt: "Esteban Ocon driving the blue and pink Alpine A522 at the 2022 British Grand Prix",
     team: "Alpine",
     detail: "Esteban Ocon, A522, British Grand Prix 2022.",
@@ -75,7 +75,7 @@ export const CARS = {
     crop: "object-[center_62%]",
   },
   ferrari: {
-    src: "/cars/ferrari-sf23.jpg",
+    src: "/cars/ferrari-sf23.webp",
     alt: "Carlos Sainz driving the red Ferrari at the 2023 Italian Grand Prix",
     team: "Ferrari",
     detail: "Carlos Sainz, Monza 2023.",
@@ -86,7 +86,7 @@ export const CARS = {
     crop: "object-[center_70%]",
   },
   alfa: {
-    src: "/cars/alfa-romeo-c43.jpg",
+    src: "/cars/alfa-romeo-c43.webp",
     alt: "Valtteri Bottas driving the Alfa Romeo at the 2023 Italian Grand Prix",
     team: "Alfa Romeo",
     detail: "Valtteri Bottas, Monza 2023.",
@@ -97,7 +97,7 @@ export const CARS = {
     crop: "object-[center_68%]",
   },
   haas: {
-    src: "/cars/haas-vf22.jpg",
+    src: "/cars/haas-vf22.webp",
     alt: "Kevin Magnussen driving the white and red Haas VF-22 at the 2022 British Grand Prix",
     team: "Haas",
     detail: "Kevin Magnussen, VF-22, British Grand Prix 2022.",
@@ -108,7 +108,7 @@ export const CARS = {
     crop: "object-[center_64%]",
   },
   alphatauri: {
-    src: "/cars/alphatauri-at03.jpg",
+    src: "/cars/alphatauri-at03.webp",
     alt: "Yuki Tsunoda driving the white and navy AlphaTauri in qualifying at the 2022 British Grand Prix",
     team: "AlphaTauri",
     detail: "Yuki Tsunoda, British Grand Prix 2022.",

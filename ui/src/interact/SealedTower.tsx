@@ -15,7 +15,7 @@ export function SealedTower() {
       <p className="max-w-[68ch]">
         Lap times and pit stops are in the raw book. So are today's points, laps, and status. The column is sealed because a value here would be the race telling on itself. No times are shown, because this page does not invent them.
       </p>
-      <div className="mt-5 max-w-full overflow-x-auto">
+      <div className="mt-5 max-w-full overflow-x-auto" role="region" aria-label="Withheld columns table, scrolls sideways on narrow screens" tabIndex={0}>
       <table className="sheet">
         <caption>Columns withheld from the model. The value cell is empty on purpose.</caption>
         <thead>

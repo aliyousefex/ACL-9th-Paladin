@@ -6,10 +6,10 @@ import { Prose, Section, Takeaway } from "../components/Section";
 
 export function Features() {
   return (
-    <Section id="features" title="Seventeen inputs, five groups">
+    <Section id="features" title="Sixteen inputs, five groups">
       <Prose>
         Open a group. The list is what the model receives. The sentence under it is why that
-        information exists before the start. There are 17 inputs in all.
+        information exists before the start. There are 16 inputs in all.
       </Prose>
       <div>
         {site.groups.map((group) => (

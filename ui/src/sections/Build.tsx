@@ -47,7 +47,7 @@ export function Build() {
       </ol>
       <h3 className="pt-4 text-[1.7rem]">The five-race window</h3>
       <FormWindow />
-      <div className="max-w-full overflow-x-auto">
+      <div className="max-w-full overflow-x-auto" role="region" aria-label="Time split table, scrolls sideways on narrow screens" tabIndex={0}>
         <table className="sheet">
           <caption>The time split. Starters per race is modelling rows divided by races.</caption>
           <thead>

@@ -1,13 +1,15 @@
 ﻿{
-  "name": "Paladin F1 Podium Prediction",
-  "short_name": "Paladin F1",
-  "description": "Interactive machine-learning analysis of Formula One podium prediction.",
+  "name": "Paladin: F1 Podium Predictor",
+  "short_name": "Paladin",
+  "description": "A leakage-safe Formula 1 podium prediction project: predict, compare and replay the 2022 to 2024 Grands Prix.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#07080a",
-  "theme_color": "#e10600",
+  "background_color": "#0a0b0e",
+  "theme_color": "#0a0b0e",
   "icons": [
-    { "src": "/favicon.png", "sizes": "64x64", "type": "image/png" },
-    { "src": "/apple-touch-icon.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

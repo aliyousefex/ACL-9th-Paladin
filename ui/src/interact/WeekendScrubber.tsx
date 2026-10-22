@@ -31,7 +31,7 @@ const STAGES = [
 ] as const;
 
 const KNOWN = [
-  { label: "Age, round, and year", from: 0 },
+  { label: "Age and year", from: 0 },
   { label: "Podium rate over the previous five races", from: 0 },
   { label: "Starts already done", from: 0 },
   { label: "Points and rank from the previous race", from: 0 },

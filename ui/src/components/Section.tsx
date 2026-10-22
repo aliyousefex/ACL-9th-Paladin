@@ -13,13 +13,13 @@ export function Section({
   const index = SECTIONS.findIndex((section) => section.id === id);
   const next = index >= 0 ? SECTIONS[index + 1] : undefined;
   return (
-    <section id={id} className="scroll-mt-28 border-t border-line py-16 md:scroll-mt-24 xl:scroll-mt-10 xl:py-24">
+    <section id={id} className="scroll-mt-32 border-t border-line py-16 xl:py-24">
       <h2 className="max-w-[18ch] font-display text-[2.6rem] leading-[0.95] font-semibold tracking-[-0.03em] text-ink md:text-[3.4rem]">
         {title}
       </h2>
       <div className="mt-8 space-y-5 text-[1.05rem] leading-[1.55] text-ink">{children}</div>
       {next && (
-        <a className="section-next mt-14 flex items-center justify-between border-t border-line pt-5 no-underline" href={`#${next.id}`}>
+        <a className="section-next mt-14 flex items-center justify-between border-t border-line pt-5 no-underline" href={`#/method/${next.id}`}>
           <span className="text-[0.92rem] text-steel">Continue the argument</span>
           <span className="font-display text-[1.15rem] tracking-[0.04em] uppercase text-ink">{next.label}<span aria-hidden className="ml-3 text-signal">↓</span></span>
         </a>

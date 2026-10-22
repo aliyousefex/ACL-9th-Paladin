@@ -19,7 +19,7 @@ export function Book() {
         child rows in all. Orphans: {site.audit.orphans}. A result row points at a real race,
         driver, constructor, and status. A race points at a real circuit.
       </Prose>
-      <div className="max-w-full overflow-x-auto">
+      <div className="max-w-full overflow-x-auto" role="region" aria-label="Audited tables, scrolls sideways on narrow screens" tabIndex={0}>
         <table className="sheet">
           <caption>Audited tables and how many rows each primary key covers.</caption>
           <thead>

@@ -13,13 +13,13 @@
   "pitLaneShare": 0.011422021974547466,
   "qualifyingMissing": 0.5855663583906411,
   "audit": {
-    "tables": 11,
-    "rows": 100621,
+    "tables": 14,
+    "rows": 701433,
     "nullKeys": 0,
     "duplicateKeys": 0,
-    "foreignKeys": 9,
+    "foreignKeys": 22,
     "orphans": 0,
-    "checked": 177403
+    "checked": 1463745
   },
   "tableCounts": [
     {
@@ -65,6 +65,18 @@
     {
       "table": "status",
       "rows": 139
+    },
+    {
+      "table": "lap_times",
+      "rows": 589081
+    },
+    {
+      "table": "pit_stops",
+      "rows": 11371
+    },
+    {
+      "table": "sprint_results",
+      "rows": 360
     }
   ],
   "splits": [
@@ -529,43 +541,43 @@
   "home": [
     {
       "band": "1-3",
-      "awayRate": 0.5565359477124183,
-      "awayStarts": 3060,
+      "awayRate": 0.5574468085106383,
+      "awayStarts": 3055,
       "homeRate": 0.5492424242424242,
       "homeStarts": 264,
-      "gap": -0.007293523469994123
+      "gap": -0.008204384268214127
     },
     {
       "band": "4-6",
-      "awayRate": 0.263262599469496,
-      "awayStarts": 3016,
-      "homeRate": 0.2461538461538461,
-      "homeStarts": 260,
-      "gap": -0.01710875331564987
+      "awayRate": 0.2636997675190966,
+      "awayStarts": 3011,
+      "homeRate": 0.2471042471042471,
+      "homeStarts": 259,
+      "gap": -0.016595520414849463
     },
     {
       "band": "7-10",
-      "awayRate": 0.0954887218045112,
-      "awayStarts": 3990,
-      "homeRate": 0.0878552971576227,
-      "homeStarts": 387,
-      "gap": -0.007633424646888501
+      "awayRate": 0.0959939531368102,
+      "awayStarts": 3969,
+      "homeRate": 0.0885416666666666,
+      "homeStarts": 384,
+      "gap": -0.007452286470143593
     },
     {
       "band": "11-15",
-      "awayRate": 0.0308128927630245,
-      "awayStarts": 4933,
+      "awayRate": 0.0309068727124847,
+      "awayStarts": 4918,
       "homeRate": 0.0341151385927505,
       "homeStarts": 469,
-      "gap": 0.0033022458297259985
+      "gap": 0.003208265880265796
     },
     {
       "band": "16+",
-      "awayRate": 0.0075504573834761,
-      "awayStarts": 6887,
-      "homeRate": 0.007502679528403,
-      "homeStarts": 933,
-      "gap": -4.7777855073099715e-05
+      "awayRate": 0.0075779656076945,
+      "awayStarts": 6862,
+      "homeRate": 0.0075431034482758,
+      "homeStarts": 928,
+      "gap": -3.486215941869968e-05
     }
   ],
   "mechanical": {
@@ -680,7 +692,7 @@
       "Excluded",
       "Withdrew"
     ],
-    "statusCount": 49
+    "statusCount": 51
   },
   "groups": [
     {
@@ -730,10 +742,9 @@
       "name": "Context",
       "inputs": [
         "Age",
-        "Round",
         "Year"
       ],
-      "why": "Known on the morning of the race."
+      "why": "Known on the morning of the race. Round was tested and removed."
     }
   ],
   "excluded": [
@@ -747,234 +758,234 @@
   "preprocessing": [
     {
       "preprocessing": "median + scaling",
-      "validation_ROC-AUC": 0.9261579714,
-      "validation_PR-AUC": 0.728757277
+      "validation_ROC-AUC": 0.925680989,
+      "validation_PR-AUC": 0.7300832949
     },
     {
       "preprocessing": "median, no scaling",
-      "validation_ROC-AUC": 0.9247270243,
-      "validation_PR-AUC": 0.7248878933
+      "validation_ROC-AUC": 0.9254747264,
+      "validation_PR-AUC": 0.7313240733
     },
     {
       "preprocessing": "zero + scaling",
-      "validation_ROC-AUC": 0.9270216963,
-      "validation_PR-AUC": 0.7258474824
+      "validation_ROC-AUC": 0.9268412164,
+      "validation_PR-AUC": 0.7261723309
     }
   ],
   "metrics": [
     {
       "model": "Logistic regression",
       "split": "train",
-      "threshold": 0.645,
-      "ROC-AUC": 0.899875272,
-      "PR-AUC": 0.5619903395,
-      "F1": 0.5804683607,
-      "Precision": 0.4703270085,
-      "Recall": 0.7579700716
+      "threshold": 0.625,
+      "ROC-AUC": 0.8994117524,
+      "PR-AUC": 0.5624261913,
+      "F1": 0.5778534095,
+      "Precision": 0.4612846885,
+      "Recall": 0.7732595966
     },
     {
       "model": "Logistic regression",
       "split": "validation",
-      "threshold": 0.645,
-      "ROC-AUC": 0.9261579714,
-      "PR-AUC": 0.728757277,
-      "F1": 0.7058823529,
-      "Precision": 0.652173913,
-      "Recall": 0.7692307692
+      "threshold": 0.625,
+      "ROC-AUC": 0.925680989,
+      "PR-AUC": 0.7300832949,
+      "F1": 0.6996197719,
+      "Precision": 0.6301369863,
+      "Recall": 0.7863247863
     },
     {
       "model": "Logistic regression",
       "split": "test",
-      "threshold": 0.645,
-      "ROC-AUC": 0.9351370851,
-      "PR-AUC": 0.7035121183,
-      "F1": 0.6691729323,
-      "Precision": 0.5426829268,
-      "Recall": 0.8725490196
+      "threshold": 0.625,
+      "ROC-AUC": 0.9349842967,
+      "PR-AUC": 0.7023326418,
+      "F1": 0.6642335766,
+      "Precision": 0.5290697674,
+      "Recall": 0.8921568627
     },
     {
       "model": "Random forest",
       "split": "train",
-      "threshold": 0.78,
-      "ROC-AUC": 0.9269749614,
-      "PR-AUC": 0.6467262901,
-      "F1": 0.5996661102,
-      "Precision": 0.6159122085,
-      "Recall": 0.5842550423
+      "threshold": 0.775,
+      "ROC-AUC": 0.9271401745,
+      "PR-AUC": 0.6455374728,
+      "F1": 0.6022913257,
+      "Precision": 0.6060606061,
+      "Recall": 0.5985686402
     },
     {
       "model": "Random forest",
       "split": "validation",
-      "threshold": 0.78,
-      "ROC-AUC": 0.9271635018,
-      "PR-AUC": 0.7226204077,
-      "F1": 0.7038626609,
-      "Precision": 0.7068965517,
-      "Recall": 0.7008547009
+      "threshold": 0.775,
+      "ROC-AUC": 0.9268927821,
+      "PR-AUC": 0.7174526062,
+      "F1": 0.7043478261,
+      "Precision": 0.7168141593,
+      "Recall": 0.6923076923
     },
     {
       "model": "Random forest",
       "split": "test",
-      "threshold": 0.78,
-      "ROC-AUC": 0.9377387319,
-      "PR-AUC": 0.7170015605,
-      "F1": 0.6517412935,
-      "Precision": 0.6616161616,
-      "Recall": 0.6421568627
+      "threshold": 0.775,
+      "ROC-AUC": 0.9367880486,
+      "PR-AUC": 0.7172383674,
+      "F1": 0.6567901235,
+      "Precision": 0.6616915423,
+      "Recall": 0.6519607843
     },
     {
       "model": "Shallow neural network",
       "split": "train",
-      "threshold": 0.275,
-      "ROC-AUC": 0.905397672,
-      "PR-AUC": 0.5835411816,
-      "F1": 0.5835929387,
-      "Precision": 0.4855291577,
-      "Recall": 0.73129473
+      "threshold": 0.455,
+      "ROC-AUC": 0.9023933282,
+      "PR-AUC": 0.5764195246,
+      "F1": 0.5251745682,
+      "Precision": 0.6034628378,
+      "Recall": 0.4648666233
     },
     {
       "model": "Shallow neural network",
       "split": "validation",
-      "threshold": 0.275,
-      "ROC-AUC": 0.9269572392,
-      "PR-AUC": 0.7351568077,
-      "F1": 0.7083333333,
-      "Precision": 0.6910569106,
-      "Recall": 0.7264957265
+      "threshold": 0.455,
+      "ROC-AUC": 0.9215428446,
+      "PR-AUC": 0.716616422,
+      "F1": 0.7102803738,
+      "Precision": 0.7835051546,
+      "Recall": 0.6495726496
     },
     {
       "model": "Shallow neural network",
       "split": "test",
-      "threshold": 0.275,
-      "ROC-AUC": 0.9375222816,
-      "PR-AUC": 0.717050824,
-      "F1": 0.6666666667,
-      "Precision": 0.5909090909,
-      "Recall": 0.7647058824
+      "threshold": 0.455,
+      "ROC-AUC": 0.9326924709,
+      "PR-AUC": 0.7157410814,
+      "F1": 0.6260387812,
+      "Precision": 0.7197452229,
+      "Recall": 0.5539215686
     }
   ],
   "ablation": [
     {
       "variant": "all features",
-      "features": 17,
-      "validation_PR-AUC": 0.728757277,
-      "validation_ROC-AUC": 0.9261579714,
+      "features": 16,
+      "validation_PR-AUC": 0.7300832949,
+      "validation_ROC-AUC": 0.925680989,
       "PR-AUC_change": 0.0
     },
     {
       "variant": "without grid",
-      "features": 13,
-      "validation_PR-AUC": 0.7061775778,
-      "validation_ROC-AUC": 0.9210014052,
-      "PR-AUC_change": -0.0225796992
+      "features": 12,
+      "validation_PR-AUC": 0.7047341859,
+      "validation_ROC-AUC": 0.9203310516,
+      "PR-AUC_change": -0.025349109
     },
     {
       "variant": "without qualifying",
-      "features": 14,
-      "validation_PR-AUC": 0.7238030205,
-      "validation_ROC-AUC": 0.9243789561,
-      "PR-AUC_change": -0.0049542564
+      "features": 13,
+      "validation_PR-AUC": 0.7240154316,
+      "validation_ROC-AUC": 0.9239922136,
+      "PR-AUC_change": -0.0060678633
     },
     {
       "variant": "without form",
-      "features": 14,
-      "validation_PR-AUC": 0.7214103042,
-      "validation_ROC-AUC": 0.9235023398,
-      "PR-AUC_change": -0.0073469727
+      "features": 13,
+      "validation_PR-AUC": 0.713622866,
+      "validation_ROC-AUC": 0.9208467082,
+      "PR-AUC_change": -0.0164604289
     },
     {
       "variant": "without standings",
-      "features": 13,
-      "validation_PR-AUC": 0.7132372889,
-      "validation_ROC-AUC": 0.9237343853,
-      "PR-AUC_change": -0.0155199881
+      "features": 12,
+      "validation_PR-AUC": 0.7127381737,
+      "validation_ROC-AUC": 0.9235281226,
+      "PR-AUC_change": -0.0173451212
     },
     {
       "variant": "without context",
       "features": 14,
-      "validation_PR-AUC": 0.7249118102,
-      "validation_ROC-AUC": 0.9247785899,
-      "PR-AUC_change": -0.0038454668
+      "validation_PR-AUC": 0.7287821487,
+      "validation_ROC-AUC": 0.9251911152,
+      "PR-AUC_change": -0.0013011462
     }
   ],
   "permutation": [
     {
       "feature": "grid_position",
-      "importance": 0.1000051706985416
+      "importance": 0.098461862236382
     },
     {
       "feature": "constructor_podium_rate_5",
-      "importance": 0.0161679025776408
-    },
-    {
-      "feature": "driver_points_before",
-      "importance": 0.0143786107322567
-    },
-    {
-      "feature": "driver_rank_before",
-      "importance": 0.0089124918178012
-    },
-    {
-      "feature": "constructor_points_before",
-      "importance": 0.0087800873334848
-    },
-    {
-      "feature": "front_row",
-      "importance": 0.0074202865540257
-    },
-    {
-      "feature": "round",
-      "importance": 0.0065390484197766
+      "importance": 0.0216220649932838
     },
     {
       "feature": "driver_podium_rate_5",
-      "importance": 0.0055502757927566
+      "importance": 0.0095008606689555
+    },
+    {
+      "feature": "constructor_points_before",
+      "importance": 0.008782723122629
     },
     {
       "feature": "driver_age",
-      "importance": -0.0005369914172279
+      "importance": 0.0070701516663327
+    },
+    {
+      "feature": "driver_points_before",
+      "importance": 0.0052679904452285
+    },
+    {
+      "feature": "driver_rank_before",
+      "importance": 0.0050142460800495
+    },
+    {
+      "feature": "driver_races_before",
+      "importance": 0.0019537518073061
+    },
+    {
+      "feature": "qualifying_missing",
+      "importance": -2.3592371600789087e-05
     },
     {
       "feature": "constructor_rank_before",
-      "importance": -0.0016058262253165
+      "importance": -0.0011488074024288
     },
     {
-      "feature": "qualifying_time_seconds",
-      "importance": -0.0040469521573839
+      "feature": "qualifying_position",
+      "importance": -0.0020918297880066
     }
   ],
   "shapGlobal": [
     {
       "feature": "grid_position",
-      "value": 0.1447497619101618
-    },
-    {
-      "feature": "constructor_podium_rate_5",
-      "value": 0.0666854457094261
+      "value": 0.1403295572421216
     },
     {
       "feature": "driver_podium_rate_5",
-      "value": 0.0529820098857771
+      "value": 0.0695251142148033
     },
     {
-      "feature": "driver_rank_before",
-      "value": 0.0434237076912699
-    },
-    {
-      "feature": "year",
-      "value": 0.0330195304506239
-    },
-    {
-      "feature": "front_row",
-      "value": 0.0319714387011334
+      "feature": "constructor_podium_rate_5",
+      "value": 0.0652904418587576
     },
     {
       "feature": "constructor_rank_before",
-      "value": 0.0312981719765291
+      "value": 0.0409918703271693
+    },
+    {
+      "feature": "driver_rank_before",
+      "value": 0.0372362602628762
+    },
+    {
+      "feature": "year",
+      "value": 0.0339128551252424
+    },
+    {
+      "feature": "front_row",
+      "value": 0.0272962266734857
     },
     {
       "feature": "qualifying_position",
-      "value": 0.0212290684446086
+      "value": 0.0200439941605988
     }
   ],
   "russell": {
@@ -990,64 +1001,313 @@
     "shap": [
       {
         "feature": "grid_position",
-        "value": -0.1577065952642007,
+        "value": -0.1598882870069084,
         "observed": 11.0
       },
       {
         "feature": "driver_rank_before",
-        "value": -0.0565158223576689,
+        "value": -0.0712864199023602,
         "observed": 15.0
       },
       {
-        "feature": "driver_podium_rate_5",
-        "value": 0.0487881847449187,
-        "observed": 0.2
-      },
-      {
-        "feature": "constructor_podium_rate_5",
-        "value": -0.0433109372057324,
-        "observed": 0.1
-      },
-      {
         "feature": "constructor_rank_before",
-        "value": -0.043199769081054,
+        "value": -0.0601454503434825,
         "observed": 8.0
       },
       {
+        "feature": "driver_podium_rate_5",
+        "value": 0.0551056585394202,
+        "observed": 0.2
+      },
+      {
         "feature": "year",
-        "value": -0.0395646545431543,
+        "value": -0.0387077444826244,
         "observed": 2021.0
+      },
+      {
+        "feature": "constructor_podium_rate_5",
+        "value": -0.0366965140344449,
+        "observed": 0.1
       }
     ]
   },
   "hamilton": {
     "driver": "Lewis Hamilton",
     "constructor": "Mercedes",
-    "race": "Saudi Arabian Grand Prix",
+    "race": "Bahrain Grand Prix",
     "year": 2022,
-    "round": 2,
-    "grid": 15.0,
-    "qualifying": 16.0,
+    "round": 1,
+    "grid": 5.0,
+    "qualifying": 5.0,
     "field": 20.0,
     "driverForm": 1.0,
     "constructorForm": 0.7,
-    "driverRank": 3.0,
-    "driverPoints": 15.0,
-    "constructorRank": 2.0,
-    "constructorPoints": 27.0,
-    "podium": 0,
-    "probability": 0.07089312114474128,
-    "threshold": 0.275,
-    "predicted": false
+    "driverRank": 0.0,
+    "driverPoints": 0.0,
+    "constructorRank": 0.0,
+    "constructorPoints": 0.0,
+    "podium": 1,
+    "probability": 0.906450479904497,
+    "threshold": 0.6250000000000001,
+    "predicted": true
   },
   "partial": {
     "grid": 3,
     "field": 20,
     "year": 2024,
-    "round": 5,
-    "probability": 0.030125845576136817,
-    "threshold": 0.275,
+    "probability": 0.38742525059297506,
+    "threshold": 0.6250000000000001,
     "predicted": false
   },
-  "selectedModel": "Shallow neural network"
+  "selectedModel": "Logistic regression",
+  "logistic": {
+    "weights": [
+      {
+        "feature": "grid_position",
+        "coefficient": -1.4429420110707922
+      },
+      {
+        "feature": "pit_lane_start",
+        "coefficient": -0.630674567190777
+      },
+      {
+        "feature": "year",
+        "coefficient": -0.3563062384453133
+      },
+      {
+        "feature": "constructor_podium_rate_5",
+        "coefficient": 0.2908301312039901
+      },
+      {
+        "feature": "driver_points_before",
+        "coefficient": 0.2508528820559884
+      },
+      {
+        "feature": "driver_races_before",
+        "coefficient": 0.2435612956893165
+      },
+      {
+        "feature": "constructor_rank_before",
+        "coefficient": -0.2382668508601639
+      },
+      {
+        "feature": "driver_podium_rate_5",
+        "coefficient": 0.2177342026263285
+      },
+      {
+        "feature": "driver_age",
+        "coefficient": -0.1845591405752997
+      },
+      {
+        "feature": "qualifying_position",
+        "coefficient": -0.1638766126772394
+      },
+      {
+        "feature": "constructor_points_before",
+        "coefficient": -0.1467744563562816
+      },
+      {
+        "feature": "qualifying_missing",
+        "coefficient": 0.0956258270500903
+      },
+      {
+        "feature": "driver_rank_before",
+        "coefficient": -0.0762085326415127
+      },
+      {
+        "feature": "front_row",
+        "coefficient": 0.0446022269491073
+      },
+      {
+        "feature": "field_size",
+        "coefficient": 0.0401689184254778
+      },
+      {
+        "feature": "qualifying_time_seconds",
+        "coefficient": 0.0195410255951891
+      }
+    ],
+    "intercept": -1.3847197570078713,
+    "local": {
+      "race": "Dutch Grand Prix",
+      "year": 2021,
+      "probability": 0.1304836745840347,
+      "totalLogOdds": -1.8966889892903052,
+      "podium": 0,
+      "rows": [
+        {
+          "feature": "year",
+          "observed": 2021.0,
+          "standardized": 1.6924352036720691,
+          "contribution": -0.6030252212328227
+        },
+        {
+          "feature": "driver_age",
+          "observed": 23.55421398112213,
+          "standardized": -1.256435829275613,
+          "contribution": 0.2318867168391211
+        },
+        {
+          "feature": "grid_position",
+          "observed": 11.0,
+          "standardized": -0.1460331242882738,
+          "contribution": 0.2107173300434728
+        },
+        {
+          "feature": "constructor_rank_before",
+          "observed": 8.0,
+          "standardized": 0.6679028511336252,
+          "contribution": -0.1591391090201337
+        },
+        {
+          "feature": "qualifying_missing",
+          "observed": 0.0,
+          "standardized": -1.3321698725155664,
+          "contribution": -0.1273898458305145
+        },
+        {
+          "feature": "driver_podium_rate_5",
+          "observed": 0.2,
+          "standardized": 0.299843085743595,
+          "contribution": 0.0652860951873995
+        },
+        {
+          "feature": "pit_lane_start",
+          "observed": 0.0,
+          "standardized": -0.1005848320925196,
+          "contribution": 0.0634362954459068
+        },
+        {
+          "feature": "constructor_podium_rate_5",
+          "observed": 0.1,
+          "standardized": -0.173635371919568,
+          "contribution": -0.0504983979970216
+        },
+        {
+          "feature": "driver_races_before",
+          "observed": 50.0,
+          "standardized": -0.1705680243614682,
+          "contribution": -0.0415437690166461
+        },
+        {
+          "feature": "field_size",
+          "observed": 20.0,
+          "standardized": -0.9511041191303232,
+          "contribution": -0.0382048237754819
+        },
+        {
+          "feature": "qualifying_time_seconds",
+          "observed": 70.332,
+          "standardized": -1.8543212024460247,
+          "contribution": -0.0362353380786997
+        },
+        {
+          "feature": "driver_rank_before",
+          "observed": 15.0,
+          "standardized": 0.3843860624135283,
+          "contribution": -0.0292934977843839
+        },
+        {
+          "feature": "constructor_points_before",
+          "observed": 20.0,
+          "standardized": -0.1358936035400823,
+          "contribution": 0.0199457097818916
+        },
+        {
+          "feature": "front_row",
+          "observed": 0.0,
+          "standardized": -0.309932730523071,
+          "contribution": -0.0138236899857465
+        },
+        {
+          "feature": "driver_points_before",
+          "observed": 13.0,
+          "standardized": -0.0387149908665731,
+          "contribution": -0.0097117670376511
+        },
+        {
+          "feature": "qualifying_position",
+          "observed": 11.0,
+          "standardized": -0.0343189921184961,
+          "contribution": 0.005624080178876
+        }
+      ]
+    }
+  },
+  "uncertainty": {
+    "test": [
+      {
+        "comparison": "Logistic regression",
+        "test_PR-AUC": 0.7023326418,
+        "ci_low_2.5%": 0.6464576005,
+        "ci_high_97.5%": 0.7606274956,
+        "races": 68
+      },
+      {
+        "comparison": "Random forest",
+        "test_PR-AUC": 0.7172383674,
+        "ci_low_2.5%": 0.6592400578,
+        "ci_high_97.5%": 0.777709037,
+        "races": 68
+      },
+      {
+        "comparison": "Shallow neural network",
+        "test_PR-AUC": 0.7157410814,
+        "ci_low_2.5%": 0.6618504868,
+        "ci_high_97.5%": 0.7736969017,
+        "races": 68
+      },
+      {
+        "comparison": "Random forest minus Logistic regression",
+        "test_PR-AUC": 0.0149057257,
+        "ci_low_2.5%": -0.0107967793,
+        "ci_high_97.5%": 0.0463231076,
+        "races": 68
+      },
+      {
+        "comparison": "Shallow neural network minus Logistic regression",
+        "test_PR-AUC": 0.0134084396,
+        "ci_low_2.5%": -0.0161659568,
+        "ci_high_97.5%": 0.0444261081,
+        "races": 68
+      }
+    ],
+    "validation": [
+      {
+        "comparison": "Logistic regression",
+        "validation_PR-AUC": 0.7300832949,
+        "ci_low_2.5%": 0.6206479237,
+        "ci_high_97.5%": 0.8378075145,
+        "races": 39
+      },
+      {
+        "comparison": "Random forest",
+        "validation_PR-AUC": 0.7174526062,
+        "ci_low_2.5%": 0.5994652804,
+        "ci_high_97.5%": 0.8323238583,
+        "races": 39
+      },
+      {
+        "comparison": "Shallow neural network",
+        "validation_PR-AUC": 0.716616422,
+        "ci_low_2.5%": 0.6044930318,
+        "ci_high_97.5%": 0.8284057415,
+        "races": 39
+      },
+      {
+        "comparison": "Random forest minus Logistic regression",
+        "validation_PR-AUC": -0.0126306887,
+        "ci_low_2.5%": -0.0482372009,
+        "ci_high_97.5%": 0.027941224,
+        "races": 39
+      },
+      {
+        "comparison": "Shallow neural network minus Logistic regression",
+        "validation_PR-AUC": -0.0134668729,
+        "ci_low_2.5%": -0.0396001921,
+        "ci_high_97.5%": 0.0147001639,
+        "races": 39
+      }
+    ]
+  }
 }

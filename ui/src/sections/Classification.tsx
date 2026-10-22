@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Choice } from "../components/Controls";
 import { Prose, Section, Takeaway } from "../components/Section";
 import site from "../data/site.json";
-import { featureLabel, num } from "../lib/format";
+import { featureLabel, gap, num } from "../lib/format";
 import { haptic } from "../lib/haptic";
 import { metricAt } from "../lib/metrics";
 
@@ -83,26 +83,31 @@ export function Classification() {
         </Prose>
       )}
       <Prose>
-        On the untouched test set, PR-AUC is {num(metricAt("Shallow neural network", "test", "PR-AUC"))}{" "}
-        for the network, {num(metricAt("Logistic regression", "test", "PR-AUC"))} for logistic
-        regression, and {num(metricAt("Random forest", "test", "PR-AUC"))} for the forest. A
-        useless ranking would sit near {num(testPodium)}, the test podium rate. ROC-AUC for
-        the three models sits between {num(metricAt("Random forest", "test", "ROC-AUC"))} and{" "}
-        {num(metricAt("Shallow neural network", "test", "ROC-AUC"))}. In that pair reading, a
-        true podium outranks a non-podium about 93 to 94 times out of 100, and the models do
-        not separate.
+        On the untouched test set, PR-AUC is {num(metricAt("Random forest", "test", "PR-AUC"))} for the forest,{" "}
+        {num(metricAt("Shallow neural network", "test", "PR-AUC"))} for the network, and{" "}
+        {num(metricAt("Logistic regression", "test", "PR-AUC"))} for logistic regression, the selected model. A useless ranking
+        would sit near {num(testPodium)}, the test podium rate. We selected logistic regression before looking at test, because its
+        validation PR-AUC of {num(metricAt("Logistic regression", "validation", "PR-AUC"))} was ahead of{" "}
+        {num(metricAt("Random forest", "validation", "PR-AUC"))} for the forest and{" "}
+        {num(metricAt("Shallow neural network", "validation", "PR-AUC"))} for the network. ROC-AUC on test sits between{" "}
+        {num(metricAt("Shallow neural network", "test", "ROC-AUC"))} and {num(metricAt("Random forest", "test", "ROC-AUC"))}: a true podium
+        outranks a non-podium about 93 times in 100 for every model, and the models do not separate.
       </Prose>
       <Prose>
-        At the frozen cutoffs, logistic regression's test precision is{" "}
-        {num(metricAt("Logistic regression", "test", "Precision"))} and its recall is{" "}
-        {num(metricAt("Logistic regression", "test", "Recall"))}. It catches most podiums and
-        accepts more false alarms. The forest is the conservative one: precision{" "}
-        {num(metricAt("Random forest", "test", "Precision"))}, recall{" "}
-        {num(metricAt("Random forest", "test", "Recall"))}. The network sits between them,
-        precision {num(metricAt("Shallow neural network", "test", "Precision"))} and recall{" "}
-        {num(metricAt("Shallow neural network", "test", "Recall"))}. Test F1 ends up almost
-        tied, from {num(metricAt("Random forest", "test", "F1"))} to{" "}
-        {num(metricAt("Shallow neural network", "test", "F1"))}.
+        At the frozen cutoffs, logistic regression's test precision is {num(metricAt("Logistic regression", "test", "Precision"))} and its
+        recall is {num(metricAt("Logistic regression", "test", "Recall"))}. It catches most podiums and accepts more false alarms. The
+        forest sits between: precision {num(metricAt("Random forest", "test", "Precision"))}, recall{" "}
+        {num(metricAt("Random forest", "test", "Recall"))}. The network is the most cautious, precision{" "}
+        {num(metricAt("Shallow neural network", "test", "Precision"))} and recall{" "}
+        {num(metricAt("Shallow neural network", "test", "Recall"))}. Test F1 ends up close, from{" "}
+        {num(metricAt("Shallow neural network", "test", "F1"))} to {num(metricAt("Logistic regression", "test", "F1"))}.
+      </Prose>
+      <Prose>
+        Are the differences real? The 68 test races were resampled to put an interval around each gap. The forest minus logistic regression is{" "}
+        {gap(site.uncertainty.test[3]["test_PR-AUC"])} with an interval from {gap(site.uncertainty.test[3]["ci_low_2.5%"])} to{" "}
+        {gap(site.uncertainty.test[3]["ci_high_97.5%"])}; the network minus logistic regression is{" "}
+        {gap(site.uncertainty.test[4]["test_PR-AUC"])} ({gap(site.uncertainty.test[4]["ci_low_2.5%"])} to{" "}
+        {gap(site.uncertainty.test[4]["ci_high_97.5%"])}). Both intervals include zero, so we treat the three as tied.
       </Prose>
 
       <h3 className="pt-4 text-[1.7rem]">Remove one group</h3>
@@ -119,9 +124,18 @@ export function Classification() {
         The primary score notices. The secondary score barely does.
       </Prose>
 
-      <h3 className="pt-4 text-[1.2rem] font-semibold tracking-[-0.02em]">Where the two explanations disagree</h3>
+      <h3 className="pt-4 text-[1.7rem]">What the selected model weighs</h3>
       <Prose>
-        Both lists are the random forest on a validation sample. Permutation shuffles one
+        Logistic regression is explained directly. Each bar is the change in podium log-odds for a one-standard-deviation rise in that input,
+        holding the others fixed. Grid position outweighs everything, and a pit-lane start costs more again. The weights describe what the
+        fitted model relies on. They are not causal effects.
+      </Prose>
+      <WeightList />
+
+      <h3 className="pt-4 text-[1.2rem] font-semibold tracking-[-0.02em]">Where the two forest explanations disagree</h3>
+      <Prose>
+        Both lists are the random forest on a validation sample: cross-checks, not explanations of the selected model, which is explained
+        directly by its weights in the next section. Permutation shuffles one
         column and records the change in PR-AUC. SHAP averages the size of each feature's
         push. A negative permutation value means the score rose slightly when that column
         was destroyed. We do not read that as a cause.
@@ -150,10 +164,9 @@ export function Classification() {
         finding as the reliable one.
       </Prose>
       <Takeaway>
-        The network is slightly ahead on the score we chose, and on the test seasons it is level
-        with the forest and ahead of logistic regression, but neither the 39 validation races nor
-        the 68 test races separate the three models. Grid position is the input both the
-        ablation and the two explanations agree on.
+        Logistic regression is the selected model. On the test seasons the forest and the network sit slightly ahead of it, but neither the 39
+        validation races nor the 68 test races separate the three models. Grid position is the input the weights, the ablation, and both
+        forest explanations agree on.
       </Takeaway>
     </Section>
   );
@@ -206,6 +219,32 @@ function ScoreTower() {
       ))}
       </div>
     </div>
+  );
+}
+
+function WeightList() {
+  const rows = site.logistic.weights;
+  const max = Math.max(...rows.map((row) => Math.abs(row.coefficient)));
+  return (
+    <ul className="max-w-[44rem] space-y-1">
+      {rows.map((row) => (
+        <li key={row.feature} className="grid grid-cols-[11rem_1fr_3.6rem] items-center gap-3 sm:grid-cols-[16rem_1fr_3.6rem]">
+          <span className="truncate text-[0.98rem]">{featureLabel(row.feature)}</span>
+          <span className="relative block h-3 bg-line">
+            <span className="absolute inset-y-0 left-1/2 w-px bg-steel" />
+            <span
+              className={`absolute inset-y-0 ${row.coefficient < 0 ? "bg-signal" : "bg-ink"}`}
+              style={{
+                width: `${(Math.abs(row.coefficient) / max) * 50}%`,
+                left: row.coefficient >= 0 ? "50%" : undefined,
+                right: row.coefficient < 0 ? "50%" : undefined,
+              }}
+            />
+          </span>
+          <span className="figure text-right text-[1.2rem]">{gap(row.coefficient, 2)}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

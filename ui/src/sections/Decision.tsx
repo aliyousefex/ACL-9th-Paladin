@@ -10,7 +10,7 @@ const KNOWN = [
   "Qualifying order, time, and whether it is missing",
   "Podium rate over the previous five races",
   "Points and rank from the previous race",
-  "Age, round, and year",
+  "Age and year",
 ];
 
 export function Decision() {
@@ -18,14 +18,14 @@ export function Decision() {
   const rows = site.diagnostics.clean_rows;
 
   return (
-    <section id="decision" className="scroll-mt-28 md:scroll-mt-24">
+    <section id="decision" className="scroll-mt-32">
       <div className="flex items-center justify-end gap-3">
         <StartLights lit={5} pace className="h-7 w-2.5" />
         <p className="bg-signal px-2 py-1 text-[0.95rem] text-ink">Pre-race</p>
       </div>
-      <h1 className="mt-4 max-w-[16ch] font-display text-[3.2rem] leading-[0.92] font-semibold tracking-[-0.03em] text-ink md:text-[4.6rem]">
+      <h2 className="mt-4 max-w-[16ch] font-display text-[3.2rem] leading-[0.92] font-semibold tracking-[-0.03em] text-ink md:text-[4.6rem]">
         Will this driver finish in the top three?
-      </h1>
+      </h2>
       <p className="mt-4 max-w-[62ch] text-[1.15rem] leading-relaxed text-steel">
         We answer that only with what is known after qualifying and before the start.
         The race result is the label. It is not an input for the same row.

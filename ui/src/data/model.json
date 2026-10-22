@@ -1,0 +1,471 @@
+{
+ "name": "Logistic regression",
+ "features": [
+  "grid_position",
+  "pit_lane_start",
+  "front_row",
+  "field_size",
+  "qualifying_position",
+  "qualifying_time_seconds",
+  "qualifying_missing",
+  "driver_podium_rate_5",
+  "constructor_podium_rate_5",
+  "driver_races_before",
+  "driver_points_before",
+  "driver_rank_before",
+  "constructor_points_before",
+  "constructor_rank_before",
+  "driver_age",
+  "year"
+ ],
+ "median": [
+  12.0,
+  0.0,
+  0.0,
+  23.0,
+  11.0,
+  87.244,
+  1.0,
+  0.0,
+  0.0,
+  40.0,
+  2.0,
+  10.0,
+  6.0,
+  5.0,
+  29.6132021875877,
+  1990.0
+ ],
+ "mean": [
+  12.002072270431292,
+  0.010015973751241204,
+  0.08763977032336054,
+  23.247722661140614,
+  11.131157449380478,
+  87.78995548935804,
+  0.6395976341579243,
+  0.1308458892774396,
+  0.13463997463528063,
+  60.546129603246555,
+  14.32963648922851,
+  11.277209342485861,
+  29.02579544963951,
+  5.2981910806026855,
+  30.12840080266892,
+  1989.219531148815
+ ],
+ "scale": [
+  6.8619518709547735,
+  0.09957737705450799,
+  0.28277029720433716,
+  3.414686779098684,
+  3.8217162359436156,
+  9.414741883083334,
+  0.4801171737581466,
+  0.2306343351258605,
+  0.1994983755460072,
+  61.82946447745193,
+  34.34422841040961,
+  9.685030289961723,
+  66.41810368195381,
+  4.045212435927709,
+  5.232409541629418,
+  18.777953083362462
+ ],
+ "coef": [
+  -1.4429420110707922,
+  -0.630674567190777,
+  0.0446022269491073,
+  0.0401689184254778,
+  -0.1638766126772394,
+  0.0195410255951891,
+  0.0956258270500903,
+  0.2177342026263285,
+  0.2908301312039901,
+  0.2435612956893165,
+  0.2508528820559884,
+  -0.0762085326415127,
+  -0.1467744563562816,
+  -0.2382668508601639,
+  -0.1845591405752997,
+  -0.3563062384453133
+ ],
+ "intercept": -1.3847197570078713,
+ "threshold": 0.6250000000000001,
+ "verification": {
+  "train": {
+   "maxAbsDifference": 1.1102230246251565e-16,
+   "ROC-AUC": 0.8994117523798537,
+   "PR-AUC": 0.5624261913424167,
+   "F1": 0.5778534095052874,
+   "Precision": 0.46128468853095284,
+   "Recall": 0.7732595966167859
+  },
+  "validation": {
+   "maxAbsDifference": 2.220446049250313e-16,
+   "ROC-AUC": 0.9256809890294053,
+   "PR-AUC": 0.7300832948782576,
+   "F1": 0.6996197718631179,
+   "Precision": 0.6301369863013698,
+   "Recall": 0.7863247863247863
+  },
+  "test": {
+   "maxAbsDifference": 2.220446049250313e-16,
+   "ROC-AUC": 0.9349842967490026,
+   "PR-AUC": 0.7023326417554675,
+   "F1": 0.6642335766423358,
+   "Precision": 0.5290697674418605,
+   "Recall": 0.8921568627450981
+  },
+  "explainedRow": {
+   "maxStandardizedDifference": 6.661338147750939e-16,
+   "probabilityDifference": 1.1102230246251565e-16
+  }
+ },
+ "metrics": [
+  {
+   "model": "Logistic regression",
+   "split": "train",
+   "threshold": 0.625,
+   "ROC-AUC": 0.8994117524,
+   "PR-AUC": 0.5624261913,
+   "F1": 0.5778534095,
+   "Precision": 0.4612846885,
+   "Recall": 0.7732595966
+  },
+  {
+   "model": "Logistic regression",
+   "split": "validation",
+   "threshold": 0.625,
+   "ROC-AUC": 0.925680989,
+   "PR-AUC": 0.7300832949,
+   "F1": 0.6996197719,
+   "Precision": 0.6301369863,
+   "Recall": 0.7863247863
+  },
+  {
+   "model": "Logistic regression",
+   "split": "test",
+   "threshold": 0.625,
+   "ROC-AUC": 0.9349842967,
+   "PR-AUC": 0.7023326418,
+   "F1": 0.6642335766,
+   "Precision": 0.5290697674,
+   "Recall": 0.8921568627
+  },
+  {
+   "model": "Random forest",
+   "split": "train",
+   "threshold": 0.775,
+   "ROC-AUC": 0.9271401745,
+   "PR-AUC": 0.6455374728,
+   "F1": 0.6022913257,
+   "Precision": 0.6060606061,
+   "Recall": 0.5985686402
+  },
+  {
+   "model": "Random forest",
+   "split": "validation",
+   "threshold": 0.775,
+   "ROC-AUC": 0.9268927821,
+   "PR-AUC": 0.7174526062,
+   "F1": 0.7043478261,
+   "Precision": 0.7168141593,
+   "Recall": 0.6923076923
+  },
+  {
+   "model": "Random forest",
+   "split": "test",
+   "threshold": 0.775,
+   "ROC-AUC": 0.9367880486,
+   "PR-AUC": 0.7172383674,
+   "F1": 0.6567901235,
+   "Precision": 0.6616915423,
+   "Recall": 0.6519607843
+  },
+  {
+   "model": "Shallow neural network",
+   "split": "train",
+   "threshold": 0.455,
+   "ROC-AUC": 0.9023933282,
+   "PR-AUC": 0.5764195246,
+   "F1": 0.5251745682,
+   "Precision": 0.6034628378,
+   "Recall": 0.4648666233
+  },
+  {
+   "model": "Shallow neural network",
+   "split": "validation",
+   "threshold": 0.455,
+   "ROC-AUC": 0.9215428446,
+   "PR-AUC": 0.716616422,
+   "F1": 0.7102803738,
+   "Precision": 0.7835051546,
+   "Recall": 0.6495726496
+  },
+  {
+   "model": "Shallow neural network",
+   "split": "test",
+   "threshold": 0.455,
+   "ROC-AUC": 0.9326924709,
+   "PR-AUC": 0.7157410814,
+   "F1": 0.6260387812,
+   "Precision": 0.7197452229,
+   "Recall": 0.5539215686
+  }
+ ],
+ "testUncertainty": [
+  {
+   "comparison": "Logistic regression",
+   "test_PR-AUC": 0.7023326418,
+   "ci_low_2.5%": 0.6464576005,
+   "ci_high_97.5%": 0.7606274956,
+   "races": 68
+  },
+  {
+   "comparison": "Random forest",
+   "test_PR-AUC": 0.7172383674,
+   "ci_low_2.5%": 0.6592400578,
+   "ci_high_97.5%": 0.777709037,
+   "races": 68
+  },
+  {
+   "comparison": "Shallow neural network",
+   "test_PR-AUC": 0.7157410814,
+   "ci_low_2.5%": 0.6618504868,
+   "ci_high_97.5%": 0.7736969017,
+   "races": 68
+  },
+  {
+   "comparison": "Random forest minus Logistic regression",
+   "test_PR-AUC": 0.0149057257,
+   "ci_low_2.5%": -0.0107967793,
+   "ci_high_97.5%": 0.0463231076,
+   "races": 68
+  },
+  {
+   "comparison": "Shallow neural network minus Logistic regression",
+   "test_PR-AUC": 0.0134084396,
+   "ci_low_2.5%": -0.0161659568,
+   "ci_high_97.5%": 0.0444261081,
+   "races": 68
+  }
+ ],
+ "validationUncertainty": [
+  {
+   "comparison": "Logistic regression",
+   "validation_PR-AUC": 0.7300832949,
+   "ci_low_2.5%": 0.6206479237,
+   "ci_high_97.5%": 0.8378075145,
+   "races": 39
+  },
+  {
+   "comparison": "Random forest",
+   "validation_PR-AUC": 0.7174526062,
+   "ci_low_2.5%": 0.5994652804,
+   "ci_high_97.5%": 0.8323238583,
+   "races": 39
+  },
+  {
+   "comparison": "Shallow neural network",
+   "validation_PR-AUC": 0.716616422,
+   "ci_low_2.5%": 0.6044930318,
+   "ci_high_97.5%": 0.8284057415,
+   "races": 39
+  },
+  {
+   "comparison": "Random forest minus Logistic regression",
+   "validation_PR-AUC": -0.0126306887,
+   "ci_low_2.5%": -0.0482372009,
+   "ci_high_97.5%": 0.027941224,
+   "races": 39
+  },
+  {
+   "comparison": "Shallow neural network minus Logistic regression",
+   "validation_PR-AUC": -0.0134668729,
+   "ci_low_2.5%": -0.0396001921,
+   "ci_high_97.5%": 0.0147001639,
+   "races": 39
+  }
+ ],
+ "reliability": {
+  "validation": [
+   {
+    "lo": 0.0,
+    "hi": 0.1,
+    "n": 308,
+    "podiums": 1,
+    "meanScore": 0.0355
+   },
+   {
+    "lo": 0.1,
+    "hi": 0.2,
+    "n": 98,
+    "podiums": 6,
+    "meanScore": 0.1471
+   },
+   {
+    "lo": 0.2,
+    "hi": 0.3,
+    "n": 68,
+    "podiums": 3,
+    "meanScore": 0.2486
+   },
+   {
+    "lo": 0.3,
+    "hi": 0.4,
+    "n": 54,
+    "podiums": 1,
+    "meanScore": 0.3433
+   },
+   {
+    "lo": 0.4,
+    "hi": 0.5,
+    "n": 39,
+    "podiums": 4,
+    "meanScore": 0.4505
+   },
+   {
+    "lo": 0.5,
+    "hi": 0.6,
+    "n": 57,
+    "podiums": 7,
+    "meanScore": 0.5471
+   },
+   {
+    "lo": 0.6,
+    "hi": 0.7,
+    "n": 27,
+    "podiums": 10,
+    "meanScore": 0.6419
+   },
+   {
+    "lo": 0.7,
+    "hi": 0.8,
+    "n": 13,
+    "podiums": 6,
+    "meanScore": 0.7465
+   },
+   {
+    "lo": 0.8,
+    "hi": 0.9,
+    "n": 33,
+    "podiums": 16,
+    "meanScore": 0.8576
+   },
+   {
+    "lo": 0.9,
+    "hi": 1.0,
+    "n": 83,
+    "podiums": 63,
+    "meanScore": 0.9511
+   }
+  ],
+  "test": [
+   {
+    "lo": 0.0,
+    "hi": 0.1,
+    "n": 553,
+    "podiums": 2,
+    "meanScore": 0.0374
+   },
+   {
+    "lo": 0.1,
+    "hi": 0.2,
+    "n": 163,
+    "podiums": 1,
+    "meanScore": 0.1415
+   },
+   {
+    "lo": 0.2,
+    "hi": 0.3,
+    "n": 99,
+    "podiums": 1,
+    "meanScore": 0.245
+   },
+   {
+    "lo": 0.3,
+    "hi": 0.4,
+    "n": 65,
+    "podiums": 5,
+    "meanScore": 0.3521
+   },
+   {
+    "lo": 0.4,
+    "hi": 0.5,
+    "n": 81,
+    "podiums": 6,
+    "meanScore": 0.4462
+   },
+   {
+    "lo": 0.5,
+    "hi": 0.6,
+    "n": 39,
+    "podiums": 1,
+    "meanScore": 0.5485
+   },
+   {
+    "lo": 0.6,
+    "hi": 0.7,
+    "n": 62,
+    "podiums": 17,
+    "meanScore": 0.6502
+   },
+   {
+    "lo": 0.7,
+    "hi": 0.8,
+    "n": 77,
+    "podiums": 37,
+    "meanScore": 0.7506
+   },
+   {
+    "lo": 0.8,
+    "hi": 0.9,
+    "n": 96,
+    "podiums": 43,
+    "meanScore": 0.8538
+   },
+   {
+    "lo": 0.9,
+    "hi": 1.0,
+    "n": 124,
+    "podiums": 91,
+    "meanScore": 0.9469
+   }
+  ]
+ },
+ "raceHits": {
+  "races": 68,
+  "model": {
+   "0": 1,
+   "1": 16,
+   "2": 37,
+   "3": 14
+  },
+  "grid": {
+   "0": 1,
+   "1": 12,
+   "2": 44,
+   "3": 11
+  },
+  "meanModel": 1.941,
+  "meanGrid": 1.956,
+  "bySeason": {
+   "2022": {
+    "races": 22,
+    "meanHits": 1.818,
+    "meanBaselineHits": 1.909
+   },
+   "2023": {
+    "races": 22,
+    "meanHits": 2.0,
+    "meanBaselineHits": 1.955
+   },
+   "2024": {
+    "races": 24,
+    "meanHits": 2.0,
+    "meanBaselineHits": 2.0
+   }
+  }
+ }
+}

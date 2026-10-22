@@ -20,16 +20,20 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <main className="grid min-h-screen place-items-center px-5 py-16">
         <section className="w-full max-w-2xl border-y border-line py-10">
-          <p className="font-display text-[0.95rem] tracking-[0.08em] text-signal uppercase">Session interrupted</p>
-          <h1 className="mt-3 max-w-[14ch] font-display text-[3rem] leading-[0.95] font-semibold tracking-[-0.03em]">
-            The timing screen could not finish loading.
-          </h1>
+          <p className="eyebrow">Safety car</p>
+          <h1 className="display mt-4 max-w-[14ch] text-[3.4rem]">The screen could not finish loading.</h1>
           <p className="mt-5 max-w-[58ch] text-[1.05rem] leading-relaxed text-steel">
-            Reload the page to restart the local presentation. The analysis files and saved results are unaffected.
+            Something went wrong while drawing this page. The data files and the saved results are unaffected. Reload to restart, or go back to the
+            season overview.
           </p>
-          <button className="switch mt-7" type="button" onClick={() => window.location.reload()}>
-            Reload the interface
-          </button>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <button className="btn" type="button" onClick={() => window.location.reload()}>
+              Reload
+            </button>
+            <a className="btn btn-ghost" href="#/">
+              Season overview
+            </a>
+          </div>
         </section>
       </main>
     );

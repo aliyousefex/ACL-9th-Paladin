@@ -26,20 +26,18 @@ export function Limits() {
         field, and also with changes in how retirements were described.
       </Prose>
       <Prose>
-        Validation is {site.splits[1].races} races. We used it to pick a cutoff and a model.
-        We do not pretend it can rank effects of a few thousandths. The models associate
-        historical patterns. They do not say what would happen if a car started one place
-        further forward, and a probability is not a guarantee about the next race.
+        Validation is {site.splits[1].races} races. We used it to pick a cutoff and a model. We do not pretend it can rank effects of a few
+        thousandths. The models associate historical patterns. They do not say what would happen if a car started one place further forward,
+        and a score is not a guarantee about the next race. The scores were evaluated for ranking and for their cutoff, not for calibration,
+        so a score of 0.9 does not mean a 90% chance.
       </Prose>
       <Prose>
-        What the evidence supports is narrower, and enough. After{" "}
-        {site.diagnostics.duplicate_driver_race_groups} shared-drive groups are resolved and the{" "}
-        {integer(site.diagnostics.did_not_enter_rows_removed)} rows of drivers who did not enter
-        are removed, {integer(site.diagnostics.clean_rows)} rows remain, {pct(site.podiumRate)} of them
-        podiums. The grid carries the description, the ablation, and both forest explanations.
-        The network is the model the validation score selects, and the test seasons place it
-        level with the forest and ahead of logistic regression. The three models are close
-        enough that neither validation nor test can rank them.
+        What the evidence supports is narrower, and enough. After {site.diagnostics.duplicate_driver_race_groups} shared-drive groups are
+        resolved and the {integer(site.diagnostics.did_not_enter_rows_removed)} rows of drivers who did not enter are removed,{" "}
+        {integer(site.diagnostics.clean_rows)} rows remain, {pct(site.podiumRate)} of them podiums. The grid carries the description, the
+        ablation, the selected model's weights and both forest explanations. Logistic regression is the model validation selects. On the
+        test seasons the forest and the network sit slightly ahead of it, and the three are close enough that neither validation nor test
+        can rank them.
       </Prose>
       <p className="text-steel">
         Paladin. Numbers on this page are exported from the analysis artifacts, the same run

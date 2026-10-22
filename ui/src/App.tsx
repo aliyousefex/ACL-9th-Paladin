@@ -1,85 +1,64 @@
-import { useEffect, useState } from "react";
-import { Nav } from "./components/Tower";
-import { SECTIONS } from "./lib/sections";
-import { Book } from "./sections/Book";
-import { Build } from "./sections/Build";
-import { Cases } from "./sections/Cases";
-import { Classification } from "./sections/Classification";
-import { Decision } from "./sections/Decision";
-import { Features } from "./sections/Features";
-import { Line } from "./sections/Line";
-import { Findings } from "./sections/Findings";
-import { Limits } from "./sections/Limits";
-import { Models } from "./sections/Models";
+import { lazy, Suspense, useEffect } from "react";
+import { LightsLoader } from "./components/Bits";
+import { Shell } from "./components/Shell";
+import { RACES, raceHref } from "./lib/data";
+import { navigate, useLocation, useScrollOnNavigate } from "./lib/router";
+
+const Home = lazy(() => import("./features/home/Home").then((m) => ({ default: m.Home })));
+const RacePage = lazy(() => import("./features/race/RacePage").then((m) => ({ default: m.RacePage })));
+const DriversPage = lazy(() => import("./features/drivers/DriversPage").then((m) => ({ default: m.DriversPage })));
+const CircuitsPage = lazy(() => import("./features/circuits/CircuitsPage").then((m) => ({ default: m.CircuitsPage })));
+const ModelPage = lazy(() => import("./features/model/ModelPage").then((m) => ({ default: m.ModelPage })));
+const MethodPage = lazy(() => import("./features/method/MethodPage").then((m) => ({ default: m.MethodPage })));
 
 export default function App() {
-  const active = useActiveSection();
-  const progress = useReadingProgress();
+  const location = useLocation();
+  useScrollOnNavigate(location);
+
+  // Old walkthrough links such as #book keep working and are rewritten to their canonical address.
+  useEffect(() => {
+    const id = window.location.hash.replace(/^#/, "");
+    if (id && !id.startsWith("/") && location.path[0] === "method") window.history.replaceState(null, "", `#/method/${id}`);
+  }, [location.key, location.path]);
+  const [first, second, third] = location.path;
+  const section = first ?? "";
+
+  let page;
+  switch (section) {
+    case "race":
+      page = second && third ? <RacePage year={Number(second)} slug={third} /> : <GoLatest />;
+      break;
+    case "drivers":
+      page = <DriversPage reference={second} query={location.query} />;
+      break;
+    case "circuits":
+      page = <CircuitsPage reference={second} query={location.query} />;
+      break;
+    case "model":
+      page = <ModelPage />;
+      break;
+    case "method":
+      page = <MethodPage section={second} />;
+      break;
+    default:
+      page = <Home query={location.query} />;
+  }
+
+  // The method page is one long document: moving between its sections must not remount it.
+  const key = section === "method" ? "method" : location.path.join("/");
 
   return (
-    <>
-      <a
-        href="#decision"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:bg-paper focus:px-3 focus:py-2"
-      >
-        Skip to the decision
-      </a>
-      <Nav active={active} progress={progress} />
-      <main className="px-5 pt-28 pb-16 md:px-8 md:pt-24">
-        <div className="mx-auto max-w-6xl">
-          <Decision />
-          <Line />
-          <Book />
-          <Findings />
-          <Build />
-          <Features />
-          <Models />
-          <Classification />
-          <Cases />
-          <Limits />
-        </div>
-      </main>
-    </>
+    <Shell section={["race", "drivers", "circuits", "model", "method"].includes(section) ? section : ""}>
+      <Suspense fallback={<div className="pt-32"><LightsLoader label="Loading" /></div>}>
+        <div key={key}>{page}</div>
+      </Suspense>
+    </Shell>
   );
 }
 
-function useReadingProgress(): number {
-  const [progress, setProgress] = useState(0);
-
+function GoLatest() {
   useEffect(() => {
-    const onScroll = () => {
-      const distance = document.documentElement.scrollHeight - window.innerHeight;
-      setProgress(distance > 0 ? Math.min(1, Math.max(0, window.scrollY / distance)) : 0);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
+    navigate(raceHref(RACES[RACES.length - 1]));
   }, []);
-
-  return progress;
-}
-
-function useActiveSection(): string {
-  const [active, setActive] = useState<string>(SECTIONS[0].id);
-
-  useEffect(() => {
-    const onScroll = () => {
-      const line = window.innerHeight * 0.28;
-      let current: string = SECTIONS[0].id;
-      for (const section of SECTIONS) {
-        const node = document.getElementById(section.id);
-        if (node && node.getBoundingClientRect().top <= line) current = section.id;
-      }
-      setActive(current);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  return active;
+  return null;
 }

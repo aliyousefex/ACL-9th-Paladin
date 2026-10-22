@@ -33,7 +33,7 @@ export function AblationBay() {
           }}
           className="switch"
         >
-          All 17
+          All 16
         </button>
         {site.groups.map((group) => {
           const on = removed === group.id;
@@ -59,7 +59,7 @@ export function AblationBay() {
           <dd className="figure mt-2 text-[2.8rem]">{num(row["validation_PR-AUC"])}</dd>
         </div>
         <div>
-          <dt className="text-steel">Change from all 17</dt>
+          <dt className="text-steel">Change from all 16</dt>
           <dd className="figure mt-2 text-[2.8rem]">{gap(row["PR-AUC_change"])}</dd>
         </div>
         <div>
