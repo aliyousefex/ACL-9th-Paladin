@@ -543,7 +543,7 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
                     <tr key={r[0]} className="border-b border-line">
                       <td className="py-2 pr-3 font-display text-[1.05rem] text-steel">{r[1]}</td>
                       <td className="py-2 pr-3">
-                        <a className="font-display text-[1.1rem] font-semibold uppercase no-underline hover:underline" href={href(raceHref(race))}>
+                        <a className="inline-block py-1 font-display text-[1.1rem] font-semibold uppercase no-underline hover:underline" href={href(raceHref(race))}>
                           {race.name.replace(" Grand Prix", "")}
                         </a>
                       </td>

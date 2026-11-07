@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Panel } from "../../components/Panel";
-import { Tabs } from "../../components/Bits";
+import { ScoreLegend, Tabs } from "../../components/Bits";
 import { THRESHOLD } from "../../lib/model";
 import { haptic } from "../../lib/haptic";
 import { PLACE_COLOURS, classifiedLabel, type Row } from "./rows";
@@ -54,6 +54,7 @@ export function Tower({
         />
       }
     >
+      <div className="mb-4 border-b border-line pb-3"><ScoreLegend compact /></div>
       <div
         className="mb-2 hidden grid-cols-[2.2rem_0.5rem_minmax(0,1fr)_3.4rem_minmax(8rem,1.2fr)_3.4rem] items-end gap-3 px-3 sm:grid"
         aria-hidden

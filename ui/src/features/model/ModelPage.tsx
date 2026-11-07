@@ -349,6 +349,8 @@ function Reading() {
         cutoff, not for calibration.
       </p>
       <div className="mt-6">
+        <div className="table-scroll w-full min-w-0 overflow-x-auto overscroll-x-contain pb-2" role="region" aria-label="Score band chart, scrolls sideways on narrow screens" tabIndex={0}>
+        <div className="min-w-[32rem]">
         <div className="relative flex h-56 items-end gap-2 border-b border-l border-line2 pl-1" role="img" aria-label="Share of entries that finished on the podium for each score band">
           <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
             <line x1="0" y1="100" x2="100" y2="0" stroke="#f4f4f2" strokeOpacity="0.35" strokeDasharray="1.5 2" vectorEffect="non-scaling-stroke" />
@@ -380,6 +382,8 @@ function Reading() {
             </li>
           ))}
         </ol>
+        </div>
+        </div>
         <p className="mt-3 text-[0.82rem] text-mute">Score band (low edge) on the horizontal axis. The dotted diagonal is what a perfectly calibrated probability would look like.</p>
       </div>
     </Panel>
@@ -452,7 +456,7 @@ function Sources() {
             about 2.5% of track size) and its length against the official figure. Official lap lengths and corner counts were checked against each circuit's Wikipedia infobox.
           </p>
           <p>
-            <span className="font-semibold text-ink">Not endorsed.</span> Paladin is a university project, not affiliated with Formula 1, the FIA or any team. Team colours are styling.
+            <span className="font-semibold text-ink">Not endorsed.</span> Paladin is an independent hobby project developed from ACL-903 coursework. It is not affiliated with or endorsed by any university, Formula 1, the FIA or any team. Team colours are styling.
           </p>
           <p>
             <a className="underline decoration-line2 underline-offset-2 hover:text-ink" href={href("/method")}>

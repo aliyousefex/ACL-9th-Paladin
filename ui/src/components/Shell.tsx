@@ -191,7 +191,12 @@ function Footer() {
         </div>
       </div>
       <div className="border-t border-line">
-        <p className="mx-auto max-w-[1320px] px-4 py-4 text-[0.82rem] text-mute sm:px-6 lg:px-10">Paladin F1</p>
+        <div className="mx-auto grid max-w-[1320px] gap-2 px-4 py-6 sm:px-6 md:grid-cols-[11rem_minmax(0,1fr)] md:gap-x-8 lg:px-10">
+          <p className="label !text-ink">Independent project</p>
+          <p id="independence" className="max-w-[80ch] text-[0.95rem] leading-relaxed text-steel">
+            Paladin is an independent hobby project and is not affiliated with or endorsed by any university, Formula 1, the FIA, or any team. Formula 1 and related marks belong to their owners; team colours on this site are styling only.
+          </p>
+        </div>
       </div>
     </footer>
   );

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CircuitMap } from "../../components/CircuitMap";
+import { CircuitMap, useMapUnit } from "../../components/CircuitMap";
 import { Icon } from "../../components/Icon";
 import { Panel } from "../../components/Panel";
 import { Note, Tabs } from "../../components/Bits";
+import { VectorRaceCar } from "../../components/VectorRaceCar";
 import type { Layout, RaceDetail } from "../../lib/data";
 import { usePrefersReducedMotion } from "../../lib/motion";
 import { haptic } from "../../lib/haptic";
@@ -100,6 +101,8 @@ export function ReplayPanel({
           node.style.display = "";
           const p = pointAt(layout.samples, state.s);
           node.setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
+          const car = node.querySelector<SVGGElement>("[data-race-car]");
+          if (car) car.setAttribute("transform", `rotate(${p.angle.toFixed(1)}) scale(0.82)`);
         }
       }
       if (withState) setSnap(snapshot(t));
@@ -176,23 +179,8 @@ export function ReplayPanel({
                         else markers.current.delete(id);
                       }}
                     >
-                      {hot && <circle r={17} fill="none" stroke="#ff3b30" strokeWidth={3} strokeDasharray="5 4" />}
-                      <circle r={focus ? 11 : 8.5} fill={row.colour} stroke="#0a0b0e" strokeWidth={2.5} />
-                      {(hot || focus) && (
-                        <text
-                          y={-20}
-                          textAnchor="middle"
-                          fontSize={19}
-                          fontWeight={700}
-                          fill="#fff"
-                          stroke="#0a0b0e"
-                          strokeWidth={4}
-                          paintOrder="stroke"
-                          style={{ fontFamily: "var(--font-display)" }}
-                        >
-                          {row.driver.code}
-                        </text>
-                      )}
+                      <VectorRaceCar colour={row.colour} ink={row.ink} number={row.entry.n} scale={focus ? 1.05 : 0.82} selected={hot} />
+                      {(hot || focus) && <MarkerLabel code={row.driver.code} />}
                     </g>
                   );
                 })}
@@ -321,5 +309,26 @@ export function ReplayPanel({
         </Note>
       </div>
     </Panel>
+  );
+}
+
+/** A driver code above a car marker, sized in screen pixels (13 px) so it stays readable at any map size. */
+function MarkerLabel({ code }: { code: string }) {
+  const unit = useMapUnit();
+  return (
+    <text
+      y={-16 * unit}
+      transform="rotate(0)"
+      textAnchor="middle"
+      fontSize={13 * unit}
+      fontWeight={700}
+      fill="#fff"
+      stroke="#0a0b0e"
+      strokeWidth={3 * unit}
+      paintOrder="stroke"
+      style={{ fontFamily: "var(--font-display)" }}
+    >
+      {code}
+    </text>
   );
 }

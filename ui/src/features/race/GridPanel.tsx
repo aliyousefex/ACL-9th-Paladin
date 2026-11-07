@@ -23,13 +23,13 @@ export function GridPanel({
       title="The starting grid and what the model sees"
       tag="record"
     >
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-        <div>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+        <div className="min-w-0">
           <p className="max-w-[56ch] text-[0.98rem] leading-snug text-steel">
             The grid is final after qualifying and penalties. It is the strongest input the model has. Choose a driver to see all
             sixteen inputs for that row.
           </p>
-          <ol className="mt-5 grid grid-cols-2 gap-x-3 gap-y-0" aria-label="Starting grid">
+          <ol className="mt-5 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-x-3 gap-y-0" aria-label="Starting grid">
             {grid.map((row, i) => {
               const on = row.driver.id === active?.driver.id;
               return (
@@ -46,7 +46,7 @@ export function GridPanel({
                     <span className="figure w-6 text-right text-[1.35rem] text-mute">{row.grid}</span>
                     <span className="h-6 w-1.5 shrink-0" style={{ background: row.colour }} aria-hidden />
                     <span className="font-display text-[1.2rem] leading-none font-bold tracking-wide uppercase">{row.driver.code}</span>
-                    <span className="ml-auto hidden truncate text-[0.82rem] text-mute min-[420px]:block">{row.team.short}</span>
+                    <span className="ml-auto hidden min-w-0 truncate text-[0.82rem] text-mute min-[420px]:block">{row.team.short}</span>
                   </button>
                 </li>
               );
@@ -130,13 +130,13 @@ function Inputs({ row }: { row: Row }) {
       </div>
       <dl className="mt-4 divide-y divide-line">
         {groups.map((group) => (
-          <div key={group} className="grid grid-cols-[6.4rem_1fr] gap-x-3 py-2.5">
+          <div key={group} className="grid grid-cols-1 gap-x-3 gap-y-1 py-2.5 min-[420px]:grid-cols-[6.4rem_minmax(0,1fr)]">
             <dt className="label pt-0.5">{group}</dt>
-            <dd className="space-y-1">
+            <dd className="min-w-0 space-y-1">
               {FEATURES.filter((f) => FEATURE_GROUP[f] === group).map((f) => (
                 <p key={f} className="flex items-baseline justify-between gap-3">
-                  <span className="text-[0.95rem] text-steel">{featureLabel(f)}</span>
-                  <span className="font-display text-[1.1rem] font-semibold tracking-wide tabular-nums">
+                  <span className="min-w-0 text-[0.95rem] text-steel">{featureLabel(f)}</span>
+                  <span className="shrink-0 text-right font-display text-[1.1rem] font-semibold tracking-wide tabular-nums">
                     {format(f, row.entry.x[FEATURES.indexOf(f)] ?? null)}
                   </span>
                 </p>

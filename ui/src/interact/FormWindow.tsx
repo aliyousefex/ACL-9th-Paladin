@@ -14,7 +14,7 @@ export function FormWindow() {
       <p className="max-w-[68ch] text-steel">
         Six flags in a row. The last one is the race being predicted. These flags illustrate the shift. They are not a driver's record.
       </p>
-      <ol className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-6" aria-label="Illustrated podium flags">
+      <ol className="mt-5 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-2 sm:grid-cols-[repeat(6,minmax(0,1fr))]" aria-label="Illustrated podium flags">
         {FLAGS.map((flag, index) => {
           const current = index === FLAGS.length - 1;
           const inside = leaked ? index > 0 : index < FLAGS.length - 1;
@@ -24,7 +24,7 @@ export function FormWindow() {
               className={`border px-2 py-3 ${current ? "border-signal" : "border-line"} ${inside ? "text-ink" : "text-steel"}`}
             >
               <span className="block text-[0.85rem] text-steel">{current ? "This race" : `Race ${index + 1}`}</span>
-              <span className="figure mt-2 block text-[2rem]">{flag === 1 ? "Podium" : "Out"}</span>
+              <span className="figure mt-2 block text-[1.5rem] sm:text-[2rem]">{flag === 1 ? "Podium" : "Out"}</span>
             </li>
           );
         })}

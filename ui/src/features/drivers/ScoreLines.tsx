@@ -3,6 +3,7 @@ import { PLACE_COLOURS } from "../race/rows";
 import { raceHref, racesIn, type Driver } from "../../lib/data";
 import { THRESHOLD } from "../../lib/model";
 import { href } from "../../lib/router";
+import { useElementWidth } from "../../lib/hooks";
 
 export interface Series {
   driver: Driver;
@@ -12,21 +13,25 @@ export interface Series {
   points: ({ score: number; grid: number | null; finish: number; text: string } | null)[];
 }
 
-const W = 1000;
-const H = 300;
 const PAD = { l: 44, r: 16, t: 18, b: 40 };
 
 /** Podium score by round for one or more drivers, with the actual result marked on each point. */
 export function ScoreLines({ season, series }: { season: number; series: Series[] }) {
   const races = racesIn(season);
   const [hover, setHover] = useState<number | null>(null);
+  // Drawn in real pixels at the measured width so labels stay readable on a phone.
+  const [wrap, measured] = useElementWidth<HTMLElement>(1000);
+  const W = Math.max(280, measured);
+  const H = measured < 520 ? 240 : 300;
   const x = (i: number) => PAD.l + (i / Math.max(1, races.length - 1)) * (W - PAD.l - PAD.r);
   const y = (v: number) => PAD.t + (1 - v) * (H - PAD.t - PAD.b);
   const step = (W - PAD.l - PAD.r) / Math.max(1, races.length - 1);
+  // Up to 24 round numbers do not fit side by side on a phone: label every second or third one, and always the last.
+  const every = step >= 22 ? 1 : step >= 11 ? 2 : 3;
 
   return (
-    <figure className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Podium score by round in ${season} for ${series.map((s) => s.driver.name).join(", ")}`}>
+    <figure ref={wrap} className="relative">
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block h-auto w-full" role="img" aria-label={`Podium score by round in ${season} for ${series.map((s) => s.driver.name).join(", ")}`}>
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <g key={t}>
             <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="#262b33" />
@@ -40,11 +45,13 @@ export function ScoreLines({ season, series }: { season: number; series: Series[
           cutoff {THRESHOLD.toFixed(3)}
         </text>
 
-        {races.map((race, i) => (
-          <text key={race.id} x={x(i)} y={H - 16} textAnchor="middle" fill="#98a0ab" fontSize={12.5}>
-            {race.round}
-          </text>
-        ))}
+        {races.map((race, i) =>
+          i % every === 0 || i === races.length - 1 ? (
+            <text key={race.id} x={x(i)} y={H - 16} textAnchor="middle" fill="#98a0ab" fontSize={12.5}>
+              {race.round}
+            </text>
+          ) : null,
+        )}
         <text x={PAD.l} y={H - 2} fill="#98a0ab" fontSize={11}>
           round
         </text>
@@ -71,7 +78,7 @@ export function ScoreLines({ season, series }: { season: number; series: Series[
               {s.points.map((p, i) =>
                 p ? (
                   <g key={i}>
-                    <circle cx={x(i)} cy={y(p.score)} r={p.finish <= 3 ? 7.5 : 4} fill={p.finish <= 3 ? PLACE_COLOURS[p.finish - 1] : s.colour} stroke={p.finish <= 3 ? "#0a0b0e" : "none"} strokeWidth={2} />
+                    <circle cx={x(i)} cy={y(p.score)} r={p.finish <= 3 ? (step < 14 ? 6 : 7.5) : step < 14 ? 3 : 4} fill={p.finish <= 3 ? PLACE_COLOURS[p.finish - 1] : s.colour} stroke={p.finish <= 3 ? "#0a0b0e" : "none"} strokeWidth={2} />
                   </g>
                 ) : null,
               )}

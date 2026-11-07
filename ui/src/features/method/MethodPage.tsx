@@ -64,10 +64,10 @@ export function MethodPage({ section }: { section?: string }) {
       <nav
         ref={track}
         aria-label="Walkthrough sections"
-        className="scroll-x sticky z-40 overflow-x-auto border-b border-line bg-tower/95 backdrop-blur-sm"
+        className="scroll-x sticky z-40 max-w-full overflow-x-auto overscroll-x-contain border-b border-line bg-tower/95 backdrop-blur-sm"
         style={{ top: "var(--nav-h)" }}
       >
-        <ul className="mx-auto flex max-w-[1320px] items-center gap-1 px-4 sm:px-6 lg:px-10">
+        <ul className="mx-auto flex w-max min-w-full max-w-[1320px] items-center gap-1 px-4 sm:px-6 lg:px-10">
           {SECTIONS.map((item) => {
             const on = item.id === active;
             return (

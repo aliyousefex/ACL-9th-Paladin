@@ -26,6 +26,8 @@ const PATHS = {
   sliders: "M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6",
   menu: "M4 7h16M4 12h16M4 17h16",
   skip: "M6 5v14M10 5l9 7-9 7z",
+  plus: "M12 5v14M5 12h14",
+  minus: "M5 12h14",
 } as const;
 
 export type IconName = keyof typeof PATHS;

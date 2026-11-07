@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type Provenance = "model" | "record" | "illustrative";
+export type Provenance = "model" | "record" | "illustrative" | "simulation" | "user";
 
 const COPY: Record<Provenance, { label: string; title: string; className: string }> = {
   model: {
@@ -18,9 +18,19 @@ const COPY: Record<Provenance, { label: string; title: string; className: string
     title: "Motion or styling added to make the data easier to follow. Not model output.",
     className: "tag tag-illus",
   },
+  simulation: {
+    label: "Simulation",
+    title: "A synthetic scenario produced by transparent strategy rules. Not model output or historical fact.",
+    className: "tag tag-illus",
+  },
+  user: {
+    label: "Your input",
+    title: "Something you chose or changed: a pick, a prediction or a what-if edit. Kept only in your browser. Not model output and not the historical record.",
+    className: "tag tag-user",
+  },
 };
 
-/** Every panel says where its numbers come from: the model, the record, or an illustration. */
+/** Every panel says where its numbers come from: the model, the record, a simulation or illustration, or you. */
 export function Tag({ kind, children }: { kind: Provenance; children?: ReactNode }) {
   const copy = COPY[kind];
   return (
@@ -32,7 +42,7 @@ export function Tag({ kind, children }: { kind: Provenance; children?: ReactNode
 
 export function ProvenanceLegend() {
   return (
-    <dl className="grid gap-3 sm:grid-cols-3">
+    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
       {(Object.keys(COPY) as Provenance[]).map((kind) => (
         <div key={kind} className="flex flex-col items-start gap-2">
           <dt>

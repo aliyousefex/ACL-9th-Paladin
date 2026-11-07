@@ -1,19 +1,25 @@
 import { useState } from "react";
 import site from "../data/site.json";
 import { pct } from "../lib/format";
+import { useElementWidth } from "../lib/hooks";
 
-const W = 1000;
-const H = 260;
-const PAD = { l: 52, r: 10, t: 26, b: 28 };
+const PAD = { l: 52, r: 20, t: 26, b: 28 };
 const FIRST = 1950;
 const LAST = 2024;
-
-const x = (year: number) => PAD.l + ((year - FIRST) / (LAST - FIRST)) * (W - PAD.l - PAD.r);
-const y = (value: number) => PAD.t + (1 - value) * (H - PAD.t - PAD.b);
+const MIN_H = 200;
+const MAX_H = 260;
+const FONT = 13;
 
 /** Share of driver-race rows with a qualifying position, by season. Plain SVG: no chart library. */
 export function CoverageChart({ year }: { year: number }) {
   const [hover, setHover] = useState<number | null>(null);
+  // Drawn in real pixels at the measured width, so axis text stays 13 px on a phone instead of shrinking with the drawing.
+  const [wrap, measured] = useElementWidth<HTMLDivElement>(1000);
+  const W = Math.max(280, measured);
+  const H = Math.round(Math.min(MAX_H, Math.max(MIN_H, W * 0.26)));
+  const x = (season: number) => PAD.l + ((season - FIRST) / (LAST - FIRST)) * (W - PAD.l - PAD.r);
+  const y = (value: number) => PAD.t + (1 - value) * (H - PAD.t - PAD.b);
+  const bandWidth = x(1993) - x(1950);
   const shown = hover ?? year;
   const point = site.coverage.find((row) => row.year === shown);
   const path = site.coverage.map((row, i) => `${i === 0 ? "M" : "L"}${x(row.year).toFixed(1)} ${y(row.coverage).toFixed(1)}`).join("");
@@ -27,10 +33,10 @@ export function CoverageChart({ year }: { year: number }) {
         </div>
         <p className="text-[0.92rem] text-steel">X-axis · Formula One season</p>
       </div>
-      <div className="relative">
+      <div ref={wrap} className="relative">
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          className="h-auto w-full touch-pan-y"
+          width={W} height={H} className="block h-auto w-full touch-pan-y"
           role="img"
           aria-label={`Coverage by season from 1950 to 2024. ${shown}: ${point ? pct(point.coverage) : "no data"}.`}
           onPointerMove={(event) => {
@@ -44,17 +50,24 @@ export function CoverageChart({ year }: { year: number }) {
           {[0, 0.5, 1].map((t) => (
             <g key={t}>
               <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="#262b33" />
-              <text x={PAD.l - 8} y={y(t) + 4} textAnchor="end" fill="#c5cad1" fontSize={13} style={{ fontFamily: "var(--font-display)" }}>
+              <text x={PAD.l - 8} y={y(t) + 4} textAnchor="end" fill="#c5cad1" fontSize={FONT} style={{ fontFamily: "var(--font-display)" }}>
                 {pct(t, 0)}
               </text>
             </g>
           ))}
           <rect x={x(1950)} y={PAD.t} width={x(1993) - x(1950)} height={H - PAD.t - PAD.b} fill="#c5cad1" fillOpacity={0.06} />
-          <text x={(x(1950) + x(1993)) / 2} y={PAD.t + 16} textAnchor="middle" fill="#c5cad1" fontSize={13}>
-            No qualifying rows recorded
+          <text x={(x(1950) + x(1993)) / 2} y={PAD.t + 16} textAnchor="middle" fill="#c5cad1" fontSize={FONT}>
+            {bandWidth > 190 ? (
+              "No qualifying rows recorded"
+            ) : (
+              <>
+                <tspan x={(x(1950) + x(1993)) / 2}>No qualifying</tspan>
+                <tspan x={(x(1950) + x(1993)) / 2} dy={FONT + 3}>rows recorded</tspan>
+              </>
+            )}
           </text>
           {[1950, 1970, 1990, 2000, 2010, 2024].map((t) => (
-            <text key={t} x={x(t)} y={H - 8} textAnchor="middle" fill="#c5cad1" fontSize={13} style={{ fontFamily: "var(--font-display)" }}>
+            <text key={t} x={x(t)} y={H - 8} textAnchor="middle" fill="#c5cad1" fontSize={FONT} style={{ fontFamily: "var(--font-display)" }}>
               {t}
             </text>
           ))}

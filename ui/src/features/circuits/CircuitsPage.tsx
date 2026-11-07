@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { CircuitMap, CircuitThumb, SECTOR_COLOURS } from "../../components/CircuitMap";
+import { CircuitMap, CircuitThumb } from "../../components/CircuitMap";
+import { CircuitStage } from "../../components/CircuitStage";
 import { Flag } from "../../components/Flag";
 import { Icon } from "../../components/Icon";
 import { Panel } from "../../components/Panel";
-import { LightsLoader, Note, Stat, Tabs } from "../../components/Bits";
+import { Note, Stat, Tabs } from "../../components/Bits";
 import { Missing } from "../../components/Missing";
 import {
   RACES,
@@ -270,11 +271,7 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
   useTitle(circuit.name);
   const [layoutId, setLayoutId] = useState(currentLayout(circuit).id);
   const meta = circuit.layouts.find((l) => l.id === layoutId) ?? currentLayout(circuit);
-  const { data: layout, loading } = useResource<Layout>(meta.file ? meta.id : null, () => loadLayout(meta.id));
-  const [layers, setLayers] = useState({ corners: true, sectors: false, drs: false });
-  const [sector, setSector] = useState<number | null>(null);
-  const [drs, setDrs] = useState<number | null>(null);
-  const [corner, setCorner] = useState<number | null>(null);
+  const { data: layout, loading, error } = useResource<Layout>(meta.file ? meta.id : null, () => loadLayout(meta.id));
   const stats = circuit.stats;
   const races = RACES.filter((r) => r.circuitId === circuit.circuitId);
   const hits = hitsAt(circuit);
@@ -319,67 +316,11 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
           />
         ) : undefined}>
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-            <div>
-              <div className="border border-line bg-tower px-3 py-5 sm:px-8 sm:py-8">
-                {loading && !layout && <LightsLoader label="Loading the circuit" />}
-                {!meta.file && <p className="grid min-h-56 place-items-center px-6 text-center text-steel">{meta.note ?? "No verified outline is available for this layout."}</p>}
-                {layout && (
-                  <CircuitMap
-                    layout={layout}
-                    className="mx-auto block max-h-[560px] w-full"
-                    corners={layers.corners}
-                    sectors={layers.sectors}
-                    drs={layers.drs}
-                    activeSector={sector}
-                    activeDrs={drs}
-                    onCorner={setCorner}
-                    animateDraw
-                    label={`${circuit.name} track map`}
-                  />
-                )}
-              </div>
-              {layout && (
-                <>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="label mr-1">Layers</span>
-                    {(["corners", "sectors", "drs"] as const).map((l) => (
-                      <button
-                        key={l}
-                        type="button"
-                        className="chip disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-pressed={layers[l]}
-                        disabled={l === "corners" ? layout.corners.length === 0 : l === "sectors" ? !layout.sectors : !layout.drs}
-                        onClick={() => setLayers((p) => ({ ...p, [l]: !p[l] }))}
-                      >
-                        {l === "drs" ? "DRS usage" : l === "corners" ? "Corners" : "Sectors"}
-                      </button>
-                    ))}
-                    {corner !== null && <span className="ml-2 font-display text-[1.1rem] font-bold tracking-wide uppercase">Turn {corner}</span>}
-                  </div>
-                  {layers.sectors && layout.sectors && (
-                    <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.9rem] text-steel">
-                      {[0, 1, 2].map((i) => (
-                        <li key={i} onPointerEnter={() => setSector(i)} onPointerLeave={() => setSector(null)} className="flex items-center gap-2">
-                          <span className="h-1.5 w-6" style={{ background: SECTOR_COLOURS[i] }} aria-hidden /> Sector {i + 1}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {layers.drs && layout.drs && (
-                    <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[0.9rem] text-steel">
-                      {layout.drs.map((z, i) => (
-                        <li key={i} onPointerEnter={() => setDrs(i)} onPointerLeave={() => setDrs(null)} className="flex items-center gap-2">
-                          <span className="h-1.5 w-6 bg-drs" aria-hidden /> DRS zone {i + 1}: {z.lengthM} m
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {layout.cornersNote && <p className="mt-3 text-[0.9rem] text-amber">{layout.cornersNote}</p>}
-                </>
-              )}
+            <div className="min-w-0">
+              <CircuitStage name={circuit.name} meta={meta} layout={layout} loading={loading} error={error} maxHeight={560} />
             </div>
 
-            <div>
+            <div className="min-w-0 lg:sticky lg:top-[calc(var(--nav-h)+1.5rem)] lg:self-start">
               <dl className="grid grid-cols-2 gap-x-6 gap-y-6">
                 <Stat label="Lap length" value={meta.lengthM ? `${(meta.lengthM / 1000).toFixed(3)} km` : "n/a"} valueClassName="text-[2.2rem]" />
                 <Stat label="Corners" value={meta.turns ?? "n/a"} note={layout?.direction ?? undefined} valueClassName="text-[2.2rem]" />
@@ -408,7 +349,7 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
           <Panel eyebrow="Does starting position decide it here?" title="Podium rate by grid slot" tag="record">
             <p className="max-w-[70ch] text-[1rem] leading-snug text-steel">
               Share of starts from each of the first ten grid slots that finished on the podium, 2014–2024. The grey tick is the same slot across all
-              circuits of the held-out seasons. Small samples (about one race a year) mean single bars move easily.
+              circuits of the held-out seasons. The small number under each slot is how many starts it rests on; with about one race a year, single bars move easily.
             </p>
             <GridBars stats={stats.gridConversion2014} overall={overall} />
             <p className="mt-4 text-[0.95rem] text-steel">
@@ -483,19 +424,19 @@ function ChipRow({ race, ids, plain }: { race: RaceMeta; ids: number[]; plain?: 
 
 function GridBars({ stats, overall }: { stats: { grid: number; starts: number; podiums: number }[]; overall: { starts: number; podiums: number }[] }) {
   return (
-    <ol className="mt-5 flex h-52 items-end gap-2" aria-label="Podium rate by grid slot">
+    <ol className="mt-5 flex h-52 items-end gap-1 sm:gap-2" aria-label="Podium rate by grid slot">
       {stats.map((s, i) => {
         const rate = s.starts ? s.podiums / s.starts : 0;
         const base = overall[i].starts ? overall[i].podiums / overall[i].starts : 0;
         return (
           <li key={s.grid} className="relative flex h-full min-w-0 flex-1 flex-col justify-end">
-            <span className="mb-1 text-center font-display text-[0.95rem] font-semibold tabular-nums">{s.starts ? `${Math.round(rate * 100)}%` : "–"}</span>
+            <span className="mb-1 text-center font-display text-[0.72rem] font-semibold tabular-nums sm:text-[0.95rem]">{s.starts ? `${Math.round(rate * 100)}%` : "–"}</span>
             <div className="relative flex-1">
               <span className="absolute inset-x-0 bottom-0 bg-signal" style={{ height: `${rate * 100}%`, minHeight: s.starts ? 2 : 0 }} />
               <span className="absolute inset-x-[-3px] h-[3px] bg-steel" style={{ bottom: `calc(${base * 100}% - 1px)` }} aria-hidden title={`All circuits: ${Math.round(base * 100)}%`} />
             </div>
-            <span className="mt-1.5 text-center font-display text-[1rem] text-steel">P{s.grid}</span>
-            <span className="text-center text-[0.7rem] text-mute">{s.starts} starts</span>
+            <span className="mt-1.5 text-center font-display text-[0.82rem] text-steel sm:text-[1rem]">P{s.grid}</span>
+            <span className="text-center text-[0.7rem] text-mute"><span className="sm:hidden">{s.starts}</span><span className="hidden sm:inline">{s.starts} starts</span></span>
           </li>
         );
       })}

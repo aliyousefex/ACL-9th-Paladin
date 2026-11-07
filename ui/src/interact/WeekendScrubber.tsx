@@ -124,7 +124,7 @@ export function WeekendScrubber() {
           onChange={(event) => go(Number(event.target.value))}
         />
       </label>
-      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6" role="group" aria-label="Session">
+      <div className="mt-3 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 min-[480px]:grid-cols-[repeat(3,minmax(0,1fr))] md:grid-cols-[repeat(6,minmax(0,1fr))]" role="group" aria-label="Session">
         {STAGES.map((item, itemIndex) => {
           const on = itemIndex === index;
           return (
@@ -133,7 +133,7 @@ export function WeekendScrubber() {
               type="button"
               aria-pressed={on}
               onClick={() => go(itemIndex)}
-              className="switch w-full"
+              className="switch min-h-11 w-full min-w-0 text-[0.86rem] tracking-[0.03em] md:text-[0.82rem] xl:text-[0.98rem] xl:tracking-[0.045em]"
             >
               {item.label}
             </button>

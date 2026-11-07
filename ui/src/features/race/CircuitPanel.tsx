@@ -1,27 +1,23 @@
-import { useState } from "react";
-import { CircuitMap, SECTOR_COLOURS } from "../../components/CircuitMap";
+import { CircuitStage } from "../../components/CircuitStage";
 import { Flag } from "../../components/Flag";
 import { Panel } from "../../components/Panel";
-import { LightsLoader, Note, Stat } from "../../components/Bits";
+import { Note, Stat } from "../../components/Bits";
 import { driver, loadLayout, useResource, layoutFor, type Circuit, type Layout, type RaceMeta } from "../../lib/data";
 import { lapTime } from "../../lib/format";
 
-type Layer = "corners" | "sectors" | "drs";
-
 /** The real circuit: outline, numbered corners, sectors and DRS usage, with the facts that go with it. */
-export function CircuitPanel({ race, circuit }: { race: RaceMeta; circuit: Circuit }) {
+export function CircuitPanel({ race, circuit, revealed }: { race: RaceMeta; circuit: Circuit; revealed: boolean }) {
   const meta = layoutFor(circuit, race.year);
   const { data: layout, error, loading } = useResource<Layout>(meta.file ? meta.id : null, () => loadLayout(meta.id));
-  const [layers, setLayers] = useState<Record<Layer, boolean>>({ corners: true, sectors: false, drs: false });
-  const [activeSector, setActiveSector] = useState<number | null>(null);
-  const [activeDrs, setActiveDrs] = useState<number | null>(null);
-
-  const toggle = (layer: Layer) => setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
   const length = meta.lengthM ?? 0;
   const laps = race.scheduledLaps;
-  const fastest = circuit.stats?.fastestLap[String(race.year)];
+  // This race's own fastest lap is post-race information. Until the result is revealed, show the most recent
+  // earlier season at this circuit that the dataset holds (known before the start), and say which year it is.
+  const fastestYear = revealed ? race.year : race.year - 1;
+  const fastest = circuit.stats?.fastestLap[String(fastestYear)];
   const drsTotal = layout?.drs?.reduce((sum, z) => sum + z.lengthM, 0) ?? 0;
-  const shortened = laps !== null && race.lapsRun < laps;
+  // A shortened race is only known afterwards, so the laps actually run appear only after the reveal.
+  const shortened = revealed && laps !== null && race.lapsRun < laps;
 
   return (
     <Panel
@@ -33,78 +29,16 @@ export function CircuitPanel({ race, circuit }: { race: RaceMeta; circuit: Circu
     >
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <div className="min-w-0">
-          <div className="border border-line bg-tower px-3 py-5 sm:px-8 sm:py-8">
-            {loading && !layout && <LightsLoader label="Loading the circuit" />}
-            {error && <p className="py-10 text-center text-steel">The circuit file could not be loaded.</p>}
-            {!meta.file && (
-              <p className="grid min-h-56 place-items-center px-6 text-center text-steel">
-                {meta.note ?? "No verified outline is available for this layout."}
-              </p>
-            )}
-            {layout && (
-              <CircuitMap
-                layout={layout}
-                className="mx-auto block max-h-[520px] w-full"
-                corners={layers.corners}
-                sectors={layers.sectors}
-                drs={layers.drs}
-                activeSector={activeSector}
-                activeDrs={activeDrs}
-                animateDraw
-                label={`${circuit.name} track map${layers.corners ? " with numbered corners" : ""}`}
-              />
-            )}
-          </div>
-
-          {layout && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="label mr-1">Layers</span>
-              <LayerChip on={layers.corners} onClick={() => toggle("corners")} label="Corners" disabled={layout.corners.length === 0} />
-              <LayerChip on={layers.sectors} onClick={() => toggle("sectors")} label="Sectors" disabled={!layout.sectors} />
-              <LayerChip on={layers.drs} onClick={() => toggle("drs")} label="DRS usage" disabled={!layout.drs} />
-            </div>
-          )}
-
-          {layout && layers.sectors && layout.sectors && (
-            <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.9rem] text-steel" aria-label="Sector legend">
-              {[0, 1, 2].map((i) => (
-                <li
-                  key={i}
-                  onPointerEnter={() => setActiveSector(i)}
-                  onPointerLeave={() => setActiveSector(null)}
-                  className="flex items-center gap-2"
-                >
-                  <span className="h-1.5 w-6" style={{ background: SECTOR_COLOURS[i] }} aria-hidden />
-                  Sector {i + 1}
-                </li>
-              ))}
-            </ul>
-          )}
-          {layout && layers.drs && layout.drs && (
-            <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[0.9rem] text-steel" aria-label="DRS zones">
-              {layout.drs.map((z, i) => (
-                <li
-                  key={i}
-                  onPointerEnter={() => setActiveDrs(i)}
-                  onPointerLeave={() => setActiveDrs(null)}
-                  className="flex items-center gap-2"
-                >
-                  <span className="h-1.5 w-6 bg-drs" aria-hidden />
-                  Zone {i + 1}: {z.lengthM} m
-                </li>
-              ))}
-            </ul>
-          )}
-          {layout?.cornersNote && <p className="mt-3 text-[0.9rem] text-amber">{layout.cornersNote}</p>}
+          <CircuitStage name={circuit.name} meta={meta} layout={layout} loading={loading} error={error} />
         </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0 lg:sticky lg:top-[calc(var(--nav-h)+3.6rem)] lg:self-start">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-6">
             <Stat label="Lap length" value={length ? `${(length / 1000).toFixed(3)} km` : "n/a"} valueClassName="text-[2.2rem]" />
             <Stat
-              label={shortened ? "Laps run" : "Race laps"}
+              label={shortened ? "Laps run" : revealed ? "Race laps" : "Scheduled laps"}
               value={shortened ? race.lapsRun : laps ?? race.lapsRun}
-              note={shortened && laps ? `shortened from ${laps}` : laps && length ? `${((laps * length) / 1000).toFixed(1)} km distance` : undefined}
+              note={shortened && laps ? `shortened from ${laps}` : laps && length ? `${((laps * length) / 1000).toFixed(1)} km ${revealed ? "distance" : "scheduled distance"}` : undefined}
               valueClassName="text-[2.2rem]"
             />
             <Stat label="Corners" value={meta.turns ?? "n/a"} valueClassName="text-[2.2rem]" note={layout?.direction ? `${layout.direction}` : undefined} />
@@ -115,9 +49,9 @@ export function CircuitPanel({ race, circuit }: { race: RaceMeta; circuit: Circu
               valueClassName="text-[2.2rem]"
             />
             <Stat
-              label={`Fastest lap ${race.year}`}
+              label={`Fastest lap ${fastestYear}`}
               value={fastest ? lapTime(fastest.ms) : "n/a"}
-              note={fastest ? driver(fastest.driverId).last : undefined}
+              note={fastest ? `${driver(fastest.driverId).last}${revealed ? "" : " · previous season"}` : revealed ? undefined : "no earlier season in the data"}
               valueClassName="text-[2.2rem]"
             />
             <Stat
@@ -136,7 +70,7 @@ export function CircuitPanel({ race, circuit }: { race: RaceMeta; circuit: Circu
 
           {layout && (
           <details className="mt-6 border-t border-line pt-4 text-[0.92rem] text-steel">
-            <summary className="cursor-pointer font-display text-[1rem] tracking-[0.08em] uppercase hover:text-ink">Where this map comes from</summary>
+            <summary className="flex min-h-11 cursor-pointer items-center font-display text-[1rem] tracking-[0.08em] uppercase hover:text-ink">Where this map comes from</summary>
             <div className="mt-3 space-y-2 leading-snug text-mute">
               <p>
                 Outline, corner numbers and start line: the F1 timing track map ({layout?.source.outline ?? "MultiViewer circuit API"}, map year{" "}
@@ -166,20 +100,5 @@ export function CircuitPanel({ race, circuit }: { race: RaceMeta; circuit: Circu
         </div>
       </div>
     </Panel>
-  );
-}
-
-function LayerChip({ on, onClick, label, disabled }: { on: boolean; onClick: () => void; label: string; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      className="chip disabled:cursor-not-allowed disabled:opacity-40"
-      aria-pressed={on}
-      disabled={disabled}
-      onClick={onClick}
-      title={disabled ? "Not available for this layout" : undefined}
-    >
-      {label}
-    </button>
   );
 }

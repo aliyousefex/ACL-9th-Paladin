@@ -92,6 +92,16 @@ export function ScoreBar({
   );
 }
 
+/** Shared clarification shown wherever a 0–1 model score could be mistaken for probability. */
+export function ScoreLegend({ compact = false }: { compact?: boolean }) {
+  return (
+    <p className={`${compact ? "text-[0.78rem]" : "text-[0.88rem]"} leading-snug text-mute`}>
+      <span className="font-semibold text-steel">Podium score = ranking signal, not a calibrated probability.</span>{" "}
+      The validation-selected classification cutoff is {THRESHOLD.toFixed(3)}.
+    </p>
+  );
+}
+
 /* ------------------------------------------------------------------ segmented control */
 
 export interface TabOption<T extends string> {

@@ -19,19 +19,32 @@ import {
   type RaceMeta,
 } from "../../lib/data";
 import { longDate } from "../../lib/format";
+import { THRESHOLD } from "../../lib/model";
+import { readBookmarks, toggleBookmark } from "../../lib/challenge";
 import { useScrollSpy, useStoredFlag, useTitle } from "../../lib/hooks";
 import { href, navigate } from "../../lib/router";
 import { CircuitPanel } from "./CircuitPanel";
+import { ChampionshipWhatIf } from "./ChampionshipWhatIf";
 import { ComparePanel } from "./ComparePanel";
 import { GridPanel } from "./GridPanel";
+import { GridRebels } from "./GridRebels";
 import { Podium } from "./Podium";
+import { RaceChallenge } from "./RaceChallenge";
+import { Autopsy } from "./Autopsy";
+import { autopsy as buildAutopsy } from "./autopsyModel";
+import { buildTrace, traceStory } from "./lapTrace";
+import { buildScript } from "./present";
+import { PresentMode } from "./PresentMode";
+import { RaceTrace } from "./RaceTrace";
 import { ReplayPanel } from "./ReplayPanel";
+import { ReshufflePanel } from "./ReshufflePanel";
 import { ResultPanel } from "./ResultPanel";
 import { Tower } from "./Tower";
 import { WhatIfPanel } from "./WhatIfPanel";
+import { SimulationPanel } from "../simulation/SimulationPanel";
 import { PLACE_COLOURS, buildRows, type Row } from "./rows";
 
-const SPY = ["circuit", "grid", "prediction", "leaderboard", "compare", "what-if", "result", "replay"];
+const SPY = ["circuit", "grid", "challenge", "prediction", "rebels", "leaderboard", "compare", "reshuffle", "what-if", "result", "autopsy", "trace", "replay", "lab", "championship"];
 
 export function RacePage({ year, slug }: { year: number; slug: string }) {
   const race = RACES.find((r) => r.year === year && r.slug === slug);
@@ -55,6 +68,8 @@ function Race({ race }: { race: RaceMeta }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const [runKey, setRunKey] = useState(1);
   const [always, setAlways] = useStoredFlag("paladin:show-results", false);
+  // A link ending in ?present=1 opens the presenter straight away, for a talk or a demo.
+  const [presenting, setPresenting] = useState(() => /[?&]present=1(&|$)/.test(window.location.hash));
   const [flag, setFlag] = useState(false);
   const revealed = always || flag;
 
@@ -72,12 +87,33 @@ function Race({ race }: { race: RaceMeta }) {
 
   const active = useScrollSpy(SPY);
 
+  // Post-race material for the presenter exists only once the result is revealed, so the script cannot mention it earlier.
+  const post = useMemo(() => {
+    if (!presenting || !revealed || !detail.data || rows.length === 0) return null;
+    const trace = buildTrace(
+      detail.data.laps.d,
+      detail.data.pits,
+      rows.map((r) => ({ id: r.driver.id, grid: r.grid, classified: /^\d+$/.test(r.entry.txt), txt: r.entry.txt, status: r.entry.status })),
+    );
+    return {
+      autopsy: buildAutopsy(rows, race.baseline, THRESHOLD),
+      story: traceStory(trace, rows.map((r) => ({ id: r.driver.id, name: r.driver.last, grid: r.grid, finish: r.finish }))),
+    };
+  }, [presenting, revealed, detail.data, rows, race.baseline]);
+  const script = useMemo(
+    () =>
+      presenting && rows.length > 0
+        ? buildScript({ raceName: race.name, year: race.year, round: race.round, circuitName: circuit.name, lengthM: meta.lengthM, turns: meta.turns, scheduledLaps: race.scheduledLaps, rows, revealed, post })
+        : [],
+    [presenting, rows, revealed, post, race, circuit.name, meta.lengthM, meta.turns],
+  );
+
   return (
     <div className="page-in">
-      <RaceHeader race={race} circuitName={circuit.name} flag={circuit.flag} top={rows.slice(0, 3)} revealed={revealed} />
+      <RaceHeader race={race} circuitName={circuit.name} flag={circuit.flag} top={rows.slice(0, 3)} revealed={revealed} presenting={presenting} canPresent={rows.length > 0} onPresent={() => setPresenting((on) => !on)} />
       <SubNav active={active} />
       <div className="mx-auto max-w-[1320px] space-y-6 px-4 pt-6 sm:px-6 lg:px-10">
-        <CircuitPanel race={race} circuit={circuit} />
+        <CircuitPanel race={race} circuit={circuit} revealed={revealed} />
 
         {detail.loading && !detail.data && (
           <div className="panel">
@@ -91,8 +127,14 @@ function Race({ race }: { race: RaceMeta }) {
             <Lazy id="grid" minHeight={760}>
               <GridPanel rows={rows} focus={focus} onFocus={setFocus} />
             </Lazy>
+            <Lazy id="challenge" minHeight={520}>
+              <RaceChallenge race={race} rows={rows} revealed={revealed} />
+            </Lazy>
             <Lazy id="prediction" minHeight={640}>
               <Podium top={rows.slice(0, 3)} runKey={runKey} onRun={() => setRunKey((k) => k + 1)} revealed={revealed} />
+            </Lazy>
+            <Lazy id="rebels" minHeight={420}>
+              <GridRebels rows={rows} revealed={revealed} />
             </Lazy>
             <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
               <Lazy id="leaderboard" minHeight={1150}>
@@ -108,6 +150,9 @@ function Race({ race }: { race: RaceMeta }) {
                 />
               </Lazy>
             </div>
+            <Lazy id="reshuffle" minHeight={1000}>
+              <ReshufflePanel rows={rows} />
+            </Lazy>
             <Lazy id="what-if" minHeight={560}>
               <WhatIfPanel rows={rows} focus={focus} onFocus={setFocus} />
             </Lazy>
@@ -116,6 +161,12 @@ function Race({ race }: { race: RaceMeta }) {
 
             <Lazy id="result" minHeight={revealed ? 1500 : 220}>
               <ResultPanel race={race} rows={rows} revealed={revealed} onReveal={() => setFlag(true)} alwaysShow={always} onAlwaysShow={setAlways} />
+            </Lazy>
+            <Lazy id="autopsy" minHeight={revealed ? 1000 : 0}>
+              {revealed ? <Autopsy race={race} rows={rows} /> : null}
+            </Lazy>
+            <Lazy id="trace" minHeight={revealed ? 1100 : 0}>
+              {revealed && detail.data ? <RaceTrace race={race} rows={rows} detail={detail.data} /> : null}
             </Lazy>
             <Lazy id="replay" minHeight={revealed ? 900 : 0}>
               {revealed && detail.data ? (
@@ -128,9 +179,16 @@ function Race({ race }: { race: RaceMeta }) {
                 />
               ) : null}
             </Lazy>
+            <Lazy id="lab" minHeight={revealed ? 980 : 0}>
+              {revealed ? <SimulationPanel rows={rows} layout={layout.data} totalLaps={race.scheduledLaps ?? detail.data?.laps.n ?? race.lapsRun} /> : null}
+            </Lazy>
+            <Lazy id="championship" minHeight={revealed ? 900 : 0}>
+              {revealed ? <ChampionshipWhatIf race={race} rows={rows} /> : null}
+            </Lazy>
           </>
         )}
       </div>
+      {presenting && script.length > 0 && <PresentMode steps={script} onReveal={() => setFlag(true)} onClose={() => setPresenting(false)} />}
     </div>
   );
 }
@@ -153,7 +211,27 @@ function LightsOut() {
   );
 }
 
-function RaceHeader({ race, circuitName, flag, top, revealed }: { race: RaceMeta; circuitName: string; flag: string | null; top: Row[]; revealed: boolean }) {
+function RaceHeader({
+  race,
+  circuitName,
+  flag,
+  top,
+  revealed,
+  presenting,
+  canPresent,
+  onPresent,
+}: {
+  race: RaceMeta;
+  circuitName: string;
+  flag: string | null;
+  top: Row[];
+  revealed: boolean;
+  presenting: boolean;
+  canPresent: boolean;
+  onPresent: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [bookmarked, setBookmarked] = useState(() => readBookmarks().includes(race.id));
   const index = RACES.findIndex((r) => r.id === race.id);
   const prev = RACES[index - 1];
   const next = RACES[index + 1];
@@ -167,13 +245,41 @@ function RaceHeader({ race, circuitName, flag, top, revealed }: { race: RaceMeta
       <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="eyebrow">
-            <a className="no-underline hover:text-ink" href={href("/", { season: race.year })}>
+            <a className="inline-flex min-h-8 items-center no-underline hover:text-ink" href={href("/", { season: race.year })}>
               {race.year} season
             </a>
             <span aria-hidden className="text-mute">/</span>
             Round {race.round}
           </p>
           <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-ghost !min-h-10 !px-3" aria-pressed={presenting} disabled={!canPresent} onClick={onPresent}>
+              <Icon name="play" size={14} />
+              {presenting ? "Presenting" : "Present"}
+            </button>
+            <button
+              type="button"
+              className={`btn btn-ghost !min-h-10 !px-3 ${bookmarked ? "!border-amber !text-amber" : ""}`}
+              aria-pressed={bookmarked}
+              onClick={() => setBookmarked(toggleBookmark(race.id).includes(race.id))}
+            >
+              {bookmarked ? "Saved" : "Save race"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost !min-h-10 !px-3"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(window.location.href);
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1800);
+                } catch {
+                  window.prompt("Copy this race link", window.location.href);
+                }
+              }}
+              aria-live="polite"
+            >
+              {copied ? "Link copied" : "Share race"}
+            </button>
             <a
               className={`btn btn-ghost !min-h-10 !px-3 ${prev ? "" : "pointer-events-none opacity-30"}`}
               href={prev ? href(raceHref(prev)) : undefined}
@@ -218,7 +324,7 @@ function RaceHeader({ race, circuitName, flag, top, revealed }: { race: RaceMeta
                 <Flag code={flag} />
                 {circuitName}
               </span>
-              <span className="text-mute">Test season: the model never saw this race in training.</span>
+              <span className="text-mute">Historical held-out prediction: the model never saw this completed race in training.</span>
             </p>
           </div>
           <PredictionStrip top={top} revealed={revealed} />
@@ -231,12 +337,19 @@ function RaceHeader({ race, circuitName, flag, top, revealed }: { race: RaceMeta
 const SUBNAV = [
   { id: "circuit", label: "Circuit" },
   { id: "grid", label: "Grid" },
+  { id: "challenge", label: "Your call" },
   { id: "prediction", label: "Prediction" },
+  { id: "rebels", label: "Rebels" },
   { id: "leaderboard", label: "Ranking" },
   { id: "compare", label: "Compare" },
+  { id: "reshuffle", label: "Reshuffle" },
   { id: "what-if", label: "What if" },
   { id: "result", label: "Result", after: true },
+  { id: "autopsy", label: "Autopsy", after: true },
+  { id: "trace", label: "Trace", after: true },
   { id: "replay", label: "Replay", after: true },
+  { id: "lab", label: "Race Lab", after: true },
+  { id: "championship", label: "Alternate", after: true },
 ];
 
 function SubNav({ active }: { active: string }) {

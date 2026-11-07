@@ -18,7 +18,6 @@ ui/dist/
 PRODUCT.md
 vercel.json
 .vercel/
-scripts/export_ui_data.py
 
 # Personal evaluation study material
 reports/milestone_1_evaluation_qa.pdf

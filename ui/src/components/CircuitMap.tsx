@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Layout, LayoutMeta } from "../lib/data";
+import { unitsPerPixel, type ViewBox } from "../lib/mapView";
 
 /**
  * A circuit drawn from real geometry (see scripts/build_circuit_data.py).
@@ -75,7 +76,22 @@ export interface CircuitMapProps {
   label: string;
   /** SVG drawn above the track in viewBox coordinates (race markers, for example). */
   children?: ReactNode;
+  /** Show only this window of the map (zoom and pan). Omit for the whole circuit. */
+  box?: ViewBox;
+  /** Cap the drawn height in pixels; the outline keeps its aspect ratio inside it. */
+  maxHeight?: number;
 }
+
+/** Corner badges are sized in screen pixels so they stay readable on a phone and shrink back as you zoom in. */
+const BADGE_PX = { wide: 9, narrow: 8 } as const;
+const FALLBACK_UNIT = 1.4;
+
+/**
+ * Map units per screen pixel, for anything drawn inside a CircuitMap (race markers, driver codes) that should keep a
+ * fixed size on screen instead of shrinking with the drawing.
+ */
+const MapUnitContext = createContext(FALLBACK_UNIT);
+export const useMapUnit = (): number => useContext(MapUnitContext);
 
 export function CircuitMap({
   layout,
@@ -92,9 +108,32 @@ export function CircuitMap({
   animateDraw = false,
   label,
   children,
+  box,
+  maxHeight,
 }: CircuitMapProps) {
   const [w, h] = layout.viewBox;
   const [hover, setHover] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [measure, setMeasure] = useState<{ width: number; height: number } | null>(null);
+  const view: ViewBox = box ?? [0, 0, w, h];
+  const zoomed = view[2] < w - 0.5 || view[3] < h - 0.5;
+
+  // Only corner badges and caller-supplied markers need the rendered size, so the observer runs only for them.
+  const measuring = corners || children !== undefined;
+  useEffect(() => {
+    const node = svgRef.current;
+    if (!measuring || !node || typeof ResizeObserver === "undefined") return;
+    const read = () => {
+      const rect = node.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) setMeasure((prev) => (prev && Math.abs(prev.width - rect.width) < 1 && Math.abs(prev.height - rect.height) < 1 ? prev : { width: rect.width, height: rect.height }));
+    };
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [measuring]);
+  const unit = measure ? unitsPerPixel(view, measure.width, measure.height) : FALLBACK_UNIT;
+  const badge = (measure && measure.width < 480 ? BADGE_PX.narrow : BADGE_PX.wide) * unit;
   const focus = activeCorner ?? hover;
   const edge = 27 * weight;
   const asphalt = 20 * weight;
@@ -122,11 +161,12 @@ export function CircuitMap({
 
   return (
     <svg
-      viewBox={`0 0 ${w} ${h}`}
+      ref={svgRef}
+      viewBox={`${view[0]} ${view[1]} ${view[2]} ${view[3]}`}
       className={className}
       role="img"
       aria-label={label}
-      style={{ overflow: "visible" }}
+      style={{ overflow: zoomed ? "hidden" : "visible", maxHeight }}
       focusable="false"
     >
       {/* kerbs: grey, or sector colours when sectors are on */}
@@ -204,6 +244,7 @@ export function CircuitMap({
       {corners &&
         layout.corners.map((c) => {
           const on = focus === c.n;
+          const r = badge * (on ? 1.25 : 1);
           return (
             <g
               key={c.n}
@@ -217,14 +258,14 @@ export function CircuitMap({
               }}
               style={{ cursor: "default" }}
             >
-              <line x1={c.x} y1={c.y} x2={c.lx} y2={c.ly} stroke={on ? "#f4f4f2" : "#6b7480"} strokeWidth={on ? 2 : 1.2} />
-              <circle cx={c.lx} cy={c.ly} r={on ? 15 : 12.5} fill={on ? "#e10600" : "#0a0b0e"} stroke={on ? "#fff" : "#8a929d"} strokeWidth={1.4} />
+              <line x1={c.x} y1={c.y} x2={c.lx} y2={c.ly} stroke={on ? "#f4f4f2" : "#6b7480"} strokeWidth={(on ? 1.6 : 1) * unit} />
+              <circle cx={c.lx} cy={c.ly} r={r} fill={on ? "#e10600" : "#0a0b0e"} stroke={on ? "#fff" : "#8a929d"} strokeWidth={1.2 * unit} />
               <text
                 x={c.lx}
-                y={c.ly + 0.5}
+                y={c.ly + 0.5 * unit}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={on ? 15 : 13}
+                fontSize={r * 1.3}
                 fontWeight={700}
                 fill="#f4f4f2"
                 style={{ fontFamily: "var(--font-display)", pointerEvents: "none" }}
@@ -235,7 +276,7 @@ export function CircuitMap({
           );
         })}
 
-      {children}
+      <MapUnitContext.Provider value={unit}>{children}</MapUnitContext.Provider>
     </svg>
   );
 }

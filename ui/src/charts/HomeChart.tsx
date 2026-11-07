@@ -1,9 +1,8 @@
 import { useState } from "react";
 import site from "../data/site.json";
 import { pct } from "../lib/format";
+import { useElementWidth } from "../lib/hooks";
 
-const W = 1000;
-const H = 230;
 const PAD = { l: 52, r: 24, t: 14, b: 30 };
 const MAX = 0.6;
 
@@ -11,6 +10,10 @@ const MAX = 0.6;
 export function HomeChart() {
   const rows = site.home;
   const [hover, setHover] = useState<number | null>(null);
+  // Real pixels at the measured width: axis text stays 13 px on a phone instead of scaling down with the drawing.
+  const [wrap, measured] = useElementWidth<HTMLDivElement>(1000);
+  const W = Math.max(280, measured);
+  const H = measured < 520 ? 200 : 230;
   const x = (i: number) => PAD.l + (i / (rows.length - 1)) * (W - PAD.l - PAD.r);
   const y = (v: number) => PAD.t + (1 - v / MAX) * (H - PAD.t - PAD.b);
   const line = (pick: (row: (typeof rows)[number]) => number) =>
@@ -24,8 +27,8 @@ export function HomeChart() {
         <span className="mx-2 text-line2">/</span>
         <span className="text-ink">Home</span>
       </p>
-      <div className="relative">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Podium rate by grid band for away and home drivers">
+      <div ref={wrap} className="relative">
+        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block h-auto w-full" role="img" aria-label="Podium rate by grid band for away and home drivers">
           {[0, 0.15, 0.3, 0.45, 0.6].map((t) => (
             <g key={t}>
               <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="#262b33" />

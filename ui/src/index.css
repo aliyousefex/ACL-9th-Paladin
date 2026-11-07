@@ -50,14 +50,12 @@ html {
   background: var(--color-paper);
   color: var(--color-ink);
   color-scheme: dark;
-  overflow-x: clip;
   scrollbar-color: #3a414c var(--color-tower);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  overflow-x: clip;
   background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -142,6 +140,11 @@ a {
   color: var(--color-steel);
 }
 
+/* Back-links styled as eyebrows still need a comfortable target. */
+a.eyebrow {
+  min-height: 2rem;
+}
+
 .eyebrow::before {
   content: "";
   width: 0.28rem;
@@ -157,6 +160,11 @@ a {
   letter-spacing: -0.02em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+}
+
+/* Captions set inside a figure ("/ 24 races played") are text, not numerals: keep their spacing open. */
+.figure > span {
+  letter-spacing: 0.01em;
 }
 
 .label {
@@ -233,6 +241,14 @@ h3 {
 .tag-record {
   background: #d9dde2;
   color: #0b0d10;
+}
+
+.tag-user {
+  background: transparent;
+  color: var(--color-ink);
+  border: 1px dashed var(--color-steel);
+  clip-path: none;
+  padding: 0.14rem 0.55rem 0.1rem;
 }
 
 .tag-illus {
@@ -548,6 +564,7 @@ summary {
 
 nav.scroll-x {
   scrollbar-width: none;
+  contain: inline-size;
 }
 
 nav.scroll-x::-webkit-scrollbar {
@@ -560,6 +577,10 @@ nav.scroll-x::-webkit-scrollbar {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+.table-scroll {
+  contain: inline-size;
 }
 }
 
@@ -647,15 +668,27 @@ nav.scroll-x::-webkit-scrollbar {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
-    animation-delay: 0ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-    transition-delay: 0ms !important;
+  html {
     scroll-behavior: auto !important;
+  }
+
+  .page-in,
+  .skeleton,
+  .pop-in,
+  .rise,
+  .lamp-driven > * {
+    animation: none !important;
+  }
+
+  /* Keep short colour feedback so state changes remain visible; remove spatial motion. */
+  * {
+    transition-delay: 0ms !important;
+  }
+
+  [class*="transition-transform"],
+  [class*="transition-[transform"],
+  [class*="transition-[width"] {
+    transition: none !important;
   }
 }
 
@@ -681,5 +714,28 @@ nav.scroll-x::-webkit-scrollbar {
 @media (max-width: 767px) {
   body {
     padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+  }
+}
+
+/* ------------------------------------------------------------------ presenter mode */
+
+/* Dim every panel but the one being presented, and keep the last section clear of the lower-third. */
+html.presenting main .panel {
+  opacity: 0.28;
+  transition: opacity 300ms ease;
+}
+
+html.presenting main [data-spot] .panel,
+html.presenting main .panel[data-spot] {
+  opacity: 1;
+}
+
+html.presenting main {
+  padding-bottom: min(18rem, 50svh);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.presenting main .panel {
+    transition: none;
   }
 }

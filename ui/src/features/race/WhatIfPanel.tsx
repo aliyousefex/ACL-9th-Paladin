@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Panel } from "../../components/Panel";
-import { Note, ScoreBar } from "../../components/Bits";
+import { Note, ScoreBar, ScoreLegend } from "../../components/Bits";
 import { Portrait } from "../../components/Portrait";
 import { FEATURES, THRESHOLD, featureIndex, podiumScore, withFeature, withGrid } from "../../lib/model";
 import { signed } from "../../lib/format";
@@ -49,7 +49,7 @@ export function WhatIfPanel({ rows, focus, onFocus }: { rows: Row[]; focus: numb
     <Panel
       eyebrow="Try it · same model, your inputs"
       title="What if the inputs were different?"
-      tag="model"
+      tag={["model", "user"]}
       actions={
         <label className="flex items-center gap-2">
           <span className="sr-only">Driver to edit</span>
@@ -63,6 +63,7 @@ export function WhatIfPanel({ rows, focus, onFocus }: { rows: Row[]; focus: numb
         </label>
       }
     >
+      <div className="mb-5"><ScoreLegend /></div>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
         <div className="space-y-6">
           <Control

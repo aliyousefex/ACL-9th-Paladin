@@ -24,10 +24,12 @@ import {
 } from "../../lib/data";
 import { shortDate } from "../../lib/format";
 import { useTitle } from "../../lib/hooks";
-import { replaceQuery, href } from "../../lib/router";
+import { replaceQuery, href, navigate } from "../../lib/router";
 import { usePrefersReducedMotion } from "../../lib/motion";
+import { pickUniform, readBookmarks, readChallenge } from "../../lib/challenge";
 import { pointAt } from "../race/replay";
 import model from "../../data/model.json";
+import { ChallengeHub } from "../games/ChallengeHub";
 
 type View = "calendar" | "standings";
 
@@ -70,6 +72,7 @@ export function Home({ query }: { query: URLSearchParams }) {
           </div>
 
           <Scoreboard season={season} />
+          <ChallengeProgress season={season} />
 
           <div className="mt-8">
             {view === "calendar" ? <Calendar season={season} /> : <Standings season={season} />}
@@ -77,6 +80,7 @@ export function Home({ query }: { query: URLSearchParams }) {
         </section>
 
         <Highlights />
+        <ChallengeHub />
         <HowItWorks />
       </div>
     </div>
@@ -94,24 +98,37 @@ function Hero() {
     <header className="relative overflow-hidden border-b border-line pt-[calc(var(--nav-h)+2rem)] pb-12 sm:pb-16">
       <div className="mx-auto grid max-w-[1320px] items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-10">
         <div>
-          <p className="eyebrow">ACL-903 · Milestone 1 · Formula 1</p>
+          <p className="eyebrow">Historical held-out predictions · 2022–2024</p>
           <h1 className="display mt-4 text-[3.4rem] text-ink sm:text-[5.6rem] lg:text-[6.8rem]">
             Who stands
             <br />
             on the <span className="text-signal-text">podium?</span>
           </h1>
           <p className="mt-6 max-w-[54ch] text-[1.15rem] leading-relaxed text-steel">
-            Paladin predicts a Formula 1 podium using only what is known after qualifying. Choose any of the {RACES.length} Grands Prix
-            from 2022 to 2024, watch the model rank the field, compare drivers, then reveal what really happened.
+            Paladin recreates a pre-race podium call using only what was known after qualifying. Choose any of the {RACES.length} completed
+            Grands Prix from 2022 to 2024, make your own call, challenge the model, then reveal what really happened.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a className="btn" href={href(raceHref(latest))}>
-              Predict the {latest.year} {latest.name.replace(" Grand Prix", "")} GP <Icon name="arrowRight" size={18} />
+              Challenge the {latest.year} {latest.name.replace(" Grand Prix", "")} GP <Icon name="arrowRight" size={18} />
             </a>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                navigate(raceHref(pickUniform(RACES) ?? latest));
+              }}
+            >
+              Surprise me
+            </button>
             <a className="btn btn-ghost" href={href("/model")}>
               How the model works
             </a>
+            <button type="button" className="btn btn-ghost" onClick={() => document.getElementById("challenges")?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })}>
+              Play challenges
+            </button>
           </div>
+          <p className="mt-3 max-w-[54ch] text-[0.88rem] text-mute">“Surprise me” opens one of the {RACES.length} held-out races chosen at random, each equally likely. It does not look at the results.</p>
           <dl className="mt-10 grid max-w-[640px] grid-cols-2 gap-x-8 gap-y-6 border-t border-line pt-6 sm:grid-cols-4">
             <Kpi label="Races never seen in training" value={String(RACES.length)} />
             <Kpi label="Driver entries scored" value={rows.toLocaleString("en-GB")} />
@@ -128,7 +145,7 @@ function Hero() {
 function Kpi({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div>
-      <dt className="label !text-[0.74rem]">{label}</dt>
+      <dt className="label min-h-[2.3em] !text-[0.74rem] !leading-tight">{label}</dt>
       <dd className="figure mt-1.5 text-[2.3rem]">{value}</dd>
       {note && <dd className="mt-0.5 text-[0.78rem] leading-tight text-mute">{note}</dd>}
     </div>
@@ -239,6 +256,45 @@ function Scoreboard({ season }: { season: number }) {
         </p>
       </div>
       <HitsStrip season={season} />
+    </div>
+  );
+}
+
+function ChallengeProgress({ season }: { season: number }) {
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const refresh = () => setVersion((value) => value + 1);
+    window.addEventListener("paladin:challenge", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("paladin:challenge", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+  const races = racesIn(season);
+  const played = races.map((race) => ({ race, pick: readChallenge(race.id) })).filter((item) => item.pick !== null);
+  const hits = played.reduce((sum, item) => sum + item.pick!.ids.filter((id) => item.race.actual.includes(id)).length, 0);
+  const modelHits = played.reduce((sum, item) => sum + item.race.hits, 0);
+  const bookmarks = readBookmarks().map((id) => RACES.find((race) => race.id === id)).filter((race): race is RaceMeta => Boolean(race));
+  void version;
+
+  return (
+    <div className="mt-4 border border-line bg-tower px-4 py-4 sm:px-5">
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+        <div>
+          <p className="label">Your {season} challenge</p>
+          <p className="mt-1 text-[0.9rem] text-mute">Picks are stored only in this browser.</p>
+        </div>
+        <p className="figure text-[1.8rem]">{played.length}<span className="ml-1 font-sans text-[0.9rem] font-normal tracking-normal text-mute">/ {races.length} races played</span></p>
+        <p className="figure text-[1.8rem]">{hits}<span className="ml-1 font-sans text-[0.9rem] font-normal tracking-normal text-mute">your hits</span></p>
+        <p className="figure text-[1.8rem] text-steel">{modelHits}<span className="ml-1 font-sans text-[0.9rem] font-normal tracking-normal text-mute">model hits on the same races</span></p>
+        {bookmarks.length > 0 && (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <span className="label">Saved</span>
+            {bookmarks.slice(0, 4).map((race) => <a key={race.id} className="chip !min-h-8 no-underline" href={href(raceHref(race))}>{race.name.replace(" Grand Prix", "")} {String(race.year).slice(2)}</a>)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

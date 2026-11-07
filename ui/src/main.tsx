@@ -11,3 +11,12 @@ createRoot(document.getElementById("root")!).render(
     </ErrorBoundary>
   </StrictMode>,
 );
+
+// Keep development deterministic; the production shell alone owns offline caching.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Offline support is progressive enhancement; the application remains fully usable.
+    });
+  });
+}
