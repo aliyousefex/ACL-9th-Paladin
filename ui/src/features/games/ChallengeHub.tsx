@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CircuitThumb } from "../../components/CircuitMap";
 import { Icon } from "../../components/Icon";
+import { LightsLoader, Tabs } from "../../components/Bits";
+import { Lazy } from "../../components/Lazy";
 import { Tag } from "../../components/Provenance";
 import { RACE_CIRCUITS, currentLayout, type Circuit } from "../../lib/data";
-import { TrackAttack } from "./TrackAttack";
+import { TimeAttack } from "./TimeAttack";
 import { PodiumSprint } from "./PodiumSprint";
+
+const GrandPrix = lazy(() => import("./GrandPrix").then((m) => ({ default: m.GrandPrix })));
 
 const QUIZ_CIRCUITS = RACE_CIRCUITS.filter((circuit) => currentLayout(circuit).thumb);
 
@@ -31,13 +35,60 @@ export function ChallengeHub() {
         </div>
         <Tag kind="illustrative">Interactive challenge</Tag>
       </div>
-      <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
+      <TrackAttack />
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
         <CircuitQuiz />
         <PitRelease />
       </div>
       <PodiumSprint />
-      <TrackAttack />
     </section>
+  );
+}
+
+type AttackMode = "race" | "lap";
+
+/**
+ * The Grand Prix setup screen is about 2,650 px tall on a phone (20 driver cards, then the settings) and about 1,060 px on a
+ * wide screen. It mounts only near the viewport, so the space it will fill is reserved at each width. The numbers are measured
+ * heights of the real setup screen; with a fixed 720 px, mounting it pushed everything below it down by up to 2,000 px.
+ */
+const GP_RESERVE = "min-h-[2650px] sm:min-h-[2000px] lg:min-h-[1700px] xl:min-h-[1060px] 2xl:min-h-[935px]";
+
+/** Track Attack comes first: race a full grid as a real driver, or run a solo timed lap against your own ghost. */
+function TrackAttack() {
+  const [mode, setMode] = useState<AttackMode>("race");
+  return (
+    <div className="mt-8">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="display text-[2rem] sm:text-[2.6rem]">Track Attack</h3>
+          <p className="mt-1 text-[0.92rem] text-mute">Two ways to drive a real circuit outline.</p>
+        </div>
+        <Tabs<AttackMode>
+          value={mode}
+          onChange={setMode}
+          idPrefix="attack-mode"
+          label="Track Attack mode"
+          options={[
+            { id: "race", label: "Grand Prix" },
+            { id: "lap", label: "Time attack" },
+          ]}
+        />
+      </div>
+      <div className="mt-4">
+        {mode === "race" ? (
+          <Lazy id="grand-prix" minHeight={720} reserve={GP_RESERVE}>
+            <Suspense fallback={<div className={`panel ${GP_RESERVE}`}><LightsLoader label="Loading the Grand Prix" /></div>}>
+              <GrandPrix />
+            </Suspense>
+          </Lazy>
+        ) : (
+          <div className="-mt-6">
+            <TimeAttack />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

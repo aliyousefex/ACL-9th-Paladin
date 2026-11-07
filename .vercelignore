@@ -1,0 +1,23 @@
+# The website is built from ui/ only (see vercel.json: npm install/build --prefix ui, output ui/dist).
+# Everything below is analysis material, local tooling or build output that the site build never reads.
+# Keeping it out also keeps the upload small and stops local browser profiles (which are locked while Chrome runs)
+# from breaking `vercel --prod`.
+
+/.venv
+/.git
+/tmp
+/data
+/artifacts
+/notebooks
+/reports
+/course-materials
+/study-guide
+/scripts
+/src
+/tests
+/*.pdf
+/*.ipynb
+
+/ui/node_modules
+/ui/dist
+/ui/tests

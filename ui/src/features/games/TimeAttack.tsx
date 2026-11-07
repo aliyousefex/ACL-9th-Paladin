@@ -8,7 +8,7 @@ import { advanceAttack, curvatureAt, ghostProgressAt, ghostTimeAt, initialAttack
 
 const TRACKS = RACE_CIRCUITS.filter((circuit) => currentLayout(circuit).file).slice(0, 4);
 
-export function TrackAttack() {
+export function TimeAttack() {
   const reduce = usePrefersReducedMotion();
   const [circuitId, setCircuitId] = useState(TRACKS[0]?.circuitId ?? 0);
   const circuit = TRACKS.find((item) => item.circuitId === circuitId) ?? TRACKS[0];
@@ -122,10 +122,10 @@ export function TrackAttack() {
         <div className="flex flex-col p-5 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="display text-[1.9rem]">Track Attack</h3>
+              <h3 className="display text-[1.9rem]">Time attack</h3>
               <p className="mt-2 text-[0.88rem] leading-snug text-mute">Hold throttle on the straights. Release before tight geometry or collect a 1.5-second off-track penalty.</p>
             </div>
-            <span className="tag tag-illus">Vector challenge</span>
+            <span className="tag tag-illus">Solo lap</span>
           </div>
 
           <label className="label mt-6" htmlFor="attack-track">Verified circuit</label>

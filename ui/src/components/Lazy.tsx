@@ -7,12 +7,18 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 export function Lazy({
   id,
   minHeight,
+  reserve,
   children,
   className = "",
   margin = 1100,
 }: {
   id?: string;
   minHeight: number;
+  /**
+   * Responsive min-height classes used instead of the fixed number until the block mounts. A block whose height
+   * changes a lot between phone and desktop widths needs this, or mounting it pushes everything below it down.
+   */
+  reserve?: string;
   children: ReactNode;
   className?: string;
   margin?: number;
@@ -46,7 +52,7 @@ export function Lazy({
   }, [show, margin, id]);
 
   return (
-    <div ref={ref} id={id} className={`scroll-mt-32 ${className}`} style={show ? undefined : { minHeight }}>
+    <div ref={ref} id={id} className={`scroll-mt-32 ${className} ${!show && reserve ? reserve : ""}`} style={show || reserve ? undefined : { minHeight }}>
       {show ? children : null}
     </div>
   );

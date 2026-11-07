@@ -425,7 +425,7 @@ Each held-out race now includes two explicitly separate interactive layers:
 
 Race Lab is deliberately labelled **Simulation**. It is a transparent strategy toy, not a physics model, calibrated forecast, or historical counterfactual. It uses grid rank and the pre-race podium score as its starting signal and applies documented illustrative rules; it does not use the historical race's lap times. The pure TypeScript engine lives in `ui/src/features/simulation/engine.ts` and is covered by deterministic, pit-loss, Monte Carlo, pit-window, and wet-weather tests.
 
-The homepage also has an explicitly illustrative **Challenge Hub**. “Podium Sprint” asks for three drivers across five evenly sampled held-out races and compares the player's membership hits directly with Paladin's recorded selections. “Name this circuit” uses the same verified circuit outlines as the atlas while withholding labels until the answer. “Pit release” is a local reaction-time game with false-start handling and a browser-stored personal best; it is not based on historical pit-stop timing data. “Track Attack” runs an authored vector car around verified geometry and asks the player to manage throttle against computed curvature; its handling, speed index and penalties are illustrative rather than vehicle telemetry. A new personal best stores a local progress trace, which becomes an optional vector ghost and live delta on the next attempt.
+The homepage also has an explicitly illustrative **Challenge Hub**. “Podium Sprint” asks for three drivers in each of five evenly sampled held-out races. Every driver who started the race is offered, listed in starting-grid order (the grid is known before the start), while the real podium and Paladin's picks stay hidden until the player locks in. Each side scores one point per pick that finished in the top three, in any order, so a race is worth up to 3 and a sprint up to 15, and the player's total is compared directly with Paladin's recorded selections. An earlier version built its choice list from the real podium plus the model's picks, which left only three to seven names and gave the answer away; a test now checks that the full field is offered for all 68 races. “Name this circuit” uses the same verified circuit outlines as the atlas while withholding labels until the answer. “Pit release” is a local reaction-time game with false-start handling and a browser-stored personal best; it is not based on historical pit-stop timing data. “Track Attack” comes first in the hub and has two modes. **Grand Prix** (described below) races the whole grid. **Time attack** is the solo lap: an authored vector car runs around verified geometry and the player manages throttle against computed curvature. Its handling, speed index and penalties are illustrative rather than vehicle telemetry, and a new personal best stores a local progress trace, which becomes an optional vector ghost and live delta on the next attempt.
 
 Every panel carries a tag, so the kinds of content are never confused:
 
@@ -497,6 +497,32 @@ locked until the result is revealed, the reveal is an explicit key press on its 
 script for every earlier step is built from the model's inputs and scores alone. A test replaces every outcome field with a sentinel for all 68 races and checks the
 pre-reveal script does not change.
 
+### Track Attack: Grand Prix
+
+Grand Prix is a driving game on the real circuit outline: pick one of the real races, pick one of the real drivers who started it, and race the whole grid for 2, 3 or 5 laps.
+It is labelled **Illustrative game**. It is not a model output, not a forecast and not a replay of the real race.
+
+- **Setup.** Race (any held-out race that has a circuit outline file), driver (every starter, with starting-grid slot, a pace tier and a pace bar; a radio group with arrow-key,
+  Home and End navigation), laps, driving assistance, camera (follow the car, or the whole track) and an Autopilot option.
+- **Driving.** Hold the on-screen throttle button, Space or the Up arrow to accelerate, and release to brake. The race starts when the five lights go out. P or Escape pauses, and the
+  race also pauses when the tab is hidden. **Assisted**: the car brakes for corners itself and cannot run wide. **Standard**: entering a corner more than 8% above the safe speed
+  runs wide (speed is halved and the car recovers briefly), and a "Brake" cue appears before each corner. **Hard**: the tolerance drops to 4% and every rival is about 1% faster.
+  Under reduced motion the race uses a coarser time step and starts on the whole-track camera.
+- **How the rivals are paced.** A rival's pace comes only from information that exists before the start: Paladin's podium score for that driver and their grid slot (70% score,
+  30% grid). The real finishing position, status and podium are never read; a test replaces them with sentinels and checks that the rivals do not change. A seeded random number
+  generator adds lap-to-lap jitter, a form level for the day, occasional mistakes and slipstream, so the same seed always gives the same race and a new start gives a new one.
+  The seed is shown on the results screen.
+- **The track.** Speeds are in laps per second. The speed a car can carry through each point comes from the curvature of the real outline, with a braking pass so a car slows
+  before a corner instead of at it. A test checks that every real layout gives a lap of a plausible 12 to 30 seconds.
+- **Results.** Finish, points on the F1 scale (25, 18, 15, 12, 10, 8, 6, 4, 2, 1), race time and gap to the winner, time off track, places gained or lost from the grid, a podium
+  graphic and the full classification. The headline is Victory, Podium, In the points, Outside the points or You retired, and a link goes to Paladin's pre-race prediction for the
+  same race.
+- **Record.** Your races, wins, podiums, points and best finish per race are kept in this browser only (`paladin:gp:record`). Autopilot races and retirements are not added.
+- **Where it lives.** `ui/src/features/games/raceEngine.ts` is a pure, framework-free engine (state, fixed-step update, classification, scoring, record parsing). The screens are
+  `GrandPrix*.tsx`, loaded as their own chunk only when the hub scrolls near. Its placeholder, its loading fallback and its driver-list skeleton reserve the measured height of the
+  setup screen at each width (about 2,650 px on a phone, 1,060 px on a desktop), so mounting it does not push the page down. Measured on the production build at 320, 390, 768, 1024 and
+  1440 px, scrolling down the home page and jumping straight to Podium Sprint both produced zero layout shift. A fixed 720 px reservation had caused shifts of 0.4 to 1.4.
+
 ### Circuit map controls
 
 The circuit map on race and circuit pages is one shared component (`ui/src/components/CircuitStage.tsx`). It draws only what the layout file contains.
@@ -550,7 +576,7 @@ What is connected to the model, and how it is checked:
   practices and SEO, and layout shift below 0.01. Fonts are self-hosted and the charts are plain SVG, so the site loads no third-party code.
 - **Tests.** `npm test` in `ui/` runs Node's built-in test runner. It covers the browser model (it must reproduce all 1,359 exported scores and its
   log-odds decomposition must be exact), the replay logic, the Race Lab engine (determinism, pit loss, weather, Monte Carlo, pit windows), challenge
-  scoring and stored-pick validation, the uniform "Surprise me" rule, the grid-versus-model move and explanation logic, zoom and pan, the race trace (cumulative times, gaps, lead changes, slow-lap runs and the race story across all 68 races), the autopsy (agreement with each race's stored hits and baseline hits, retirement wording across every status in the data), the reshuffle (a held group equals feeding the model the training average; ranks are a permutation; the story cannot depend on outcomes), the presenter script and keyboard contract, and the scenario-link codec. Component tests
+  scoring and stored-pick validation, the uniform "Surprise me" rule, the grid-versus-model move and explanation logic, zoom and pan, the race trace (cumulative times, gaps, lead changes, slow-lap runs and the race story across all 68 races), the autopsy (agreement with each race's stored hits and baseline hits, retirement wording across every status in the data), the reshuffle (a held group equals feeding the model the training average; ranks are a permutation; the story cannot depend on outcomes), the presenter script and keyboard contract, the scenario-link codec, the Grand Prix engine (speed and braking limits on every real outline, determinism, slipstream, the three assist levels, scoring and classification, stored-record parsing, and that rival pace cannot read the real result), the Podium Sprint choice list and verdict, and a hygiene check that fails if two source files differ only by letter case or an import is spelled with the wrong case (both work on Windows or macOS and break the Linux production build). Component tests
   render the real React components to markup through Vite's SSR loader (no browser or extra dependency) and assert roles, states and text: the overlay
   switches and their unavailable states, the circuit map's fallbacks (loading, error, no outline file, no telemetry, no corner positions, a stale layout),
   the footer disclaimer, landmarks and skip link, and, for all 68 races, that nothing post-race appears on the page before the reveal. Data tests check
@@ -669,6 +695,7 @@ These answers said the decision is ours. Each one now has an experiment in the p
 - The `F` filter reads `positionText`, a result column that is normally post-race. We use it only as a row filter, because the instructor ruled that the code is known before the race; it is never a feature.
 - Model probabilities were evaluated for ranking and threshold performance, not formal calibration.
 - Permutation importance and SHAP explain associations inside fitted models, not causes of podium finishes.
+- The Grand Prix game is a toy. Rival pace is a simple function of the pre-race score and grid slot plus seeded randomness; there are no tyres, pit stops, overtaking rules, weather or safety cars, so a result says nothing about the model's accuracy.
 
 ## Collaboration rules
 
