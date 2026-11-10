@@ -57,6 +57,15 @@ export interface RaceDetail {
   pits: Record<string, [number, number | null][]>;
 }
 
+export interface AdvancedRace {
+  contract: "paladin.advanced-research.v1";
+  raceId: number;
+  finishModel: string;
+  dnfModel: string;
+  drivers: { d: number; w: number; p: number; e: number; x: number; r: number; o: number[] }[];
+  provenance: { source: string; split: string; kind: "estimated" };
+}
+
 export interface SeasonLine {
   constructorId: number;
   constructors: number[];
@@ -296,6 +305,7 @@ function getJson<T>(path: string): Promise<T> {
 }
 
 export const loadRace = (id: number) => getJson<RaceDetail>(`data/races/${id}.json`);
+export const loadAdvancedRace = (id: number) => getJson<AdvancedRace>(`data/advanced/${id}.json`);
 export const loadLayout = (id: string) => getJson<Layout>(`data/circuits/${id}.json`);
 
 export interface Resource<T> {

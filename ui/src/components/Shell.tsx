@@ -34,12 +34,12 @@ function lastRacePath(): string {
 
 function items(): NavItem[] {
   return [
-    { key: "", label: "Season", short: "Season", to: "/", icon: "home" },
-    { key: "race", label: "Predict", short: "Race", to: lastRacePath(), icon: "flag" },
+    { key: "", label: "Races", short: "Races", to: "/", icon: "home" },
+    { key: "race", label: "Prediction", short: "Predict", to: lastRacePath(), icon: "flag" },
+    { key: "race-lab", label: "Simulation", short: "Simulate", to: "/race-lab", icon: "sliders" },
     { key: "drivers", label: "Drivers", short: "Drivers", to: "/drivers", icon: "user" },
     { key: "circuits", label: "Circuits", short: "Tracks", to: "/circuits", icon: "track" },
-    { key: "model", label: "Model", short: "Model", to: "/model", icon: "chart" },
-    { key: "method", label: "Method", short: "Method", to: "/method", icon: "book" },
+    { key: "model", label: "Research", short: "Research", to: "/model", icon: "chart" },
   ];
 }
 
@@ -84,11 +84,10 @@ function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
       style={{ height: "var(--nav-h)" }}
     >
       <div className="mx-auto flex h-full max-w-[1320px] items-center gap-4 px-4 sm:px-6 lg:gap-6 lg:px-10">
-        <a href={href("/")} onClick={() => haptic("select")} className="flex shrink-0 items-center gap-2.5 no-underline" aria-label="Paladin F1, season overview">
-          <LogoMark height={40} />
-          <Wordmark className="h-[13px] text-ink min-[380px]:h-[15px] md:h-[16px]" />
+        <a href={href("/")} onClick={() => haptic("select")} className="nav-brand flex shrink-0 items-center no-underline" aria-label="Paladin F1, season overview">
+          <LogoMark height={46} variant="line" />
+          <Wordmark className="ml-2.5 h-[15px] text-ink lg:h-[17px]" />
         </a>
-        <span className="hidden h-6 w-px bg-line2 lg:block" aria-hidden />
         <nav className="hidden min-w-0 flex-1 items-center gap-1 md:flex" aria-label="Primary">
           {nav.map((item) => {
             const on = item.key === section;
@@ -98,7 +97,7 @@ function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
                 href={href(item.to)}
                 aria-current={on ? "page" : undefined}
                 onClick={() => haptic("select")}
-                className={`relative whitespace-nowrap px-2 py-2 font-display text-[1.05rem] leading-none font-semibold tracking-[0.1em] uppercase no-underline transition-colors lg:px-3 ${
+                className={`nav-link relative whitespace-nowrap px-2 py-2 no-underline transition-colors lg:px-3 ${
                   on ? "text-ink" : "text-mute hover:text-ink"
                 }`}
               >
@@ -112,6 +111,13 @@ function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
               </a>
             );
           })}
+          <details className="nav-more relative">
+            <summary aria-current={section === "method" ? "page" : undefined} className={`nav-link cursor-pointer list-none px-2 py-2 lg:px-3 ${section === "method" ? "text-ink" : "text-mute hover:text-ink"}`}>More</summary>
+            <div className="absolute right-0 top-[calc(100%+12px)] min-w-52 border border-line bg-tower p-2 shadow-xl">
+              <a className="block px-3 py-2 text-steel no-underline hover:bg-panel hover:text-ink" href={href("/method")}>Method and data</a>
+              <a className="block px-3 py-2 text-steel no-underline hover:bg-panel hover:text-ink" href={href("/circuits")}>Circuit archive</a>
+            </div>
+          </details>
         </nav>
         <p className="ml-auto hidden items-center gap-2 text-[0.8rem] text-mute lg:flex">
           <span className="h-1.5 w-1.5 rounded-full bg-hit" aria-hidden />
@@ -128,24 +134,24 @@ function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
 function BottomNav({ nav, section }: { nav: NavItem[]; section: string }) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-tower/95 backdrop-blur-sm md:hidden"
-      style={{ height: "calc(var(--bottom-nav-h) + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="fixed inset-x-0 top-[var(--nav-h)] z-40 border-b border-line bg-tower/98 md:hidden"
+      style={{ height: "var(--bottom-nav-h)" }}
       aria-label="Primary"
     >
-      <ul className="grid h-full grid-cols-6">
-        {nav.map((item) => {
-          const on = item.key === section;
+      <ul className="grid h-full grid-cols-[repeat(6,minmax(0,1fr))]">
+        {nav.filter((item) => ["", "race", "race-lab", "drivers", "circuits", "model"].includes(item.key)).map((item) => {
+          const on = item.key === section || (item.key === "model" && section === "method");
           return (
             <li key={item.key}>
               <a
                 href={href(item.to)}
                 aria-current={on ? "page" : undefined}
                 onClick={() => haptic("select")}
-                className={`relative flex h-full flex-col items-center justify-center gap-1 font-display text-[0.7rem] font-semibold tracking-[0.1em] uppercase no-underline ${
+                className={`relative flex min-w-0 h-full flex-col items-center justify-center gap-1 overflow-hidden text-[0.68rem] font-semibold no-underline min-[380px]:text-[0.72rem] ${
                   on ? "text-ink" : "text-mute"
                 }`}
               >
-                <span aria-hidden className={`absolute inset-x-3 top-0 h-[3px] bg-signal transition-opacity ${on ? "opacity-100" : "opacity-0"}`} />
+                <span aria-hidden className={`absolute inset-x-3 bottom-0 h-[3px] bg-signal transition-opacity ${on ? "opacity-100" : "opacity-0"}`} />
                 <Icon name={item.icon} size={20} />
                 {item.short}
               </a>
@@ -175,6 +181,7 @@ function Footer() {
             <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/")}>Season calendar</a></li>
             <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/drivers")}>Drivers</a></li>
             <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/circuits")}>Circuits</a></li>
+            <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/race-lab")}>Race Lab</a></li>
             <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/model")}>The model and its limits</a></li>
             <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/method")}>Method walkthrough</a></li>
           </ul>

@@ -69,7 +69,7 @@ export function SimulationPanel({ rows, layout, totalLaps }: { rows: Row[]; layo
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      window.prompt("Copy this Race Lab scenario", target);
+      window.prompt("Copy this Strategy Laboratory scenario", target);
     }
   };
 
@@ -89,7 +89,7 @@ export function SimulationPanel({ rows, layout, totalLaps }: { rows: Row[]; layo
 
   return (
     <Panel
-      eyebrow="Paladin Race Lab"
+      eyebrow="Strategy Laboratory"
       title="Run a synthetic strategy scenario"
       tag="simulation"
       actions={<><button type="button" className="btn btn-ghost !min-h-9 !px-3 !text-[0.95rem]" onClick={share}>{copied ? "Scenario copied" : "Share scenario"}</button><button type="button" className="btn !min-h-9 !px-3 !text-[0.95rem]" onClick={() => { setSeed((value) => value + 1); setLap(0); setPlaying(!reduce); }}>Run new seed</button></>}

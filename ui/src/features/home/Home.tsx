@@ -5,6 +5,7 @@ import { Icon } from "../../components/Icon";
 import { Panel } from "../../components/Panel";
 import { ProvenanceLegend, Tag } from "../../components/Provenance";
 import { Tabs } from "../../components/Bits";
+import { VectorRaceCar } from "../../components/VectorRaceCar";
 import {
   RACES,
   SEASONS,
@@ -47,8 +48,7 @@ export function Home({ query }: { query: URLSearchParams }) {
         <section aria-labelledby="season-title" id="season" className="scroll-mt-24">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="eyebrow">The held-out seasons</p>
-              <h2 id="season-title" className="display mt-2 text-[2.4rem] sm:text-[3.4rem]">Pick a Grand Prix</h2>
+              <h2 id="season-title" className="section-title">Choose a Grand Prix</h2>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Tabs<string>
@@ -95,22 +95,16 @@ function Hero() {
   const rows = RACES.reduce((n, r) => n + r.drivers, 0);
 
   return (
-    <header className="relative overflow-hidden border-b border-line pt-[calc(var(--nav-h)+2rem)] pb-12 sm:pb-16">
-      <div className="mx-auto grid max-w-[1320px] items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-10">
-        <div>
-          <p className="eyebrow">Historical held-out predictions · 2022–2024</p>
-          <h1 className="display mt-4 text-[3.4rem] text-ink sm:text-[5.6rem] lg:text-[6.8rem]">
-            Who stands
-            <br />
-            on the <span className="text-signal-text">podium?</span>
-          </h1>
-          <p className="mt-6 max-w-[54ch] text-[1.15rem] leading-relaxed text-steel">
-            Paladin recreates a pre-race podium call using only what was known after qualifying. Choose any of the {RACES.length} completed
-            Grands Prix from 2022 to 2024, make your own call, challenge the model, then reveal what really happened.
+    <header className="home-console relative overflow-hidden border-b border-line pt-[calc(var(--nav-h)+1.5rem)] pb-8">
+      <div className="mx-auto grid max-w-[1320px] items-center gap-8 px-4 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-10">
+        <div className="min-w-0">
+          <h1 className="product-title mt-3">Predict the podium.<br />Replay the evidence.</h1>
+          <p className="mt-5 max-w-[60ch] text-[1.05rem] leading-relaxed text-steel">
+            Choose a completed Grand Prix and inspect Paladin’s lights-out podium call using only what was known after qualifying. Then reveal the result, reconstruct the race, or test a clearly labelled strategy simulation.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap gap-2">
             <a className="btn" href={href(raceHref(latest))}>
-              Challenge the {latest.year} {latest.name.replace(" Grand Prix", "")} GP <Icon name="arrowRight" size={18} />
+              Open {latest.name.replace(" Grand Prix", "")} {latest.year} <Icon name="arrowRight" size={18} />
             </a>
             <button
               type="button"
@@ -121,15 +115,10 @@ function Hero() {
             >
               Surprise me
             </button>
-            <a className="btn btn-ghost" href={href("/model")}>
-              How the model works
-            </a>
-            <button type="button" className="btn btn-ghost" onClick={() => document.getElementById("challenges")?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })}>
-              Play challenges
-            </button>
+            <a className="btn btn-ghost" href={href("/race-lab")}>Open simulation</a>
           </div>
-          <p className="mt-3 max-w-[54ch] text-[0.88rem] text-mute">“Surprise me” opens one of the {RACES.length} held-out races chosen at random, each equally likely. It does not look at the results.</p>
-          <dl className="mt-10 grid max-w-[640px] grid-cols-2 gap-x-8 gap-y-6 border-t border-line pt-6 sm:grid-cols-4">
+          <p className="mt-3 max-w-[54ch] text-[0.82rem] text-mute">Random selection is uniform across all held-out races and does not inspect their results.</p>
+          <dl className="mt-7 grid max-w-[640px] grid-cols-2 gap-x-8 gap-y-4 border-t border-line pt-5 sm:grid-cols-4">
             <Kpi label="Races never seen in training" value={String(RACES.length)} />
             <Kpi label="Driver entries scored" value={rows.toLocaleString("en-GB")} />
             <Kpi label="ROC-AUC on test" value={test["ROC-AUC"].toFixed(3)} />
@@ -177,7 +166,7 @@ function Tracer() {
     const tick = (now: number) => {
       const s = Math.max(0, (now - start) / 24000) % 1;
       const p = pointAt(layout.samples, s);
-      dot.current?.setAttribute("transform", `translate(${p.x} ${p.y})`);
+      dot.current?.setAttribute("transform", `translate(${p.x} ${p.y}) rotate(${p.angle})`);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -198,11 +187,15 @@ function Tracer() {
         <div className="grid min-h-[300px] place-items-center">
           {layout ? (
             <CircuitMap layout={layout} className="block w-full max-h-[420px]" sectors animateDraw weight={1} label="Suzuka circuit with a car lapping it">
-              {!reduce && (
-                <g ref={dot}>
-                  <circle r={9} fill="#fff" stroke="#e10600" strokeWidth={4} />
-                </g>
-              )}
+              <g
+                ref={dot}
+                transform={(() => {
+                  const start = pointAt(layout.samples, 0.08);
+                  return `translate(${start.x} ${start.y}) rotate(${start.angle})`;
+                })()}
+              >
+                <VectorRaceCar colour="#e10600" ink="#ffffff" number={null} scale={1.35} />
+              </g>
             </CircuitMap>
           ) : (
             <span className="skeleton h-64 w-full" />
@@ -357,7 +350,7 @@ function HitsStrip({ season }: { season: number }) {
 function Calendar({ season }: { season: number }) {
   const races = racesIn(season);
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={`${season} calendar`}>
+    <ul className="race-calendar grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={`${season} calendar`}>
       {races.map((race) => (
         <li key={race.id}>
           <RaceCard race={race} />
@@ -374,7 +367,7 @@ function RaceCard({ race }: { race: RaceMeta }) {
   return (
     <a
       href={href(raceHref(race))}
-      className="panel group flex h-full flex-col no-underline transition-colors hover:border-line2 hover:bg-panel2"
+      className="race-card panel group flex h-full flex-col no-underline transition-colors hover:border-line2 hover:bg-panel2"
     >
       <span className="sr-only">
         {race.year} round {race.round}. Model found {race.hits} of 3 podium drivers.
@@ -395,7 +388,7 @@ function RaceCard({ race }: { race: RaceMeta }) {
           <span className="text-[1rem] text-mute">/3</span>
         </span>
       </div>
-      <div className="grid flex-1 place-items-center px-5 py-4">
+      <div className="race-card-map grid flex-1 place-items-center px-5 py-4">
         {thumb.thumb && layoutMeta.years.includes(race.year) ? (
           <CircuitThumb meta={thumb} className="h-24 w-full max-w-[210px] transition-transform duration-500 group-hover:scale-105" stroke="#c5cad1" width={13} accent="#262b33" />
         ) : (
@@ -514,8 +507,7 @@ function Highlights() {
   ];
   return (
     <section aria-labelledby="highlights-title">
-      <p className="eyebrow">What the 68 races show</p>
-      <h2 id="highlights-title" className="display mt-2 text-[2.4rem] sm:text-[3.4rem]">Where it works, and where it does not</h2>
+      <h2 id="highlights-title" className="section-title">Where it worked—and where it did not</h2>
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
           <div key={card.title} className="panel p-5">
@@ -552,11 +544,9 @@ function HowItWorks() {
     <section aria-labelledby="how-title" className="border-t border-line pt-16">
       <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr]">
         <div>
-          <p className="eyebrow">How to read this site</p>
-          <h2 id="how-title" className="display mt-2 text-[2.4rem] sm:text-[3.4rem]">The cutoff is the product</h2>
+          <h2 id="how-title" className="section-title">Know what every value represents</h2>
           <p className="mt-4 max-w-[54ch] text-[1.05rem] leading-relaxed text-steel">
-            Everything on screen is labelled by where it comes from, so a model prediction is never mistaken for a historical result or an
-            animation.
+            Compact source markers separate a prediction from a recorded result, a synthetic simulation, explanatory motion, or a value you changed.
           </p>
           <div className="mt-6">
             <ProvenanceLegend />

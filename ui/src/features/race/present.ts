@@ -160,7 +160,7 @@ export function buildScript(input: ScriptInput): PresentStep[] {
       ? {
           id: "lab",
           target: "lab",
-          title: "Race Lab: a synthetic scenario",
+          title: "Strategy Laboratory: a synthetic scenario",
           say: ["Everything here follows documented, illustrative rules from a seed.", "It is not a historical result and not a forecast of what would have happened."],
           locked: false,
           reveal: false,

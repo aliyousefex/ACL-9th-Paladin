@@ -10,6 +10,7 @@ import {
   circuit as circuitOf,
   currentLayout,
   layoutFor,
+  loadAdvancedRace,
   loadLayout,
   loadRace,
   raceHref,
@@ -42,9 +43,10 @@ import { ResultPanel } from "./ResultPanel";
 import { Tower } from "./Tower";
 import { WhatIfPanel } from "./WhatIfPanel";
 import { SimulationPanel } from "../simulation/SimulationPanel";
+import { DecisionStudio } from "../decision/DecisionStudio";
 import { PLACE_COLOURS, buildRows, type Row } from "./rows";
 
-const SPY = ["circuit", "grid", "challenge", "prediction", "rebels", "leaderboard", "compare", "reshuffle", "what-if", "result", "autopsy", "trace", "replay", "lab", "championship"];
+const SPY = ["circuit", "grid", "challenge", "prediction", "rebels", "leaderboard", "compare", "reshuffle", "what-if", "result", "decision", "autopsy", "trace", "replay", "lab", "championship"];
 
 export function RacePage({ year, slug }: { year: number; slug: string }) {
   const race = RACES.find((r) => r.year === year && r.slug === slug);
@@ -58,6 +60,7 @@ function Race({ race }: { race: RaceMeta }) {
   useEffect(() => rememberRace(raceHref(race)), [race]);
 
   const detail = useResource(String(race.id), () => loadRace(race.id));
+  const advanced = useResource(`advanced:${race.id}`, () => loadAdvancedRace(race.id));
   const meta = layoutFor(circuit, race.year);
   const layout = useResource<Layout>(meta.file ? meta.id : null, () => loadLayout(meta.id));
 
@@ -162,6 +165,9 @@ function Race({ race }: { race: RaceMeta }) {
             <Lazy id="result" minHeight={revealed ? 1500 : 220}>
               <ResultPanel race={race} rows={rows} revealed={revealed} onReveal={() => setFlag(true)} alwaysShow={always} onAlwaysShow={setAlways} />
             </Lazy>
+            <Lazy id="decision" minHeight={revealed ? 1180 : 0}>
+              {revealed && detail.data ? <DecisionStudio race={race} rows={rows} detail={detail.data} advanced={advanced.data} /> : null}
+            </Lazy>
             <Lazy id="autopsy" minHeight={revealed ? 1000 : 0}>
               {revealed ? <Autopsy race={race} rows={rows} /> : null}
             </Lazy>
@@ -251,7 +257,10 @@ function RaceHeader({
             <span aria-hidden className="text-mute">/</span>
             Round {race.round}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+            <a className="btn btn-ghost !min-h-10 !px-3" href={href("/race-lab", { r: race.id })}>
+              <Icon name="sliders" size={15} /> Race Lab
+            </a>
             <button type="button" className="btn btn-ghost !min-h-10 !px-3" aria-pressed={presenting} disabled={!canPresent} onClick={onPresent}>
               <Icon name="play" size={14} />
               {presenting ? "Presenting" : "Present"}
@@ -316,8 +325,8 @@ function RaceHeader({
         </div>
 
         <div className="mt-5 grid items-end gap-6 lg:grid-cols-[1fr_auto]">
-          <div>
-            <h1 className="display text-[2.9rem] text-ink sm:text-[4.6rem] lg:text-[5.6rem]">{race.name}</h1>
+          <div className="min-w-0">
+            <h1 className="display text-[2.45rem] text-ink min-[360px]:text-[2.75rem] sm:text-[4.6rem] lg:text-[5.6rem]">{race.name}</h1>
             <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[1.05rem] text-steel">
               <span>{longDate(race.date)}</span>
               <span className="flex items-center gap-2">
@@ -345,10 +354,11 @@ const SUBNAV = [
   { id: "reshuffle", label: "Reshuffle" },
   { id: "what-if", label: "What if" },
   { id: "result", label: "Result", after: true },
+  { id: "decision", label: "Decision replay", after: true },
   { id: "autopsy", label: "Autopsy", after: true },
   { id: "trace", label: "Trace", after: true },
   { id: "replay", label: "Replay", after: true },
-  { id: "lab", label: "Race Lab", after: true },
+  { id: "lab", label: "Strategy Lab", after: true },
   { id: "championship", label: "Alternate", after: true },
 ];
 

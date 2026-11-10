@@ -356,6 +356,21 @@ Before submission or deployment, include the complete analytical suite:
 .\.venv\Scripts\python.exe scripts\verify.py --full
 ```
 
+The full gate also verifies the frozen advanced-model hashes and runs Playwright against a freshly built production preview at 320, 375, 390, 768, 1024, 1440, and 1920 CSS-pixel widths. Browser evidence is written to `artifacts/visual-qa/`; the Phase 6 results and limitations are recorded in `reports/phase-6-release-readiness.md`.
+
+## Race Lab
+
+Open `#/race-lab` to configure and play a deterministic Formula 1 strategy simulation using real 2022-2024 entrants and checked circuit geometry. Race Simulator, Race Strategist, and Model Battle share the framework-independent engine in `ui/src/features/raceLab/engine.ts`. Grid, coursework, research, and hybrid adapters use different supported inputs; tyre wear, pit loss, incidents, and in-race updates remain explicitly assumption-driven gameplay. Architecture, model contracts, evidence, and limitations are documented in `reports/phase-7-race-lab.md`.
+
+To run only the production browser audit:
+
+```powershell
+cd ui
+npm ci
+npm run test:e2e
+npm run test:e2e:report
+```
+
 Run the tests:
 
 ```powershell
@@ -408,6 +423,40 @@ run_analysis.py or executed notebook
 
 ## Interactive website
 
+### Decision Intelligence workspace
+
+After revealing a historical result, the race page now includes an integrated Decision Replay workspace built on `ui/src/features/decision/`:
+
+- `schema.ts` defines the versioned `paladin.race-state.v1` contract and provenance categories (`recorded`, `derived`, `estimated`, and `simulated`).
+- `ledger.ts` reconstructs lap-indexed historical state and excludes every event whose `availableLap` is later than the selected cutoff.
+- `forecast.ts` produces a deterministic Plackett-Luce finishing-order baseline from the pre-race podium score and the running position available at the cutoff. Its win, podium, expected-position, and expected-points outputs are coherent samples from one ranking distribution, but are explicitly labelled as approximate rather than calibrated live-race probabilities.
+- `DecisionStudio.tsx` connects the ledger, forecast, five-assumption robustness envelope, reproducible URL sharing, leakage-safe historical analogues, and JSON/CSV/print research exports. The pit-loss comparison uses common random numbers and declares its time-to-strength mapping as a sensitivity assumption; it is not a tyre, traffic, weather, or safety-car model.
+
+Run `npm run evaluate:decision --prefix ui` for the 2022-2024 retrospective diagnostic comparison against grid baselines. This advanced period has been inspected during successive development iterations and is no longer described as a pristine final holdout. The contract is protected by cutoff, provenance, probability, ordering, reproducibility, and malformed-input tests in `ui/tests/decision.test.ts`.
+
+The implementation intentionally does not infer tyre compounds, weather causes, damage, race-control causes, or counterfactual history from data that does not contain them.
+
+### Advanced research pipeline
+
+The official Milestone 1 pipeline remains unchanged. `src/f1podium/advanced.py` is a separate research extension that consumes the official `artifacts/modeling_table.csv` plus course pit history, adds 23 strictly pre-race or lagged features for 39 total, compares finish-performance and DNF models on validation seasons, and calibrates DNF risk and distribution scale without later data. The 2022-2024 results are a retrospective development benchmark, not a pristine holdout: those years were repeatedly inspected while the advanced product evolved. Candidate-level benchmark metrics are no longer exported; only the validation-selected model reaches benchmark evaluation.
+
+```powershell
+.venv\Scripts\python.exe scripts/run_advanced_research.py
+.venv\Scripts\python.exe scripts/run_rolling_origin_audit.py
+.venv\Scripts\python.exe scripts/export_advanced_ui_data.py
+.venv\Scripts\python.exe scripts/build_advanced_report.py
+```
+
+Outputs under `artifacts/advanced-research/` include model comparisons, feature-family ablations, error slices, calibration bins, paired race-bootstrap comparisons, a 2019-2024 expanding-window audit, uncertainty-scale selection, the research summary and joint finishing-order distributions. The UI exporter writes one compact lazy-loaded file per benchmark race under `ui/public/data/advanced/`, a pre-race analogue index, and its versioned summary. The generated interpretation is `reports/advanced-decision-intelligence.md`.
+
+The research specification is now frozen. `MODEL_FREEZE.md` defines the prospective protocol, while `scripts/freeze_advanced_model.py` records the selected specification, runtime versions and SHA-256 hashes in `artifacts/advanced-research/model-freeze.json`. Do not regenerate that manifest unless intentionally creating and documenting a new frozen version.
+
+Decision Replay now includes driver-specific forecast evolution at evidence cutoffs. Checkpoints navigate the same lap-indexed ledger used by the outcome field and Strategy Laboratory; a driver who has retired remains available for historical investigation, while scenario controls safely fall back to a running driver. Fixed checkpoints are memoized so moving the lap slider recomputes only the live cutoff.
+
+The Phase 5 product and launch assessment, including the exact limits of rendered visual QA, is in `reports/phase-5-launch-audit.md`.
+
+See `DATA_AUDIT.md` for the column-level temporal audit, `IDEA_COVERAGE.md` for the original 50-idea implementation status, and `IMPLEMENTATION_CHECKLIST.md` for live dependencies and validation state.
+
 `ui/` is the Paladin website: a season calendar, a race page (circuit, starting grid, predicted podium, ranking, driver comparison,
 what-if, actual result, replay), a driver explorer, a circuit atlas, a model page and the original method walkthrough. It is a static
 Vite site, so it deploys as plain files, and it never invents a number: everything it shows comes from `artifacts/`, `data/raw/`, or one of
@@ -415,15 +464,15 @@ the public sources listed below.
 
 The production build also registers a small service worker. Navigation and generated JSON remain network-first so deployments and refreshed exports are not hidden by an old cache; previously visited routes, data, fonts and hashed assets remain available if a presentation loses connectivity. Development builds never register the worker.
 
-### Prediction challenge and Race Lab
+### Prediction challenge and Strategy Laboratory
 
 Each held-out race now includes two explicitly separate interactive layers:
 
 - **Beat the model.** Pick three drivers before revealing the result. Picks, saved races, and season totals stay in local browser storage; no account or tracking service is used. Scoring is podium membership, not finishing order, matching the model's actual task.
-- **Paladin Race Lab.** After the historical result, configure a synthetic strategy scenario for one driver: two-stint tyre compounds, pace instruction, pit lap, dry/mixed/wet weather, safety-car timing, and reliability risk. The lab animates seeded runs on the verified circuit outline, exposes a jumpable event timeline, compares undercut/baseline/overcut windows, and summarizes 160 repeated runs including retirement frequency. Its Pit Wall Duel turns traffic, safety-car and rain decisions into three explainable head-to-head calls, each resolved over 80 aligned runs. Complete scenarios can be copied as URLs.
+- **Strategy Laboratory.** After the historical result, configure a synthetic strategy scenario for one driver: two-stint tyre compounds, pace instruction, pit lap, dry/mixed/wet weather, safety-car timing, and reliability risk. The lab animates seeded runs on the verified circuit outline, exposes a jumpable event timeline, compares undercut/baseline/overcut windows, and summarizes 160 repeated runs including retirement frequency. Its Pit Wall Duel turns traffic, safety-car and rain decisions into three explainable head-to-head calls, each resolved over 80 aligned runs. Complete scenarios can be copied as URLs.
 - **Alternate championship.** Rewrite one podium place, transfer the two affected drivers' actual race points, and recalculate that season's final standings. The tool conserves the points pool and explicitly excludes downstream behaviour and FIA countback tiebreakers; its pure calculation is covered by regression tests.
 
-Race Lab is deliberately labelled **Simulation**. It is a transparent strategy toy, not a physics model, calibrated forecast, or historical counterfactual. It uses grid rank and the pre-race podium score as its starting signal and applies documented illustrative rules; it does not use the historical race's lap times. The pure TypeScript engine lives in `ui/src/features/simulation/engine.ts` and is covered by deterministic, pit-loss, Monte Carlo, pit-window, and wet-weather tests.
+Strategy Laboratory is deliberately labelled **Simulation**. It is a transparent sensitivity tool, not a physics model, calibrated forecast, or historical counterfactual. It uses grid rank and the pre-race podium score as its starting signal and applies documented illustrative rules; it does not use the historical race's lap times. Its pure TypeScript engine lives in `ui/src/features/simulation/engine.ts` and remains separate from the full-race Race Lab engine.
 
 The homepage also has an explicitly illustrative **Challenge Hub**. “Podium Sprint” asks for three drivers in each of five evenly sampled held-out races. Every driver who started the race is offered, listed in starting-grid order (the grid is known before the start), while the real podium and Paladin's picks stay hidden until the player locks in. Each side scores one point per pick that finished in the top three, in any order, so a race is worth up to 3 and a sprint up to 15, and the player's total is compared directly with Paladin's recorded selections. An earlier version built its choice list from the real podium plus the model's picks, which left only three to seven names and gave the answer away; a test now checks that the full field is offered for all 68 races. “Name this circuit” uses the same verified circuit outlines as the atlas while withholding labels until the answer. “Pit release” is a local reaction-time game with false-start handling and a browser-stored personal best; it is not based on historical pit-stop timing data. “Track Attack” comes first in the hub and has two modes. **Grand Prix** (described below) races the whole grid. **Time attack** is the solo lap: an authored vector car runs around verified geometry and the player manages throttle against computed curvature. Its handling, speed index and penalties are illustrative rather than vehicle telemetry, and a new personal best stores a local progress trace, which becomes an optional vector ghost and live delta on the next attempt.
 
@@ -433,7 +482,7 @@ Every panel carries a tag, so the kinds of content are never confused:
 | --- | --- |
 | Model output | Computed by the selected logistic regression from information known before the start. A podium score is a ranking signal, not a calibrated probability |
 | Historical record | A real result or measurement from the dataset |
-| Simulation | A synthetic scenario produced by transparent strategy rules (Race Lab, Pit Wall Duel, Alternate championship). Never a historical result and never a forecast of what would have happened |
+| Simulation | A synthetic scenario produced by transparent strategy rules (Race Lab, Strategy Laboratory, Pit Wall Duel, Alternate championship). Never a historical result and never a forecast of what would have happened |
 | Illustrative | Motion or styling added to make data easier to follow, such as the replay's movement inside a lap |
 | Your input | Something the viewer chose or changed: a podium pick or a what-if edit. Kept only in the browser. It is not model output and not the record |
 
@@ -442,10 +491,10 @@ A what-if panel carries both **Model output** and **Your input**: the arithmetic
 ### Before and after the result
 
 A race page is ordered by what is known when: circuit, grid and the model's inputs; your call; the model's prediction and ranking; then, only after
-**Reveal the result**, the classification, the autopsy, the race trace, the replay, Race Lab and the alternate championship. Until the reveal the page holds back everything
+**Reveal the result**, the classification, the autopsy, the race trace, the replay, Strategy Laboratory and the alternate championship. Until the reveal the page holds back everything
 that is only known afterwards, including facts that are easy to overlook:
 
-- finishing positions, the actual podium, hit marks and retirements (the result, autopsy, trace, replay, Race Lab and Alternate panels are not mounted at all);
+- finishing positions, the actual podium, hit marks and retirements (the result, autopsy, trace, replay, Strategy Laboratory and Alternate panels are not mounted at all);
 - whether the race was **shortened**: before the reveal the circuit facts show the *scheduled* laps, and the laps actually run appear afterwards;
 - the race's own **fastest lap**: before the reveal the fact shown is the previous season's at the same circuit (labelled with its year, or "no earlier
   season in the data"); the race's own appears afterwards.
@@ -490,7 +539,7 @@ fitting to the answer. With nothing held it is exactly the page's own ranking.
 
 The **Present** button in the race header (or a link ending in `?present=1`) starts a guided walk through the race: the page scrolls to each section, the others dim,
 and a broadcast-style lower-third carries talking points written from the page's own numbers (circuit, pole, Paladin's top three and cutoff, where it disagrees with
-the grid, what the input groups do, then the result, autopsy, trace, replay and Race Lab). Keys: Right or Page Down next, Left or Page Up back, Home restart,
+the grid, what the input groups do, then the result, autopsy, trace, replay and Strategy Laboratory). Keys: Right or Page Down next, Left or Page Up back, Home restart,
 F full screen, Esc exit; Space and Enter keep their normal job on a focused button. The bar is a landmark with a live-announced step, clickable progress segments and
 44 px controls, and on phones the talking points collapse behind "Show notes". Honouring the cutoff is the point of the product, so the steps after the flag are
 locked until the result is revealed, the reveal is an explicit key press on its own "Lights out" step (and does not change the always-show-results setting), and the
@@ -575,7 +624,7 @@ What is connected to the model, and how it is checked:
   routes. Lighthouse on the production build: 98-100 performance on desktop and 87-94 on mobile emulation, 100 for accessibility, best
   practices and SEO, and layout shift below 0.01. Fonts are self-hosted and the charts are plain SVG, so the site loads no third-party code.
 - **Tests.** `npm test` in `ui/` runs Node's built-in test runner. It covers the browser model (it must reproduce all 1,359 exported scores and its
-  log-odds decomposition must be exact), the replay logic, the Race Lab engine (determinism, pit loss, weather, Monte Carlo, pit windows), challenge
+  log-odds decomposition must be exact), the replay logic, the Strategy Laboratory engine (determinism, pit loss, weather, Monte Carlo, pit windows), Race Lab, challenge
   scoring and stored-pick validation, the uniform "Surprise me" rule, the grid-versus-model move and explanation logic, zoom and pan, the race trace (cumulative times, gaps, lead changes, slow-lap runs and the race story across all 68 races), the autopsy (agreement with each race's stored hits and baseline hits, retirement wording across every status in the data), the reshuffle (a held group equals feeding the model the training average; ranks are a permutation; the story cannot depend on outcomes), the presenter script and keyboard contract, the scenario-link codec, the Grand Prix engine (speed and braking limits on every real outline, determinism, slipstream, the three assist levels, scoring and classification, stored-record parsing, and that rival pace cannot read the real result), the Podium Sprint choice list and verdict, and a hygiene check that fails if two source files differ only by letter case or an import is spelled with the wrong case (both work on Windows or macOS and break the Linux production build). Component tests
   render the real React components to markup through Vite's SSR loader (no browser or extra dependency) and assert roles, states and text: the overlay
   switches and their unavailable states, the circuit map's fallbacks (loading, error, no outline file, no telemetry, no corner positions, a stale layout),

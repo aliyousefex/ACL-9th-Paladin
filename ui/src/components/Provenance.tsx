@@ -34,7 +34,7 @@ const COPY: Record<Provenance, { label: string; title: string; className: string
 export function Tag({ kind, children }: { kind: Provenance; children?: ReactNode }) {
   const copy = COPY[kind];
   return (
-    <span className={copy.className} title={copy.title}>
+    <span className={copy.className} title={copy.title} data-provenance={kind}>
       {children ?? copy.label}
     </span>
   );
@@ -42,13 +42,13 @@ export function Tag({ kind, children }: { kind: Provenance; children?: ReactNode
 
 export function ProvenanceLegend() {
   return (
-    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+    <dl className="provenance-key" aria-label="Data source key">
       {(Object.keys(COPY) as Provenance[]).map((kind) => (
-        <div key={kind} className="flex flex-col items-start gap-2">
+        <div key={kind} className="provenance-key-item">
           <dt>
             <Tag kind={kind} />
           </dt>
-          <dd className="text-[0.95rem] leading-snug text-steel">{COPY[kind].title}</dd>
+          <dd>{COPY[kind].title}</dd>
         </div>
       ))}
     </dl>

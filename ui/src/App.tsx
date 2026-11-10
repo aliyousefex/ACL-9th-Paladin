@@ -10,6 +10,7 @@ const DriversPage = lazy(() => import("./features/drivers/DriversPage").then((m)
 const CircuitsPage = lazy(() => import("./features/circuits/CircuitsPage").then((m) => ({ default: m.CircuitsPage })));
 const ModelPage = lazy(() => import("./features/model/ModelPage").then((m) => ({ default: m.ModelPage })));
 const MethodPage = lazy(() => import("./features/method/MethodPage").then((m) => ({ default: m.MethodPage })));
+const RaceLabPage = lazy(() => import("./features/raceLab/RaceLabPage").then((m) => ({ default: m.RaceLabPage })));
 
 export default function App() {
   const location = useLocation();
@@ -40,6 +41,9 @@ export default function App() {
     case "method":
       page = <MethodPage section={second} />;
       break;
+    case "race-lab":
+      page = <RaceLabPage query={location.query} />;
+      break;
     default:
       page = <Home query={location.query} />;
   }
@@ -48,7 +52,7 @@ export default function App() {
   const key = section === "method" ? "method" : location.path.join("/");
 
   return (
-    <Shell section={["race", "drivers", "circuits", "model", "method"].includes(section) ? section : ""}>
+    <Shell section={["race", "race-lab", "drivers", "circuits", "model", "method"].includes(section) ? section : ""}>
       <Suspense fallback={<div className="pt-32"><LightsLoader label="Loading" /></div>}>
         <div key={key}>{page}</div>
       </Suspense>

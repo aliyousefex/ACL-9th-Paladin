@@ -1,0 +1,128 @@
+{
+  "contract": "paladin.advanced-research.v1",
+  "officialCourseworkBaselineChanged": false,
+  "evaluationStatus": "Retrospective development benchmark; 2022-2024 has been reviewed during successive product iterations and is not a pristine final holdout.",
+  "features": [
+    "grid_position",
+    "pit_lane_start",
+    "front_row",
+    "field_size",
+    "qualifying_position",
+    "qualifying_time_seconds",
+    "qualifying_missing",
+    "driver_podium_rate_5",
+    "constructor_podium_rate_5",
+    "driver_races_before",
+    "driver_points_before",
+    "driver_rank_before",
+    "constructor_points_before",
+    "constructor_rank_before",
+    "driver_age",
+    "year",
+    "qualifying_gap_to_field_best",
+    "grid_vs_qualifying",
+    "driver_finish_pct_5",
+    "constructor_finish_pct_5",
+    "driver_dnf_rate_10",
+    "constructor_dnf_rate_10",
+    "driver_circuit_finish_pct",
+    "constructor_circuit_finish_pct",
+    "grid_percentile",
+    "qualifying_percentile",
+    "driver_points_per_round",
+    "constructor_points_per_round",
+    "grid_vs_team_mean",
+    "qualifying_vs_team_mean",
+    "driver_grid_gain_5",
+    "constructor_grid_gain_5",
+    "driver_finish_std_5",
+    "constructor_finish_std_5",
+    "circuit_dnf_rate_prior",
+    "circuit_grid_volatility_prior",
+    "circuit_pit_stops_per_driver_prior",
+    "circuit_mean_stop_fraction_prior",
+    "circuit_pit_history_missing"
+  ],
+  "selectedFinishModel": "Ridge + HGB ensemble",
+  "selectedDnfModel": "Histogram gradient boosting",
+  "selectedResidualScale": 0.55,
+  "dnfCalibration": {
+    "raw_2021_brier": 0.1062225270842211,
+    "platt_2021_brier": 0.10561699810372041
+  },
+  "testCalibrationError": 0.00849276428746628,
+  "raceBootstrap": {
+    "unit": "race",
+    "draws": 5000,
+    "podiumBrierImprovement": {
+      "estimate": 0.03726512420698114,
+      "lower95": 0.026727098635630685,
+      "upper95": 0.04798556787057476,
+      "probabilityBetter": 1.0
+    },
+    "positionMaeImprovement": {
+      "estimate": 0.49285939640198906,
+      "lower95": 0.31562055759803886,
+      "upper95": 0.6694626257051753,
+      "probabilityBetter": 1.0
+    },
+    "modelPodiumBrier": {
+      "estimate": 0.06788738817912833,
+      "lower95": 0.0599935936527112,
+      "upper95": 0.0763005477127868
+    },
+    "modelPositionMae": {
+      "estimate": 3.0217164288458407,
+      "lower95": 2.8073830689230475,
+      "upper95": 3.235913954347673
+    }
+  },
+  "test": {
+    "races": 68,
+    "rows": 1359,
+    "podiumBrier": 0.06794963514839343,
+    "gridPodiumBrier": 0.10522442972774099,
+    "expectedPositionMAE": 3.0209541329408878,
+    "gridPositionMAE": 3.5114054451802796
+  },
+  "limitations": [
+    "Research extension, not the official Milestone 1 model.",
+    "The 2022-2024 benchmark has been inspected during development and must not be presented as a pristine final holdout.",
+    "Race-level bootstrap intervals quantify sampling uncertainty, not feature-selection or repeated-evaluation bias.",
+    "Distribution uncertainty is a validation-residual bootstrap.",
+    "DNF means non-numeric positionText and does not distinguish causes.",
+    "No tyre, weather, damage or safety-car feature is fabricated."
+  ],
+  "calibration": [
+    {
+      "rows": 689,
+      "mean_prediction": 0.00035,
+      "observed_rate": 0.002903,
+      "absolute_gap": 0.002553
+    },
+    {
+      "rows": 161,
+      "mean_prediction": 0.011061,
+      "observed_rate": 0.006211,
+      "absolute_gap": 0.00485
+    },
+    {
+      "rows": 169,
+      "mean_prediction": 0.094606,
+      "observed_rate": 0.118343,
+      "absolute_gap": 0.023738
+    },
+    {
+      "rows": 170,
+      "mean_prediction": 0.353348,
+      "observed_rate": 0.347059,
+      "absolute_gap": 0.006289
+    },
+    {
+      "rows": 170,
+      "mean_prediction": 0.740711,
+      "observed_rate": 0.717647,
+      "absolute_gap": 0.023064
+    }
+  ]
+}

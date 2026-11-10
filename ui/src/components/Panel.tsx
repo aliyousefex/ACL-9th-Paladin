@@ -30,12 +30,12 @@ export function Panel({
   return (
     <section id={id} className={`panel ${flat ? "panel-flat" : ""} scroll-mt-32 ${className}`}>
       {(eyebrow || title || tags.length > 0 || actions) && (
-        <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b border-line px-4 pt-5 pb-4 sm:px-6">
+        <header className="panel-heading flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b border-line px-4 pt-5 pb-4 sm:px-6">
           <div className="min-w-0">
-            {eyebrow && <p className="eyebrow">{eyebrow}</p>}
             {title && (
-              <Heading className="display mt-2 text-[1.9rem] leading-none text-ink sm:text-[2.3rem]">{title}</Heading>
+              <Heading className="panel-title text-ink">{title}</Heading>
             )}
+            {eyebrow && <p className="panel-context mt-1">{eyebrow}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {tags.map((kind) => (

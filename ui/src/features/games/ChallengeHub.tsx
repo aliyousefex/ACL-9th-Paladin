@@ -56,7 +56,7 @@ const GP_RESERVE = "min-h-[2650px] sm:min-h-[2000px] lg:min-h-[1700px] xl:min-h-
 
 /** Track Attack comes first: race a full grid as a real driver, or run a solo timed lap against your own ghost. */
 function TrackAttack() {
-  const [mode, setMode] = useState<AttackMode>("race");
+  const [mode, setMode] = useState<AttackMode>("lap");
   return (
     <div className="mt-8">
       <div className="flex flex-wrap items-end justify-between gap-3">

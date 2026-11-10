@@ -30,10 +30,13 @@ def main() -> None:
         run("Python analytical tests", [sys.executable, "-m", "pytest"])
     else:
         run("Python export contract tests", [sys.executable, "-m", "pytest", "tests/test_site_export.py"])
+    run("Frozen model contract", [sys.executable, "scripts/verify_model_freeze.py"])
     run("Cross-file consistency", [sys.executable, "scripts/validate_cross_file_consistency.py"])
     npm = "npm.cmd" if sys.platform == "win32" else "npm"
     run("Browser model, replay and simulation tests", [npm, "test"], ROOT / "ui")
     run("TypeScript and production build", [npm, "run", "build"], ROOT / "ui")
+    if args.full:
+        run("Production browser release tests", [npm, "run", "test:e2e"], ROOT / "ui")
     print("\nPaladin verification passed.")
 
 
