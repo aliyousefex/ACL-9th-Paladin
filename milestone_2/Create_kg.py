@@ -161,8 +161,37 @@ def create_races(session):
 # ---------- 6. Person B: results (placeholder) ----------
 
 def create_results(session):
-    """Person B: Result nodes + FOR_RACE, BY_DRIVER, FOR_CONSTRUCTOR, HAS_STATUS."""
-    pass
+    """Result nodes + FOR_RACE, BY_DRIVER, FOR_CONSTRUCTOR, HAS_STATUS
+    (needs Race, Driver, Constructor and Status first)."""
+    result_csv = load_csv("results")
+    rows = [props(resultId=to_int(r.resultId), number=to_int(r.number),
+                  grid=to_int(r.grid), position=to_int(r.position),
+                  positionText=to_str(r.positionText),
+                  positionOrder=to_int(r.positionOrder), points=to_float(r.points),
+                  laps=to_int(r.laps), time=to_str(r.time),
+                  milliseconds=to_int(r.milliseconds), fastestLap=to_int(r.fastestLap),
+                  rank=to_int(r.rank), fastestLapTime=to_str(r.fastestLapTime),
+                  fastestLapSpeed=to_float(r.fastestLapSpeed))
+            for r in result_csv.itertuples()]
+    merge_nodes(session, "Result", "resultId", rows)
+
+    # Relationships: the foreign keys are used only for linking, not stored on Result.
+    links = [{"resultId": to_int(r.resultId), "raceId": to_int(r.raceId),
+              "driverId": to_int(r.driverId), "constructorId": to_int(r.constructorId),
+              "statusId": to_int(r.statusId)} for r in result_csv.itertuples()]
+    run_batches(session, """
+        UNWIND $rows AS row
+        MATCH (res:Result {resultId: row.resultId})
+        MATCH (r:Race {raceId: row.raceId})
+        MATCH (d:Driver {driverId: row.driverId})
+        MATCH (c:Constructor {constructorId: row.constructorId})
+        MATCH (s:Status {statusId: row.statusId})
+        MERGE (res)-[:FOR_RACE]->(r)
+        MERGE (res)-[:BY_DRIVER]->(d)
+        MERGE (res)-[:FOR_CONSTRUCTOR]->(c)
+        MERGE (res)-[:HAS_STATUS]->(s)
+    """, links)
+    print(f"FOR_RACE, BY_DRIVER, FOR_CONSTRUCTOR and HAS_STATUS: {len(links)} results linked")
 
 # ---------- 7. Person C: qualifying and pit stops (placeholders) ----------
 
