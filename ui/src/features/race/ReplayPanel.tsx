@@ -10,7 +10,7 @@ import { haptic } from "../../lib/haptic";
 import { buildReplay, pointAt, type DriverState } from "./replay";
 import type { Row } from "./rows";
 
-const ROW_H = 31;
+const ROW_H = 48;
 const SPEEDS = ["45", "90", "180", "360"] as const;
 
 interface Snapshot {
@@ -71,6 +71,7 @@ export function ReplayPanel({
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>("90");
   const [halo, setHalo] = useState(true);
   const [hover, setHover] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number[]>(() => predicted.slice(0, 1));
   const [snap, setSnap] = useState<Snapshot>(() => snapshot(0));
 
   function snapshot(t: number): Snapshot {
@@ -115,8 +116,9 @@ export function ReplayPanel({
   useEffect(() => {
     tRef.current = 0;
     setPlaying(false);
+    setSelected(predicted.slice(0, 1));
     paint(0, true);
-  }, [model, layout, paint]);
+  }, [model, layout, paint, predicted]);
 
   // animation loop
   useEffect(() => {
@@ -149,6 +151,30 @@ export function ReplayPanel({
     setPlaying(false);
     paint(t, true);
   };
+
+  const seekBy = useCallback((seconds: number) => {
+    const next = Math.max(0, Math.min(model.duration, tRef.current + seconds));
+    tRef.current = next;
+    setPlaying(false);
+    paint(next, true);
+  }, [model.duration, paint]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("button, a, input, select, textarea, summary, [contenteditable='true']")) return;
+      if (event.key === " ") { event.preventDefault(); setPlaying((value) => !value); }
+      else if (event.key === "ArrowLeft") { event.preventDefault(); seekBy(-10); }
+      else if (event.key === "ArrowRight") { event.preventDefault(); seekBy(10); }
+      else if (event.key === "Home" || event.key.toLowerCase() === "r") { event.preventDefault(); seek(0); }
+      else if (event.key === "End") { event.preventDefault(); seek(model.duration); }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [model.duration, seekBy]);
+
+  const toggleDriver = (id: number) => setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current.slice(-2), id]);
 
   const order = [...snap.states].sort((a, b) => b.distance - a.distance);
   const position = new Map(order.map((s, i) => [s.id, i]));
@@ -229,6 +255,12 @@ export function ReplayPanel({
             <button type="button" className="btn btn-ghost !min-h-11" onClick={() => seek(0)} aria-label="Back to the grid">
               <Icon name="skip" size={16} className="rotate-180" /> Grid
             </button>
+            <button type="button" className="btn btn-ghost !min-h-11" onClick={() => seekBy(-10)} disabled={snap.t <= 0} aria-label="Rewind 10 seconds">
+              <Icon name="arrowLeft" size={16} /> 10s
+            </button>
+            <button type="button" className="btn btn-ghost !min-h-11" onClick={() => seekBy(10)} disabled={snap.finished} aria-label="Forward 10 seconds">
+              10s <Icon name="arrowRight" size={16} />
+            </button>
             <Tabs
               value={speed}
               onChange={setSpeed}
@@ -258,6 +290,30 @@ export function ReplayPanel({
               aria-valuetext={`Lap ${Math.min(lapOf, model.totalLaps)} of ${model.totalLaps}, ${clock(snap.t)}`}
               className="mt-2"
             />
+            <div className="mt-2 flex flex-wrap justify-between gap-x-5 gap-y-1 text-[0.75rem] text-mute">
+              <span>Space play/pause · ←/→ seek 10s · Home/R grid · End finish</span>
+              <span>{Math.round((snap.t / Math.max(1, model.duration)) * 100)}% replayed</span>
+            </div>
+          </div>
+
+          <div className="replay-comparison" aria-label="Selected driver comparison">
+            <div className="replay-comparison__head">
+              <div><h3>Driver telemetry</h3><p>Choose up to three drivers from the timing tower. Values use recorded laps or are explicitly derived.</p></div>
+              <span className="tag tag-illustrative">Lap-derived</span>
+            </div>
+            {selected.length ? <div className="replay-comparison__grid">{selected.map((id) => {
+              const row = byId.get(id);
+              const state = snap.states.find((item) => item.id === id);
+              if (!row || !state) return null;
+              const series = detail.laps.d[String(id)];
+              const lapMs = state.k > 0 ? series?.t[Math.min(state.k - 1, (series?.t.length ?? 1) - 1)] ?? null : null;
+              const averageKph = lapMs && lapLengthM > 0 ? lapLengthM / (lapMs / 1000) * 3.6 : null;
+              return <article key={id} className="replay-driver" style={{ "--driver-colour": row.colour } as React.CSSProperties}>
+                <div className="replay-driver__name"><strong>{row.driver.code}</strong><span>{row.driver.name} · {row.team.short}</span></div>
+                <dl><div><dt>Position</dt><dd>{state.out ? "OUT" : `P${position.get(id)! + 1}`}</dd></div><div><dt>Gap</dt><dd>{snap.gaps.get(id) || "—"}</dd></div><div><dt>Last completed lap</dt><dd>{lapMs ? `${(lapMs / 1000).toFixed(3)}s` : "—"}</dd></div><div><dt>Average lap speed</dt><dd>{averageKph ? `${averageKph.toFixed(1)} km/h` : "—"}</dd></div><div><dt>Race state</dt><dd>{state.out ? `Stopped after L${state.k}` : state.inPit ? "Pit-stop lap" : snap.stopped ? "Stoppage inferred" : "Running"}</dd></div><div><dt>Laps completed</dt><dd>{state.k}</dd></div></dl>
+              </article>;
+            })}</div> : <p className="replay-comparison__empty">Select a driver in the timing tower to inspect recorded and derived race state.</p>}
+            <p className="replay-comparison__limits"><strong>Unavailable in this dataset:</strong> throttle, brake, gear, live DRS, weather, tyre compound, sector splits and Safety Car position.</p>
           </div>
         </div>
 
@@ -277,9 +333,12 @@ export function ReplayPanel({
                   onPointerEnter={() => setHover(row.driver.id)}
                   onPointerLeave={() => setHover(null)}
                 >
-                  <div
-                    className={`flex h-[27px] items-center gap-2 border-l-[3px] bg-panel px-2 ${state.out ? "opacity-45" : ""}`}
-                    style={{ borderColor: hot ? "#ff3b30" : "transparent" }}
+                  <button
+                    type="button"
+                    aria-pressed={selected.includes(row.driver.id)}
+                    onClick={() => toggleDriver(row.driver.id)}
+                    className={`flex h-11 w-full items-center gap-2 border-l-[3px] bg-panel px-2 text-left ${state.out ? "opacity-45" : ""}`}
+                    style={{ borderColor: selected.includes(row.driver.id) ? row.colour : hot ? "#ff3b30" : "transparent" }}
                   >
                     <span className="figure w-5 text-right text-[1.05rem] text-steel">{i + 1}</span>
                     <span className="h-4 w-1 shrink-0" style={{ background: row.colour }} aria-hidden />
@@ -288,7 +347,7 @@ export function ReplayPanel({
                       {state.inPit && !state.out && <span className="bg-amber px-1 font-display text-[0.7rem] font-bold text-paper">PIT</span>}
                       {state.out ? <span className="text-mute">OUT L{state.k}</span> : gap}
                     </span>
-                  </div>
+                  </button>
                 </li>
               );
             })}

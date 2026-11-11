@@ -118,6 +118,73 @@ a {
 }
 
 @layer components {
+/* ------------------------------------------------------------------ historical replay telemetry */
+.replay-comparison { margin-top: 1.25rem; border-top: 1px solid var(--color-line2); border-bottom: 1px solid var(--color-line); background: var(--color-tower); }
+.replay-comparison__head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: 1rem 1.1rem; border-bottom: 1px solid var(--color-line); }
+.replay-comparison__head h3 { color: var(--color-ink); font-size: 1.45rem; line-height: 1; }
+.replay-comparison__head p { max-width: 64ch; margin-top: .35rem; color: var(--color-mute); font-size: .78rem; }
+.replay-comparison__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: 1px; background: var(--color-line); }
+.replay-driver { --driver-colour: var(--color-steel); min-width: 0; background: var(--color-panel); box-shadow: inset 0 2px 0 var(--driver-colour); }
+.replay-driver__name { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr); align-items: center; gap: .65rem; padding: .85rem 1rem .75rem; border-bottom: 1px solid var(--color-line); }
+.replay-driver__name strong { color: var(--driver-colour); font: 700 1.5rem/1 var(--font-display); }
+.replay-driver__name span { overflow: hidden; color: var(--color-steel); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.replay-driver dl { display: grid; grid-template-columns: 1fr 1fr; }
+.replay-driver dl div { min-width: 0; padding: .7rem 1rem; border-bottom: 1px solid var(--color-line); }
+.replay-driver dl div:nth-child(odd) { border-right: 1px solid var(--color-line); }
+.replay-driver dt { color: var(--color-mute); font: 600 .68rem/1.15 var(--font-display); }
+.replay-driver dd { margin-top: .35rem; overflow: hidden; color: var(--color-ink); font: 600 1rem/1 var(--font-display); text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.replay-comparison__empty, .replay-comparison__limits { padding: 1rem 1.1rem; color: var(--color-mute); font-size: .78rem; line-height: 1.45; }
+.replay-comparison__limits { border-top: 1px solid var(--color-line); }
+.replay-comparison__limits strong { color: var(--color-steel); }
+@media (max-width: 900px) { .replay-comparison__grid { grid-template-columns: 1fr; } .replay-comparison__head { align-items: start; flex-direction: column; } }
+
+/* ------------------------------------------------------------------ Race Lab broadcast instruments */
+.broadcast-tower {
+  min-width: 0;
+  padding: .75rem;
+  background: var(--color-panel);
+  border-left: 1px solid var(--color-line);
+}
+.broadcast-tower__head { display: flex; align-items: end; justify-content: space-between; gap: .75rem; padding: .65rem .55rem .85rem; }
+.broadcast-tower__head strong { display: block; margin-top: .15rem; font: 700 1.65rem/1 var(--font-display); letter-spacing: -.02em; }
+.broadcast-tower__head small { color: var(--color-mute); font-size: .8em; }
+.broadcast-tower__modes { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--color-line2); }
+.broadcast-tower__modes button { min-height: 2.35rem; padding: .35rem; color: var(--color-mute); background: var(--color-tower); font: 600 .72rem/1 var(--font-display); text-transform: uppercase; letter-spacing: .035em; }
+.broadcast-tower__modes button + button { border-left: 1px solid var(--color-line2); }
+.broadcast-tower__modes button:hover, .broadcast-tower__modes button[aria-pressed="true"] { color: var(--color-ink); background: var(--color-panel2); }
+.broadcast-tower__modes button[aria-pressed="true"] { box-shadow: inset 0 -2px 0 var(--color-ink); }
+.broadcast-tower__rows { position: relative; display: grid; gap: 1px; margin-top: .6rem; background: var(--color-line); overflow: hidden; }
+.broadcast-tower__rows li { display: grid; grid-template-columns: 1.7rem .22rem minmax(0, 1fr) 5.65rem; align-items: center; gap: .55rem; min-height: 2.55rem; padding: 0 .5rem; background: var(--color-tower); transition: background-color 220ms var(--ease-out), color 220ms var(--ease-out); }
+.broadcast-tower__rows li.is-controlled { color: var(--color-paper); background: var(--color-ink); }
+.broadcast-tower__rows li.is-gaining { animation: timing-gain 850ms var(--ease-out); }
+.broadcast-tower__position { color: var(--color-steel); text-align: right; font: 600 1.1rem/1 var(--font-display); }
+.is-controlled .broadcast-tower__position { color: var(--color-paper); }
+.broadcast-tower__team { width: 100%; height: 1.45rem; }
+.broadcast-tower__driver { min-width: 0; overflow: hidden; font: 700 1.05rem/1 var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
+.broadcast-tower__driver small { margin-left: .35rem; color: var(--color-mute); font: 500 .64rem/1 var(--font-sans); }
+.is-controlled .broadcast-tower__driver small { color: #3d4249; }
+.broadcast-tower__value { display: flex; align-items: center; justify-content: flex-end; gap: .3rem; color: var(--color-steel); font: 600 .74rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.broadcast-tower__value.is-fastest { color: #d987ff; }
+.broadcast-tower__foot { padding: .75rem .55rem .25rem; color: var(--color-mute); font-size: .68rem; line-height: 1.35; }
+
+.driver-chyron { --team-colour: var(--color-steel); display: grid; grid-template-columns: 5.25rem minmax(12rem, 1fr) repeat(3, minmax(7.5rem, .62fr)); min-height: 5.15rem; border-top: 1px solid var(--color-line2); border-bottom: 1px solid var(--color-line); background: var(--color-tower); box-shadow: inset 4px 0 0 var(--team-colour); }
+.driver-chyron > div { display: grid; align-content: center; min-width: 0; padding: .7rem 1rem; }
+.driver-chyron > div + div { border-left: 1px solid var(--color-line); }
+.driver-chyron span { color: var(--color-mute); font: 600 .7rem/1 var(--font-display); letter-spacing: .035em; text-transform: uppercase; }
+.driver-chyron strong { margin-top: .3rem; overflow: hidden; font: 700 1.15rem/1 var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
+.driver-chyron__position { text-align: center; }
+.driver-chyron__position strong { color: var(--team-colour); font-size: 2.25rem; }
+.driver-chyron__identity strong { font-size: 1.45rem; }
+.driver-chyron__identity { position: relative; }
+.driver-chyron__identity::after { content: ""; position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: var(--team-colour); }
+.driver-chyron__metric strong.is-fastest { color: #d987ff; }
+
+@keyframes timing-gain { 0% { box-shadow: inset 0 0 0 1px var(--color-hit); filter: brightness(1.3); } 100% { box-shadow: inset 0 0 0 1px transparent; filter: brightness(1); } }
+
+@media (max-width: 1279px) { .broadcast-tower { border-top: 1px solid var(--color-line); border-left: 0; } .broadcast-tower__rows { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 800px) { .driver-chyron { grid-template-columns: 4.25rem minmax(0, 1fr) minmax(7rem, .7fr); } .driver-chyron__metric:nth-last-child(-n+2) { display: none; } }
+@media (max-width: 520px) { .broadcast-tower__rows { grid-template-columns: 1fr; } .driver-chyron { grid-template-columns: 4rem minmax(0, 1fr); } .driver-chyron .driver-chyron__metric { display: none; } .driver-chyron > div { padding-inline: .75rem; } }
+
 /* ------------------------------------------------------------------ decision intelligence workspace */
 .decision-workspace {
   border: 1px solid var(--color-line2);
@@ -780,6 +847,7 @@ nav.scroll-x::-webkit-scrollbar {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .broadcast-tower__rows li.is-gaining { animation: none; }
   html {
     scroll-behavior: auto !important;
   }

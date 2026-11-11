@@ -234,6 +234,7 @@ function RaceConsole(props: ConsoleProps) {
           <div className="absolute top-4 left-4 bg-tower/95 px-3 py-2"><p className="label">Leader</p><p className="font-display text-[1.6rem] font-bold">{state.config.entrants.find((entry) => entry.id === leader.id)?.code}</p></div>
           <div className="absolute right-4 bottom-4 bg-tower/95 px-3 py-2 text-right"><p className="label">Following</p><select className="select mt-1 !min-h-9" value={followed.id} onChange={(event) => props.setFollowId(Number(event.target.value))}>{order.map((car) => { const entry = state.config.entrants.find((item) => item.id === car.id)!; return <option key={car.id} value={car.id}>{entry.code} · {car.retired ? "Retired" : `P${order.indexOf(car) + 1}`}</option>; })}</select></div>
         </div>
+        <DriverChyron state={state} car={followed} position={order.findIndex((car) => car.id === followed.id) + 1} />
         <div className="grid grid-cols-3 gap-px border-t border-line bg-line"><button className={`min-h-12 bg-panel font-display font-bold uppercase ${props.panel === "strategy" ? "text-ink" : "text-mute"}`} onClick={() => props.setPanel("strategy")}>Strategy</button><button className={`min-h-12 bg-panel font-display font-bold uppercase ${props.panel === "forecast" ? "text-ink" : "text-mute"}`} onClick={() => props.setPanel("forecast")}>Forecast</button><button className={`min-h-12 bg-panel font-display font-bold uppercase ${props.panel === "events" ? "text-ink" : "text-mute"}`} onClick={() => props.setPanel("events")}>Race control</button></div>
         <div className="min-h-64 bg-panel p-4 sm:p-6">
           {props.panel === "strategy" && (controlled ? <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]"><div><h2 className="display text-[2.1rem]">Call the race for {state.config.entrants.find((entry) => entry.id === controlled.id)?.code}</h2><p className="mt-2 text-steel">Every selection changes the next simulated lap. Attack is quicker but increases incident and retirement risk; conserve trades pace for reliability.</p><div className="mt-5 grid gap-4 sm:grid-cols-3"><label className="label">Pace<select className="select mt-2 w-full" value={controlled.strategy.pace} onChange={(event) => props.updateStrategy({ pace: event.target.value as Pace })}>{["conserve", "balanced", "attack"].map((value) => <option key={value}>{value}</option>)}</select></label><label className="label">Tyre assumption<select className="select mt-2 w-full" value={controlled.strategy.tyre} onChange={(event) => props.updateStrategy({ tyre: event.target.value as Tyre })}>{["soft", "medium", "hard"].map((value) => <option key={value}>{value}</option>)}</select></label><label className="label">Planned stop<input className="input mt-2 w-full" type="number" min={state.lap + 1} max={state.config.laps} value={controlled.strategy.pitLap ?? ""} onChange={(event) => props.updateStrategy({ pitLap: event.target.value ? Number(event.target.value) : null })} /></label></div></div><button type="button" className="btn btn-ghost min-h-16 self-end" disabled={controlled.pitStops > 0 || state.lap >= state.config.laps} onClick={() => props.updateStrategy({ pitLap: state.lap + 1 })}>Pit next lap</button></div> : <p className="text-steel">Simulator mode uses explicit AI policies. Choose Strategist mode in setup to control a driver.</p>)}
@@ -247,7 +248,58 @@ function RaceConsole(props: ConsoleProps) {
   </div>;
 }
 
-function TimingTower({ state }: { state: LabState }) { const order = orderLab(state); const leader = order[0]; return <aside className="bg-panel p-3" aria-label="Live timing tower"><div className="flex items-end justify-between px-2 py-3"><h2 className="display text-[2rem]">Timing</h2><span className="label">Live · simulated</span></div><ol className="space-y-px">{order.map((car, index) => { const entry = state.config.entrants.find((item) => item.id === car.id)!; const gap = index === 0 ? null : (car.totalMs - leader.totalMs) / 1000; return <li key={car.id} className={`grid grid-cols-[1.8rem_0.25rem_minmax(0,1fr)_4.5rem] items-center gap-2 px-2 py-2 ${car.id === state.config.controlledId ? "bg-ink text-paper" : "bg-tower"}`}><span className="figure text-right">{index + 1}</span><span className="h-5" style={{ background: entry.colour }} /><span className="truncate font-display text-[1.05rem] font-bold">{entry.code}<small className="ml-1 font-sans text-[0.65rem] font-normal opacity-70">{car.tyre[0].toUpperCase()}{car.tyreAge}</small></span><span className="text-right text-[0.72rem] tabular-nums opacity-75">{car.retired ? "OUT" : gap === null ? "LEADER" : gap > 99 ? `+${Math.round(gap)}s` : `+${Math.max(0, gap).toFixed(1)}`}</span></li>; })}</ol></aside>; }
+type TimingMode = "interval" | "leader" | "lastLap";
+
+function formatLap(ms: number | null) {
+  if (ms === null) return "—";
+  const minutes = Math.floor(ms / 60_000);
+  return `${minutes}:${((ms % 60_000) / 1000).toFixed(3).padStart(6, "0")}`;
+}
+
+function TimingTower({ state }: { state: LabState }) {
+  const [mode, setMode] = useState<TimingMode>("interval");
+  const order = orderLab(state);
+  const leader = order[0];
+  const fastest = state.cars.reduce<typeof state.cars[number] | null>((best, car) => car.bestLapMs !== null && (!best || car.bestLapMs < (best.bestLapMs ?? Infinity)) ? car : best, null);
+  const currentEvents = state.events.filter((event) => event.lap === state.lap);
+  return <aside className="broadcast-tower" aria-label="Simulated live timing tower">
+    <div className="broadcast-tower__head">
+      <div><span className="label">Race Lab</span><strong>LAP {state.lap}<small> / {state.config.laps}</small></strong></div>
+      <span className="tag tag-simulation">Simulated</span>
+    </div>
+    <div className="broadcast-tower__modes" role="group" aria-label="Timing display">
+      {(["interval", "leader", "lastLap"] as TimingMode[]).map((value) => <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)}>{value === "lastLap" ? "Last lap" : value}</button>)}
+    </div>
+    <ol className="broadcast-tower__rows">{order.map((car, index) => {
+      const entry = state.config.entrants.find((item) => item.id === car.id)!;
+      const ahead = order[index - 1];
+      const interval = ahead ? (car.totalMs - ahead.totalMs) / 1000 : null;
+      const gap = index === 0 ? null : (car.totalMs - leader.totalMs) / 1000;
+      const passed = currentEvents.some((event) => event.kind === "pass" && event.driverId === car.id);
+      const fastestLap = fastest?.id === car.id && state.lap > 0;
+      const value = car.retired ? "OUT" : mode === "lastLap" ? formatLap(car.lastLapMs) : index === 0 ? "LEADER" : `+${Math.max(0, mode === "leader" ? gap! : interval!).toFixed(3)}`;
+      return <li key={car.id} className={`${car.id === state.config.controlledId ? "is-controlled" : ""} ${passed ? "is-gaining" : ""}`}>
+        <span className="broadcast-tower__position">{index + 1}</span>
+        <span className="broadcast-tower__team" style={{ background: entry.colour }} aria-hidden />
+        <span className="broadcast-tower__driver">{entry.code}<small>{car.tyre[0].toUpperCase()}{car.tyreAge}</small></span>
+        <span className={`broadcast-tower__value ${fastestLap ? "is-fastest" : ""}`}>{fastestLap && <span aria-label="Fastest lap">FL</span>}{value}</span>
+      </li>;
+    })}</ol>
+    <p className="broadcast-tower__foot">Illustrative lap timing · deterministic seed {state.config.seed}</p>
+  </aside>;
+}
+
+function DriverChyron({ state, car, position }: { state: LabState; car: LabState["cars"][number]; position: number }) {
+  const entry = state.config.entrants.find((item) => item.id === car.id)!;
+  const fastest = state.cars.reduce<number | null>((best, item) => item.bestLapMs !== null && (best === null || item.bestLapMs < best) ? item.bestLapMs : best, null);
+  return <section className="driver-chyron" style={{ "--team-colour": entry.colour } as React.CSSProperties} aria-label={`Focused driver: ${entry.name}, position ${position}`}>
+    <div className="driver-chyron__position"><span>Position</span><strong>{car.retired ? "OUT" : position}</strong></div>
+    <div className="driver-chyron__identity"><strong>{entry.name}</strong><span>{entry.code} · {entry.team}</span></div>
+    <div className="driver-chyron__metric"><span>Last lap</span><strong>{formatLap(car.lastLapMs)}</strong></div>
+    <div className="driver-chyron__metric"><span>Best lap</span><strong className={car.bestLapMs !== null && car.bestLapMs === fastest ? "is-fastest" : ""}>{formatLap(car.bestLapMs)}</strong></div>
+    <div className="driver-chyron__metric"><span>Tyre assumption</span><strong>{car.tyre.toUpperCase()} · {car.tyreAge}L</strong></div>
+  </section>;
+}
 
 function Forecast({ state, battle }: { state: LabState; battle: ReturnType<typeof modelBattle> | null }) { const rows = [...state.forecast].sort((a, b) => b.win - a.win).slice(0, 6); return <div className="grid gap-7 lg:grid-cols-2"><div><h2 className="display text-[2.1rem]">In-race estimate</h2><p className="mt-1 text-steel">Approximate update from game state—not the trained pre-race classifier.</p><div className="mt-4 divide-y divide-line">{rows.map((row) => { const entry = state.config.entrants.find((item) => item.id === row.driverId)!; return <div key={row.driverId} className="grid grid-cols-[4rem_minmax(0,1fr)_5rem] items-center gap-3 py-2"><strong className="font-display text-[1.2rem]">{entry.code}</strong><span className="h-2 bg-line"><span className="block h-full bg-signal" style={{ width: `${row.win * 100}%` }} /></span><span className="figure text-right">{Math.round(row.win * 100)}% win</span></div>; })}</div></div><div><h2 className="display text-[2.1rem]">Model contract</h2><p className="mt-2 text-steel">{MODELS[state.config.model].contract}</p><p className="mt-3 text-mute">{MODELS[state.config.model].limitation}</p>{battle && <div className="mt-4 divide-y divide-line">{battle.map((run) => <p key={run.model} className="flex justify-between gap-4 py-2"><span>{MODELS[run.model].name}</span><strong>{state.config.entrants.find((entry) => entry.id === run.winner)?.code}</strong></p>)}</div>}</div></div>; }
 
