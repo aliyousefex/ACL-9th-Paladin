@@ -197,12 +197,57 @@ def create_results(session):
 
 def create_qualifying(session):
     """Person C: Qualifying nodes + FOR_RACE, BY_DRIVER, FOR_CONSTRUCTOR."""
-    pass
+    qualifying_csv = load_csv("qualifying")
+    rows = [props(qualifyId=to_int(r.qualifyId), number=to_int(r.number),
+                  position=to_int(r.position), q1=to_str(r.q1),
+                  q2=to_str(r.q2), q3=to_str(r.q3))
+            for r in qualifying_csv.itertuples()]
+    merge_nodes(session, "Qualifying", "qualifyId", rows)
+
+    # The foreign keys are used only to create the required graph links.
+    links = [{"qualifyId": to_int(r.qualifyId), "raceId": to_int(r.raceId),
+              "driverId": to_int(r.driverId),
+              "constructorId": to_int(r.constructorId)}
+             for r in qualifying_csv.itertuples()]
+    run_batches(session, """
+        UNWIND $rows AS row
+        MATCH (q:Qualifying {qualifyId: row.qualifyId})
+        MATCH (r:Race {raceId: row.raceId})
+        MATCH (d:Driver {driverId: row.driverId})
+        MATCH (c:Constructor {constructorId: row.constructorId})
+        MERGE (q)-[:FOR_RACE]->(r)
+        MERGE (q)-[:BY_DRIVER]->(d)
+        MERGE (q)-[:FOR_CONSTRUCTOR]->(c)
+    """, links)
+    print(f"FOR_RACE, BY_DRIVER and FOR_CONSTRUCTOR: {len(links)} qualifying rows linked")
 
 
 def create_pitstops(session):
     """Person C: PitStop nodes (eventId = raceId:driverId:stop) + FOR_RACE, BY_DRIVER."""
-    pass
+    pit_stop_csv = load_csv("pit_stops")
+    records = []
+    links = []
+    for row in pit_stop_csv.itertuples():
+        race_id = to_int(row.raceId)
+        driver_id = to_int(row.driverId)
+        stop = to_int(row.stop)
+        event_id = f"{race_id}:{driver_id}:{stop}"
+        records.append(props(eventId=event_id, stop=stop, lap=to_int(row.lap),
+                             time=to_str(row.time), duration=to_str(row.duration),
+                             milliseconds=to_int(row.milliseconds)))
+        links.append({"eventId": event_id, "raceId": race_id,
+                      "driverId": driver_id})
+
+    merge_nodes(session, "PitStop", "eventId", records)
+    run_batches(session, """
+        UNWIND $rows AS row
+        MATCH (p:PitStop {eventId: row.eventId})
+        MATCH (r:Race {raceId: row.raceId})
+        MATCH (d:Driver {driverId: row.driverId})
+        MERGE (p)-[:FOR_RACE]->(r)
+        MERGE (p)-[:BY_DRIVER]->(d)
+    """, links)
+    print(f"FOR_RACE and BY_DRIVER: {len(links)} pit stops linked")
 
 
 # ---------- 8. Run everything in order ----------

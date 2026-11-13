@@ -12,3 +12,13 @@ WITH c, count(res) AS Entries, count(CASE WHEN st.status = 'Finished' OR st.stat
 WHERE Entries >= 100
 RETURN c.constructor_name AS Constructor, Entries, Classified, toFloat(Classified) / Entries AS Reliability
 ORDER BY Reliability DESC, Constructor ASC
+
+//3. Query 3
+MATCH (h:Result)-[:BY_DRIVER]->(:Driver {driverId: 1}),
+      (b:Result)-[:BY_DRIVER]->(:Driver {driverId: 822}),
+      (h)-[:FOR_RACE]->(r:Race)<-[:FOR_RACE]-(b),
+      (h)-[:FOR_CONSTRUCTOR]->(c:Constructor)<-[:FOR_CONSTRUCTOR]-(b)
+RETURN c.constructor_name AS Constructor,
+       count(*) AS Shared_Races,
+       count(CASE WHEN h.positionOrder < b.positionOrder THEN 1 END) AS Hamilton_Ahead,
+       count(CASE WHEN b.positionOrder < h.positionOrder THEN 1 END) AS Bottas_Ahead
