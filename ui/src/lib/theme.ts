@@ -68,16 +68,28 @@ export const revealRadius = (x: number, y: number, width: number, height: number
 type TransitionDocument = Document & { startViewTransition?: (update: () => void) => { finished: Promise<unknown> } };
 
 /**
- * Change the theme smoothly. Where the browser has view transitions, the new theme grows as a circle from `origin` (the
- * switch) over the old one; elsewhere every colour fades over a third of a second. Either way, nothing moves if the reader
- * prefers reduced motion. `update` is what actually changes the theme, and it always runs exactly once.
+ * Whether a page-wide animated change is worth what it costs here. Changing the theme re-styles and re-paints the whole page
+ * (about 50 to 150ms of work, which a phone's processor takes several times over), and a view transition then paints it
+ * twice more and holds the screen still while it does. Measured at a phone's speed that was a stall of most of a second
+ * between the press and the first change. A precise pointer means a desktop or laptop, which does it in about a tenth of a
+ * second; everything else changes in one step.
+ */
+const canAffordWipe = (): boolean => window.matchMedia?.("(hover: hover) and (pointer: fine)").matches ?? false;
+
+/**
+ * Change the theme. On a desktop with view transitions the new theme grows as a circle from `origin` (the switch) over the
+ * old one. Everywhere else, and always under reduced motion, it simply changes: reduced motion at once, the rest in the frame
+ * after the next one, so the switch's knob has already started to move before the page stops to repaint (a transform
+ * animation carries on while the page is busy, so the control never feels held up by it). There is no page-wide colour
+ * fade: animating every element's colours took seconds on a phone. `update` is what actually changes the theme, and it
+ * always runs exactly once.
  */
 function withThemeTransition(update: () => void, origin?: { x: number; y: number }): void {
   if (typeof document === "undefined" || typeof window === "undefined") return update();
   const doc = document as TransitionDocument;
   const root = doc.documentElement;
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return update();
-  if (typeof doc.startViewTransition === "function") {
+  if (typeof doc.startViewTransition === "function" && canAffordWipe()) {
     const x = origin?.x ?? window.innerWidth / 2;
     const y = origin?.y ?? 0;
     root.style.setProperty("--vt-x", `${x}px`);
@@ -87,9 +99,14 @@ function withThemeTransition(update: () => void, origin?: { x: number; y: number
     void transition.finished.finally(() => ["--vt-x", "--vt-y", "--vt-r"].forEach((name) => root.style.removeProperty(name)));
     return;
   }
-  root.classList.add("theme-fade");
-  update();
-  window.setTimeout(() => root.classList.remove("theme-fade"), 400);
+  let done = false;
+  const once = () => {
+    if (done) return;
+    done = true;
+    update();
+  };
+  window.requestAnimationFrame(() => window.requestAnimationFrame(once));
+  window.setTimeout(once, 250); // a frame that never comes (a hidden tab) must not leave the choice unmade
 }
 
 export function setThemePref(pref: ThemePref, origin?: { x: number; y: number }): void {

@@ -186,7 +186,7 @@ test("Simple view follows one path, Expert adds the tools, and search opens a ra
   const field = page.getByRole("combobox", { name: "Search" });
   await expect(field).toBeFocused();
   await field.fill("monaco 2023");
-  await expect(page.getByRole("option").first()).toContainText(/monaco grand prix 2023/i);
+  await expect(page.getByRole("dialog").getByRole("option").first()).toContainText(/monaco grand prix 2023/i);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#\/race\/2023\/monaco/);
   await expect(page.getByRole("heading", { name: "Monaco Grand Prix" })).toBeVisible();
@@ -321,6 +321,12 @@ test("theme: a sliding light/dark switch that follows the device until it is fli
   test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  // Count how often the page-wide view transition is asked for.
+  await page.addInitScript(() => {
+    (window as unknown as { __wipes: number }).__wipes = 0;
+    const original = (document as Document & { startViewTransition?: (cb: () => void) => unknown }).startViewTransition?.bind(document);
+    if (original) (document as unknown as { startViewTransition: (cb: () => void) => unknown }).startViewTransition = (cb) => ((window as unknown as { __wipes: number }).__wipes++, original(cb));
+  });
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
   const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
@@ -348,9 +354,20 @@ test("theme: a sliding light/dark switch that follows the device until it is fli
   await expect.poll(theme).toBe("dark");
   expect(await pref()).toBe("system");
 
-  // Flipping it saves an explicit choice. The change lands a frame later because it plays as a wipe growing from the knob.
-  await toggle.click();
+  // Flipping it saves an explicit choice. The knob answers the press at once; the page lands a frame later, because the browser
+  // first takes a picture of it to grow the new theme from the knob. A switch that waited for that would feel like it lagged.
+  const atOnce = await toggle.evaluate(async (button: HTMLButtonElement) => {
+    button.click();
+    await Promise.resolve(); // let React's own update land
+    await Promise.resolve();
+    return [button.getAttribute("aria-checked"), document.documentElement.dataset.theme];
+  });
+  expect(atOnce, "the knob has moved before the page has changed").toEqual(["false", "dark"]);
   await expect.poll(state).toEqual(["light", "light"]);
+  // The circle wipe is for a desktop. A phone's processor stalls for most of a second on the two extra paints it costs, so
+  // there the page changes in one step.
+  const wipes = await page.evaluate(() => (window as unknown as { __wipes: number }).__wipes);
+  expect(wipes, testInfo.project.name === "desktop-1440" ? "a desktop gets the wipe" : "a touch device does not").toBe(testInfo.project.name === "desktop-1440" ? 1 : 0);
   await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue("--vt-r")), "the wipe cleans up after itself").toBe("");
   await expect(toggle).not.toBeChecked();
   await expect.poll(knobSide).toBe("left");
@@ -444,6 +461,8 @@ test("phone header: scrolling down gives the screen back without losing navigati
   await page.evaluate(() => window.scrollTo(0, 1700));
   await expect(page.locator("html")).toHaveAttribute("data-chrome", "compact");
   await expect.poll(() => bottom(brand)).toBeLessThanOrEqual(0);
+  // and its drop shadow (14px down, 34px of blur) is off screen with it, not hanging over the top of the page as a haze
+  await expect.poll(() => bottom(capsule)).toBeLessThanOrEqual(-48);
   // reading hides only the brand capsule: the destinations stay at the thumb, and the race's own section navigation takes the top
   expect(await top(dock)).toBe(dockTop);
   await expect.poll(() => top(section)).toBeLessThanOrEqual(1);
@@ -462,6 +481,108 @@ test("phone header: scrolling down gives the screen back without losing navigati
   await page.getByRole("button", { name: "Search races, drivers and pages" }).focus();
   await expect(page.locator("html")).not.toHaveAttribute("data-chrome", "compact");
   await expect.poll(() => top(brand)).toBe(0);
+});
+
+test("search: the palette dims the whole screen, fits above the keyboard, and names no keys on a touchscreen", async ({ page }, testInfo) => {
+  test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
+  const touch = testInfo.project.name === "mobile-375";
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/#/");
+  await expect(page.getByRole("heading", { name: /predict the podium/i })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  await page.evaluate(() => window.scrollBy(0, -120)); // reading hides the bar on a phone; scrolling up brings it back
+  const open = page.getByRole("button", { name: "Search races, drivers and pages" });
+  await expect(open).toBeVisible();
+  await open.click();
+
+  // Mounted on the body and as big as the screen. Inside the frosted bar it was as big as the bar.
+  const size = page.viewportSize()!;
+  const scrim = page.locator("body > .palette");
+  await expect(scrim).toHaveCount(1);
+  const scrimBox = (await scrim.boundingBox())!;
+  expect([scrimBox.x, scrimBox.y, Math.round(scrimBox.width), Math.round(scrimBox.height)]).toEqual([0, 0, size.width, size.height]);
+  const dialog = page.getByRole("dialog", { name: "Search races, drivers and pages" });
+  const box = (await dialog.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(size.height);
+  // On a phone it sits at the top, hugging the safe area; on a desktop it hangs a tenth of the way down.
+  if (touch) expect(box.y).toBeLessThanOrEqual(16);
+  else expect(Math.round(box.y)).toBe(Math.round(size.height * 0.1));
+
+  // The field: focused, with no ring floating around empty space (the row carries the mark) and a placeholder that is not cut off.
+  const field = page.getByRole("combobox", { name: "Search" });
+  await expect(field).toBeFocused();
+  await expect(field).toHaveCSS("outline-style", "none");
+  const room = await field.evaluate((input: HTMLInputElement) => {
+    const style = getComputedStyle(input);
+    const context = document.createElement("canvas").getContext("2d")!;
+    context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    return { need: context.measureText(input.placeholder).width, have: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) };
+  });
+  expect(room.need, `the placeholder needs ${room.need}px of ${room.have}px`).toBeLessThanOrEqual(room.have);
+
+  // Keys are named only where there is a keyboard: a cross to tap on a phone, "Esc" and the hint line on a desktop.
+  const esc = dialog.locator(".palette__esc");
+  const cross = dialog.locator(".palette__x");
+  const hint = dialog.locator(".palette__hint");
+  if (touch) {
+    await expect(esc).toBeHidden();
+    await expect(hint).toBeHidden();
+    await expect(cross).toBeVisible();
+    const close = (await dialog.getByRole("button", { name: "Close search" }).boundingBox())!;
+    expect(Math.min(close.width, close.height), "a thumb-sized close control").toBeGreaterThanOrEqual(44);
+    // the page behind does not scroll under a thumb
+    await expect(page.locator("html")).toHaveCSS("overflow", "hidden");
+    // with the on-screen keyboard up (a short screen) the whole panel is still on it
+    await page.setViewportSize({ width: size.width, height: 380 });
+    await expect.poll(async () => { const b = (await dialog.boundingBox())!; return Math.round(b.y + b.height); }).toBeLessThanOrEqual(380);
+    await page.setViewportSize(size);
+  } else {
+    await expect(esc).toBeVisible();
+    await expect(hint).toBeVisible();
+    await expect(cross).toBeHidden();
+    await expect(page.locator("html")).not.toHaveCSS("overflow", "hidden");
+  }
+  // the same goes for the page's own "Press / to search" line
+  if (touch) await expect(page.getByText(/at any time to search/)).toBeHidden();
+
+  // Tapping the dimmed page, anywhere on it, closes the palette and gives the screen back.
+  await page.mouse.click(size.width - 4, size.height - 4);
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator("html")).not.toHaveClass(/palette-open/);
+  await expect(open).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+test("phone: the footer runs to the bottom edge under the dock, and the More list is solid", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-375");
+  await page.goto("/#/");
+  await expect(page.getByRole("heading", { name: /predict the podium/i })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(page.locator("footer")).toBeVisible();
+  // no strip of page colour between the end of the footer and the end of the page
+  const gap = await page.evaluate(() => {
+    const footer = document.querySelector("footer")!.getBoundingClientRect();
+    return Math.round(footer.bottom + window.scrollY - document.documentElement.scrollHeight);
+  });
+  expect(Math.abs(gap)).toBeLessThanOrEqual(1);
+  // and, at the very bottom, the last link still clears the dock (sections mount as they scroll, so scroll again each time)
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        const link = [...document.querySelectorAll("footer nav a")].pop()!.getBoundingClientRect();
+        return Math.round(document.querySelector("nav.dock")!.getBoundingClientRect().top - link.bottom);
+      }),
+    )
+    .toBeGreaterThanOrEqual(0);
+
+  // The list that opens from the dock is opaque: nothing behind it shows through the labels.
+  await page.locator("nav.dock").getByRole("button", { name: /more/i }).click();
+  await expect(page.locator(".more-panel:not([hidden])")).toHaveCSS("background-color", /^rgb\(\d+, \d+, \d+\)$/);
 });
 
 test("Error Atlas: the ledger shows 15 races at a time, filters start again, and back-to-top returns you", async ({ page }, testInfo) => {

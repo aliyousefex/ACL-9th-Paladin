@@ -98,19 +98,17 @@ test("a page's title is its name then the site's, and the home page is the site'
 
 /* ------------------------------------------------------------------ icons */
 
-test("the favicon is the horse as one vector outline on a square: no embedded bitmap, no second shape", () => {
+test("the favicon is the logo mark as one vector path, white on the logo's blue square: no embedded bitmap, no second shape", () => {
   const svg = readFileSync(here("public/favicon.svg"), "utf8");
   assert.ok(svg.length < 4000, `${svg.length} bytes`);
   assert.doesNotMatch(svg, /<image|data:image|base64/i);
-  assert.equal(count(svg, /<path /g), 1, "the horse is a single path");
-  assert.match(svg, /<rect [^>]*fill="#0a0b0e"/);
-  assert.match(svg, /<path fill="#f4f4f2" d="M[\d. L]+z"\/>/);
-  // The horse is traced from the logo, so it is a real outline: a few hundred points, closed.
-  const points = count(svg.match(/ d="([^"]+)"/)![1], /L/g) + 1;
-  assert.ok(points > 100 && points < 600, `${points} points`);
-  // It sits inside the square with a margin on every side.
-  const numbers = [...svg.match(/ d="([^"]+)"/)![1].matchAll(/(-?\d+\.\d) (-?\d+\.\d)/g)].map((m) => [Number(m[1]), Number(m[2])]);
-  for (const [x, y] of numbers) assert.ok(x > 4 && x < 60 && y > 2 && y < 62, `(${x}, ${y})`);
+  assert.equal(count(svg, /<path /g), 1, "the mark is a single path");
+  assert.match(svg, /<rect [^>]*fill="#1800ad"/);
+  // The artwork's hairlines are thickened so it holds at 16px; the mark is white on the blue.
+  assert.match(svg, /<path [^>]*fill="#fff"[^>]*stroke="#fff"[^>]*stroke-width="\d+"/);
+  // It is the supplied artwork, not a redrawing of it: the favicon carries the logo's own path.
+  const source = readFileSync(here("../scripts/logo-mark.svg"), "utf8").match(/<path fill="[^"]+" d="([^"]+)"/)![1].trim();
+  assert.ok(svg.includes(` d="${source}"`), "the favicon draws the logo's own path");
 });
 
 test("every icon the page and the manifest name exists, at the size it says", () => {

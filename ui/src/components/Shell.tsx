@@ -236,7 +236,7 @@ function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
     <header className="chrome-bar site-bar fixed inset-x-0 top-0 z-50">
       <div className="site-bar__inner">
         <a href={href("/")} onClick={() => haptic("select")} className="nav-brand flex shrink-0 items-center no-underline" aria-label="Paladin F1, season overview">
-          <LogoMark height={40} variant="solid" />
+          <LogoMark height={34} />
         </a>
         <nav ref={ref} className="site-nav" data-ready={ready ? "true" : "false"} aria-label="Primary">
           <span aria-hidden className="site-nav__pill" />
@@ -318,12 +318,12 @@ const FOOTER_LINKS: { title: string; links: { label: string; to: string }[] }[] 
 /** The brand with one paragraph about the project, and the way around the site. */
 function Footer() {
   return (
-    <footer className="mt-24 border-t border-line bg-tower">
+    <footer className="site-footer mt-24 border-t border-line bg-tower">
       <div className="mx-auto max-w-[1320px] px-4 py-12 sm:px-6 lg:px-10">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,24rem)_1fr] lg:gap-20">
           <div>
             <div className="flex items-center gap-3">
-              <LogoMark height={40} variant="solid" />
+              <LogoMark height={32} />
               <Wordmark className="h-[15px] text-ink" />
             </div>
             <p className="mt-5 max-w-[42ch] text-[0.95rem] leading-relaxed text-mute">

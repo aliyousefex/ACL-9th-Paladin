@@ -23,7 +23,7 @@ export function BackToTop() {
         window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
         document.getElementById("main")?.focus({ preventScroll: true });
       }}
-      className="fixed right-4 bottom-[calc(var(--bottom-nav-h)+0.25rem)] z-30 grid h-12 w-12 place-items-center rounded-full border border-control bg-tower text-ink shadow-[var(--shadow-bar)] transition-colors hover:border-ink hover:bg-panel2 sm:right-6 md:bottom-6"
+      className="to-top"
     >
       <Icon name="arrowUp" size={20} />
     </button>

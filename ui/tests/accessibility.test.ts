@@ -73,7 +73,7 @@ test("the phone dock has one slot per destination plus More, and its pill sits u
   assert.match(dock("no-such-page"), /--on:0/, "an unknown page leaves the pill hidden instead of lying");
 });
 
-test("the theme control is one named light/dark switch, with decorative icons and no second button", async () => {
+test("the theme control is one named day/night switch, drawn in CSS, with no second button", async () => {
   const { ThemeSwitch } = await loadModule<{ ThemeSwitch: never }>("/src/components/ThemeSwitch.tsx");
   const html = render(ThemeSwitch, {});
   // A real switch, named in words: a screen reader says "Dark mode, switch". With no saved choice the page is dark.
@@ -83,18 +83,35 @@ test("the theme control is one named light/dark switch, with decorative icons an
   assert.equal(count(html, /role="switch"/g), 1);
   assert.equal(count(html, /<button/g), 1, "the switch is the whole control");
   assert.doesNotMatch(html, /theme-system|Match my device|role="radio"|theme-switch/);
-  assert.equal(count(html, /<svg[^>]*aria-hidden="true"/g), 4, "two hints on the track and two icons on the knob");
-  assert.equal(count(html, /<svg(?![^>]*aria-hidden)/g), 0);
+  // The sun, moon, stars and cloud are CSS shapes inside an aria-hidden track: nothing for a screen reader but the name and state.
+  assert.equal(count(html, /<svg/g), 0);
+  assert.match(html, /<span class="theme-toggle__track" aria-hidden="true">/);
+  assert.equal(count(html, /class="theme-toggle__face theme-toggle__face--(?:sun|moon)"/g), 2, "the knob is a sun and a moon, one face over the other");
 });
 
-test("the bar carries the horse alone: no wordmark, no search circle, and the brand link is still named", async () => {
+test("the bar carries the logo mark alone: no wordmark, no search circle, and the brand link is still named", async () => {
   const { Shell } = await loadModule<{ Shell: never }>("/src/components/Shell.tsx");
   const html = render(Shell, { section: "", children: "x" });
   const brand = html.match(/<a [^>]*class="nav-brand[^"]*"[^>]*>(.*?)<\/a>/s)![0];
   assert.match(brand, /aria-label="Paladin F1, season overview"/);
-  assert.doesNotMatch(brand, /<svg/, "the wordmark is not in the bar");
-  assert.match(brand, /<img/);
+  assert.equal(count(brand, /<svg/g), 1, "one drawing in the brand link");
+  assert.match(brand, /<svg[^>]*class="logo-mark /, "and it is the mark");
+  assert.doesNotMatch(brand, /viewBox="0 -45/, "the wordmark is not in the bar");
+  assert.doesNotMatch(brand, /<img/, "the mark is vector, not a bitmap");
   assert.match(css, /\.site-tool\s*\{[^}]*border:\s*0/s, "search is a bare icon");
+});
+
+test("the logo is the supplied mark, drawn from one path that matches the icon source, in a colour that holds on both themes", async () => {
+  const { MARK } = await loadModule<{ MARK: { d: string; viewBox: string; aspect: number } }>("/src/components/logo-data.ts");
+  const source = readFileSync(new URL("../../scripts/logo-mark.svg", import.meta.url), "utf8");
+  assert.equal(MARK.d, source.match(/<path fill="[^"]+" d="([^"]+)"/)![1].trim(), "the page and the icons are drawn from the same path");
+  assert.equal(count(MARK.d, /M /g), 8, "the triangle and its seven pieces");
+  // Brand blue as supplied on the light page; a lighter tint of the same hue on the dark one (the original is 1.5:1 there).
+  assert.match(css, /--color-brand:\s*#8270ff;/);
+  assert.match(css, /:root\[data-theme="light"\]\s*\{[^}]*--color-brand:\s*#1800ad;/s);
+  assert.match(css, /\.logo-mark\s*\{[^}]*color:\s*var\(--color-brand\)/s);
+  // Nothing of the old horse is left to be served.
+  assert.doesNotMatch(css, /logo-raster/);
 });
 
 test("the bar's pills and the dock's stop moving when motion is reduced", () => {
@@ -107,12 +124,16 @@ test("the bar's pills and the dock's stop moving when motion is reduced", () => 
 
 test("the glass stays legible: dense enough, the sheen is its own layer, and it turns solid where it cannot blur", () => {
   const block = (selector: string) => css.match(new RegExp(`\\n${selector.replace(".", "\\.")}\\s*\\{([^}]*)\\}`))![1];
-  for (const selector of [".site-bar__inner", ".dock", ".more-panel"]) {
+  for (const selector of [".site-bar__inner", ".dock", ".to-top"]) {
     assert.match(block(selector), /backdrop-filter:\s*blur\(/, `${selector} blurs what is behind it`);
     assert.match(block(selector), /background-color:\s*var\(--glass-bg/, `${selector} is tinted glass`);
     // A gradient on the container would make its labels unmeasurable for the contrast audit; the sheen is a pseudo-element.
     assert.doesNotMatch(block(selector), /background-image|linear-gradient/, `${selector} keeps its sheen off the container`);
   }
+  // The More list opens from inside the frosted bar or dock, where a second blur has no page to blur: it is solid, so nothing
+  // behind it shows through as ghost text.
+  assert.match(block(".more-panel"), /background-color:\s*var\(--glass-solid\)/);
+  assert.doesNotMatch(block(".more-panel"), /backdrop-filter/);
   assert.match(css, /\.site-bar__inner::before,\s*\.dock::before\s*\{[^}]*linear-gradient/);
   // Opacity of the tint, dark and light: never so clear that a label can lose its background.
   const dark = css.slice(css.indexOf("/* frosted glass, dark */"), css.indexOf("/* frosted glass, light"));
@@ -124,6 +145,29 @@ test("the glass stays legible: dense enough, the sheen is its own layer, and it 
   // Where blur is unavailable, or less transparency is asked for, the surface is solid.
   assert.match(css, /@supports not \(\(-webkit-backdrop-filter: blur\(1px\)\) or \(backdrop-filter: blur\(1px\)\)\)\s*\{[^}]*background-color:\s*var\(--glass-solid\)/s);
   assert.match(css, /@media \(prefers-reduced-transparency: reduce\)\s*\{[^}]*backdrop-filter:\s*none[^}]*background-color:\s*var\(--glass-solid\)/s);
+});
+
+test("the search palette is mounted on the body, not inside the frosted bar, and is built for a touchscreen", () => {
+  // A frosted ancestor becomes the containing block of fixed descendants, which once shrank the dimmed backdrop to the size of the bar.
+  const source = readFileSync(new URL("../src/components/CommandPalette.tsx", import.meta.url), "utf8");
+  assert.match(source, /createPortal\(/);
+  assert.match(source, /document\.body/);
+  // The field has no box of its own, so it must not get the global ring floating around empty space; the row carries the mark.
+  assert.match(css, /\.palette__input:focus-visible\s*\{[^}]*outline:\s*none/);
+  assert.match(css, /\.palette__field:focus-within\s*\{[^}]*box-shadow:\s*inset/);
+  // Words that name keys are for a keyboard only.
+  assert.match(css, /\(hover: none\), \(pointer: coarse\)\s*\{\s*\.keyboard-only\s*\{\s*display:\s*none/);
+  assert.match(css, /\.palette__hint\s*\{[^}]*display:\s*none/);
+  assert.match(css, /\(hover: hover\) and \(pointer: fine\)\s*\{\s*\.palette__hint\s*\{\s*display:\s*block/);
+  // The panel never outgrows the part of the screen the on-screen keyboard leaves, and the page behind a phone's palette stays put.
+  assert.match(css, /\.palette__panel\s*\{[^}]*max-height:\s*calc\(var\(--vv-h, 100dvh\)/);
+  assert.match(css, /html\.palette-open\s*\{\s*overflow:\s*hidden/);
+});
+
+test("on a phone the footer, not the body, makes room for the dock, and the hidden bar's shadow stays off screen", () => {
+  assert.doesNotMatch(css, /\n\s*body\s*\{[^}]*padding-bottom:\s*var\(--bottom-nav-h\)/);
+  assert.match(css, /\.site-footer\s*\{\s*padding-bottom:\s*var\(--bottom-nav-h\)/);
+  assert.match(css, /data-chrome="compact"\]\s*\.chrome-bar\s*\{\s*transform:\s*translateY\(calc\(-100% - 3\.5rem\)\)/);
 });
 
 test("pages render inside the shell's single main landmark and never nest another", async () => {
@@ -186,11 +230,22 @@ test("the guided path says where the cutoff stands: step 5 is locked until the r
   assert.equal(count(after, /class="is-done"/g), 4);
 });
 
-test("changing the theme is a soft-edged wipe with a fade fallback, and neither plays under reduced motion", () => {
-  // The incoming theme is masked by a radius that grows, with a feathered edge; the radius defaults to "everything" so a skipped animation hides nothing.
-  assert.match(css, /@property --reveal\s*\{[^}]*syntax:\s*"<length>"[^}]*initial-value:\s*9999px/s);
-  assert.match(css, /::view-transition-new\(root\)\s*\{[^}]*animation:\s*theme-reveal[^}]*mask-image:\s*radial-gradient\([^;]*var\(--reveal\)\s*-\s*180px[^;]*transparent var\(--reveal\)/s);
-  assert.match(css, /@keyframes theme-reveal\s*\{\s*from\s*\{\s*--reveal:\s*0px;\s*\}\s*to\s*\{\s*--reveal:\s*calc\(var\(--vt-r[^)]*\)\s*\+\s*180px\)/s);
-  assert.match(css, /html\.theme-fade\s*\*?[^{]*\{[^}]*transition:/s);
+test("changing the theme is a quick circle from the switch with a fade fallback, and neither plays under reduced motion", () => {
+  // The incoming theme is clipped to a circle that grows from the switch. With no animation there is no clip, so a skipped one hides nothing.
+  assert.match(css, /@keyframes theme-reveal\s*\{\s*from\s*\{\s*clip-path:\s*circle\(0px at var\(--vt-x[^)]*\) var\(--vt-y[^)]*\)\);\s*\}\s*to\s*\{\s*clip-path:\s*circle\(var\(--vt-r[^)]*\) at/s);
+  // A clip is cheap to animate; a mask changed every frame is not, and it was the slow part.
+  assert.doesNotMatch(css, /::view-transition-new\(root\)\s*\{[^}]*mask-image/s);
+  assert.doesNotMatch(css, /@property --reveal/);
+  // It must feel like an answer to the press: short, and starting fast (the first control point of the curve is above the diagonal).
+  const [, ms, x1, y1] = css.match(/::view-transition-new\(root\)\s*\{[^}]*animation:\s*theme-reveal (\d+)ms cubic-bezier\(([\d.]+), ([\d.]+), [\d.]+, [\d.]+\)/s)!.map(Number);
+  assert.ok(ms >= 300 && ms <= 600, `${ms}ms is quick without being a flash`);
+  assert.ok(y1 > x1 && x1 <= 0.3, `the curve (${x1}, ${y1}) starts fast; the old ease-in one hardly moved for the first 200ms`);
+  // There is no page-wide colour fade any more: animating every element's colours froze a phone for seconds. And the wipe itself is
+  // for a desktop (a precise pointer): a phone's processor stalls for most of a second on the two extra paints it costs.
+  assert.doesNotMatch(css, /theme-fade/);
+  const theme = readFileSync(new URL("../src/lib/theme.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(theme, /theme-fade/);
+  assert.match(theme, /\(hover: hover\) and \(pointer: fine\)/);
+  assert.match(theme, /typeof doc\.startViewTransition === "function" && canAffordWipe\(\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*::view-transition-new\(\*\)[^}]*animation:\s*none/s);
 });
