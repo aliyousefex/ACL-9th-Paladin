@@ -160,11 +160,11 @@ function CarCredit({ photo }: { photo: CarPhoto }) {
   return (
     <p className="mt-4 text-[0.92rem] leading-snug text-steel">
       {photo.detail}{" "}
-      <a href={photo.creditHref} className="underline decoration-line underline-offset-[3px] hover:text-ink">
+      <a href={photo.creditHref} className="inline-block py-1.5 underline decoration-line underline-offset-[3px] hover:text-ink">
         {photo.credit}
       </a>
       {", "}
-      <a href={photo.licenseHref} className="underline decoration-line underline-offset-[3px] hover:text-ink">
+      <a href={photo.licenseHref} className="inline-block py-1.5 underline decoration-line underline-offset-[3px] hover:text-ink">
         {photo.license}
       </a>
       .

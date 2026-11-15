@@ -285,7 +285,7 @@ export function CircuitMap({
 export function CircuitThumb({
   meta,
   className = "",
-  stroke = "#f4f4f2",
+  stroke = "var(--color-ink)",
   width = 14,
   accent,
 }: {
@@ -299,7 +299,7 @@ export function CircuitThumb({
   const [w, h] = meta.viewBox;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className={className} aria-hidden focusable="false">
-      <path d={meta.thumb} fill="none" stroke={accent ?? "#39414c"} strokeWidth={width + 12} strokeLinejoin="round" strokeLinecap="round" />
+      <path d={meta.thumb} fill="none" stroke={accent ?? "var(--color-line2)"} strokeWidth={width + 12} strokeLinejoin="round" strokeLinecap="round" />
       <path d={meta.thumb} fill="none" stroke={stroke} strokeWidth={width} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );

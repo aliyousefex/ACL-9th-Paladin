@@ -49,14 +49,14 @@ export function CoverageChart({ year }: { year: number }) {
         >
           {[0, 0.5, 1].map((t) => (
             <g key={t}>
-              <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="#262b33" />
-              <text x={PAD.l - 8} y={y(t) + 4} textAnchor="end" fill="#c5cad1" fontSize={FONT} style={{ fontFamily: "var(--font-display)" }}>
+              <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="var(--color-line)" />
+              <text x={PAD.l - 8} y={y(t) + 4} textAnchor="end" fill="var(--color-steel)" fontSize={FONT} style={{ fontFamily: "var(--font-display)" }}>
                 {pct(t, 0)}
               </text>
             </g>
           ))}
-          <rect x={x(1950)} y={PAD.t} width={x(1993) - x(1950)} height={H - PAD.t - PAD.b} fill="#c5cad1" fillOpacity={0.06} />
-          <text x={(x(1950) + x(1993)) / 2} y={PAD.t + 16} textAnchor="middle" fill="#c5cad1" fontSize={FONT}>
+          <rect x={x(1950)} y={PAD.t} width={x(1993) - x(1950)} height={H - PAD.t - PAD.b} fill="var(--color-steel)" fillOpacity={0.06} />
+          <text x={(x(1950) + x(1993)) / 2} y={PAD.t + 16} textAnchor="middle" fill="var(--color-steel)" fontSize={FONT}>
             {bandWidth > 190 ? (
               "No qualifying rows recorded"
             ) : (
@@ -67,13 +67,13 @@ export function CoverageChart({ year }: { year: number }) {
             )}
           </text>
           {[1950, 1970, 1990, 2000, 2010, 2024].map((t) => (
-            <text key={t} x={x(t)} y={H - 8} textAnchor="middle" fill="#c5cad1" fontSize={FONT} style={{ fontFamily: "var(--font-display)" }}>
+            <text key={t} x={x(t)} y={H - 8} textAnchor="middle" fill="var(--color-steel)" fontSize={FONT} style={{ fontFamily: "var(--font-display)" }}>
               {t}
             </text>
           ))}
           <line x1={x(year)} x2={x(year)} y1={PAD.t} y2={H - PAD.b} stroke="#e10600" strokeWidth={1.5} />
-          <path d={path} fill="none" stroke="#f4f4f2" strokeWidth={1.8} strokeLinejoin="round" />
-          {point && <circle cx={x(point.year)} cy={y(point.coverage)} r={4.5} fill="#e10600" stroke="#f4f4f2" strokeWidth={1.5} />}
+          <path d={path} fill="none" stroke="var(--color-ink)" strokeWidth={1.8} strokeLinejoin="round" />
+          {point && <circle cx={x(point.year)} cy={y(point.coverage)} r={4.5} fill="#e10600" stroke="var(--color-ink)" strokeWidth={1.5} />}
         </svg>
         {hover !== null && point && (
           <p

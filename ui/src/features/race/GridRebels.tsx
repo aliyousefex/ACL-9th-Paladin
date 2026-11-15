@@ -96,7 +96,7 @@ function MoveCard({ move, rows, direction, revealed }: { move: GridMove; rows: R
         <span className={`border px-2 py-0.5 ${direction === "up" ? "border-signal" : "border-line2"}`}>Model rank {move.modelRank}</span>
         <span className="ml-1 text-[0.85rem] font-normal tracking-normal text-mute normal-case">score {row.score.toFixed(3)}</span>
       </p>
-      <p className="label mt-3 !text-[0.72rem]">{COPY[direction].because}</p>
+      <p className="label mt-3 !text-[0.75rem]">{COPY[direction].because}</p>
       {reasons.length === 0 ? (
         <p className="mt-1 text-[0.9rem] text-mute">No single input stands out from the field.</p>
       ) : (

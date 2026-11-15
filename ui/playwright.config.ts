@@ -4,6 +4,7 @@ const viewport = (width: number, height: number, mobile = false) => ({
   name: `${mobile ? "mobile" : width < 1200 ? "tablet" : "desktop"}-${width}`,
   use: {
     channel: "chrome" as const,
+    colorScheme: "dark" as const,
     viewport: { width, height },
     hasTouch: mobile,
     isMobile: mobile,

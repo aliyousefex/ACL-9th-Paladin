@@ -9,7 +9,7 @@ import { axisTicks, buildTrace, formatGap, gapAt, lapRange, orderAt, positionAt,
 
 type Mode = "gap" | "laps";
 
-const FADED = "#39414c";
+const FADED = "var(--color-line2)";
 
 /**
  * Gap to the leader and position by lap, drawn from the recorded lap times, positions and pit stops.
@@ -93,16 +93,16 @@ export function RaceTrace({ race, rows, detail }: { race: RaceMeta; rows: Row[];
 
       <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Highlight presets">
         <span className="label mr-1">Highlight</span>
-        <button type="button" className="btn btn-ghost !min-h-9 !px-3 !text-[0.95rem]" onClick={() => preset(race.actual)}>
+        <button type="button" className="btn btn-ghost !min-h-11 !px-3 !text-[0.95rem]" onClick={() => preset(race.actual)}>
           Podium
         </button>
-        <button type="button" className="btn btn-ghost !min-h-9 !px-3 !text-[0.95rem]" onClick={() => preset(race.predicted)}>
+        <button type="button" className="btn btn-ghost !min-h-11 !px-3 !text-[0.95rem]" onClick={() => preset(race.predicted)}>
           Model's picks
         </button>
-        <button type="button" className="btn btn-ghost !min-h-9 !px-3 !text-[0.95rem]" onClick={() => preset(rows.map((r) => r.driver.id))}>
+        <button type="button" className="btn btn-ghost !min-h-11 !px-3 !text-[0.95rem]" onClick={() => preset(rows.map((r) => r.driver.id))}>
           Everyone
         </button>
-        <button type="button" className="btn btn-ghost !min-h-9 !px-3 !text-[0.95rem]" onClick={() => preset([])}>
+        <button type="button" className="btn btn-ghost !min-h-11 !px-3 !text-[0.95rem]" onClick={() => preset([])}>
           Clear
         </button>
       </div>
@@ -113,7 +113,7 @@ export function RaceTrace({ race, rows, detail }: { race: RaceMeta; rows: Row[];
         <p className="label" id="trace-chips">Or choose individual drivers</p>
         <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-labelledby="trace-chips">
           {chips.map((row) => (
-            <button key={row.driver.id} type="button" className="chip !min-h-9 !gap-1.5 !px-2 !text-[0.92rem]" aria-pressed={chosen.has(row.driver.id)} onClick={() => toggle(row.driver.id)}>
+            <button key={row.driver.id} type="button" className="chip !min-h-11 !gap-1.5 !px-2 !text-[0.92rem]" aria-pressed={chosen.has(row.driver.id)} onClick={() => toggle(row.driver.id)}>
               <span className="h-4 w-1" style={{ background: row.colour }} aria-hidden />
               {row.driver.code}
               <span className="sr-only">{row.driver.name}, {classifiedLabel(row)}</span>
@@ -286,33 +286,33 @@ function TraceChart({
 
         {/* slow-lap bands: inferred from the field's median lap time, cause not recorded */}
         {trace.slowRuns.map((run) => (
-          <rect key={run.from} x={x(run.from - 0.5)} y={pad.t} width={Math.max(2, x(run.to + 0.5) - x(run.from - 0.5))} height={ph} fill="#c5cad1" fillOpacity={run.severity === "stoppage" ? 0.16 : 0.08} />
+          <rect key={run.from} x={x(run.from - 0.5)} y={pad.t} width={Math.max(2, x(run.to + 0.5) - x(run.from - 0.5))} height={ph} fill="var(--color-steel)" fillOpacity={run.severity === "stoppage" ? 0.16 : 0.08} />
         ))}
 
         {mode === "gap"
           ? ticks.map((t) => (
               <g key={t}>
-                <line x1={pad.l} x2={W - pad.r} y1={yGap(t)} y2={yGap(t)} stroke="#262b33" />
-                <text x={pad.l - 6} y={yGap(t) + 4} textAnchor="end" fill="#98a0ab" fontSize={12}>
+                <line x1={pad.l} x2={W - pad.r} y1={yGap(t)} y2={yGap(t)} stroke="var(--color-line)" />
+                <text x={pad.l - 6} y={yGap(t) + 4} textAnchor="end" fill="var(--color-mute)" fontSize={12}>
                   {t === 0 ? "0" : t >= 120 && t % 60 === 0 ? `${t / 60}m` : `${t}s`}
                 </text>
               </g>
             ))
           : [1, 5, 10, 15, 20].filter((p) => p <= maxPos).map((p) => (
               <g key={p}>
-                <line x1={pad.l} x2={W - pad.r} y1={yPos(p)} y2={yPos(p)} stroke="#262b33" />
-                <text x={pad.l - 6} y={yPos(p) + 4} textAnchor="end" fill="#98a0ab" fontSize={12}>
+                <line x1={pad.l} x2={W - pad.r} y1={yPos(p)} y2={yPos(p)} stroke="var(--color-line)" />
+                <text x={pad.l - 6} y={yPos(p) + 4} textAnchor="end" fill="var(--color-mute)" fontSize={12}>
                   P{p}
                 </text>
               </g>
             ))}
 
         {xTicks.map((k) => (
-          <text key={k} x={x(k)} y={H - 10} textAnchor="middle" fill="#98a0ab" fontSize={12}>
+          <text key={k} x={x(k)} y={H - 10} textAnchor="middle" fill="var(--color-mute)" fontSize={12}>
             {k}
           </text>
         ))}
-        <text x={pad.l - 6} y={H - 10} textAnchor="end" fill="#6b7480" fontSize={11}>
+        <text x={pad.l - 6} y={H - 10} textAnchor="end" fill="#6b7480" fontSize={12}>
           lap
         </text>
 
@@ -333,7 +333,7 @@ function TraceChart({
                 key={d.id}
                 d={path(d)}
                 fill="none"
-                stroke={row?.colour ?? "#f4f4f2"}
+                stroke={row?.colour ?? "var(--color-ink)"}
                 strokeWidth={2.4}
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -346,12 +346,12 @@ function TraceChart({
         {/* pit stops and retirements on the highlighted lines */}
         {highlighted.map((d) => {
           const row = byRow.get(d.id);
-          const colour = row?.colour ?? "#f4f4f2";
+          const colour = row?.colour ?? "var(--color-ink)";
           return (
             <g key={d.id}>
               {d.pits.map((p, i) => {
                 const y = point(d, Math.min(p.lap, d.laps));
-                return y === null ? null : <circle key={i} cx={x(p.lap)} cy={y} r={3.6} fill="#0a0b0e" stroke={colour} strokeWidth={1.8} />;
+                return y === null ? null : <circle key={i} cx={x(p.lap)} cy={y} r={3.6} fill="var(--color-paper)" stroke={colour} strokeWidth={1.8} />;
               })}
               {!d.classified &&
                 (() => {
@@ -365,20 +365,20 @@ function TraceChart({
         })}
 
         {labels.map(({ d, x: lx, y }) => (
-          <text key={d.id} x={lx} y={y + 4} fill={byRow.get(d.id)?.colour ?? "#f4f4f2"} stroke="#0a0b0e" strokeWidth={3} paintOrder="stroke" fontSize={12} fontWeight={700} style={{ fontFamily: "var(--font-display)" }}>
+          <text key={d.id} x={lx} y={y + 4} fill={byRow.get(d.id)?.colour ?? "var(--color-ink)"} stroke="var(--color-paper)" strokeWidth={3} paintOrder="stroke" fontSize={12} fontWeight={700} style={{ fontFamily: "var(--font-display)" }}>
             {byRow.get(d.id)?.driver.code}
           </text>
         ))}
 
         {/* the lap being read */}
-        <line x1={x(lap)} x2={x(lap)} y1={pad.t} y2={pad.t + ph} stroke="#f4f4f2" strokeOpacity={0.8} strokeWidth={1} />
+        <line x1={x(lap)} x2={x(lap)} y1={pad.t} y2={pad.t + ph} stroke="var(--color-ink)" strokeOpacity={0.8} strokeWidth={1} />
         {highlighted.map((d) => {
           const y = point(d, lap);
-          return y === null ? null : <circle key={d.id} cx={x(lap)} cy={y} r={4.2} fill={byRow.get(d.id)?.colour ?? "#f4f4f2"} stroke="#f4f4f2" strokeWidth={1.5} />;
+          return y === null ? null : <circle key={d.id} cx={x(lap)} cy={y} r={4.2} fill={byRow.get(d.id)?.colour ?? "var(--color-ink)"} stroke="var(--color-ink)" strokeWidth={1.5} />;
         })}
 
         {highlighted.length === 0 && (
-          <text x={pad.l + pw / 2} y={pad.t + ph / 2} textAnchor="middle" fill="#c5cad1" fontSize={14}>
+          <text x={pad.l + pw / 2} y={pad.t + ph / 2} textAnchor="middle" fill="var(--color-steel)" fontSize={14}>
             Choose drivers above to draw them
           </text>
         )}
@@ -386,13 +386,13 @@ function TraceChart({
       <figcaption className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[0.85rem] text-mute">
         <span className="flex items-center gap-1.5">
           <svg width="14" height="14" aria-hidden>
-            <circle cx="7" cy="7" r="3.6" fill="#0a0b0e" stroke="#c5cad1" strokeWidth="1.8" />
+            <circle cx="7" cy="7" r="3.6" fill="var(--color-paper)" stroke="var(--color-steel)" strokeWidth="1.8" />
           </svg>
           pit stop
         </span>
         <span className="flex items-center gap-1.5">
           <svg width="14" height="14" aria-hidden>
-            <path d="M3 3l8 8M11 3l-8 8" stroke="#c5cad1" strokeWidth="2" strokeLinecap="round" />
+            <path d="M3 3l8 8M11 3l-8 8" stroke="var(--color-steel)" strokeWidth="2" strokeLinecap="round" />
           </svg>
           not classified, last recorded lap
         </span>

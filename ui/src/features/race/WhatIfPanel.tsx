@@ -130,7 +130,7 @@ export function WhatIfPanel({ rows, focus, onFocus }: { rows: Row[]; focus: numb
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              className="btn btn-ghost !min-h-10"
+              className="btn btn-ghost !min-h-11"
               disabled={!changed}
               onClick={() => {
                 setGrid(row.grid ?? "pit");
@@ -146,7 +146,7 @@ export function WhatIfPanel({ rows, focus, onFocus }: { rows: Row[]; focus: numb
 
         <div className="border border-line bg-tower p-4 sm:p-5" aria-live="polite">
           <div className="flex items-center gap-3">
-            <Portrait driver={row.driver} colour={row.colour} number={row.entry.n} className="h-14 w-14 shrink-0" rounded label={row.driver.name} />
+            <Portrait driver={row.driver} colour={row.colour} number={row.entry.n} className="h-14 w-14 shrink-0" sizes="56px" rounded label={row.driver.name} />
             <div>
               <p className="font-display text-[1.5rem] leading-none font-bold uppercase">{row.driver.name}</p>
               <p className="mt-1 text-[0.88rem] text-mute">{row.team.short}</p>

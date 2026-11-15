@@ -21,7 +21,7 @@ export function LightsLoader({ label = "Loading" }: { label?: string }) {
         ))}
       </div>
       <p className="label">{label}</p>
-      <style>{`@keyframes lights-load{0%,10%{background:#262b33;box-shadow:none}30%,70%{background:#e10600;box-shadow:0 0 14px rgb(225 6 0/.6)}90%,100%{background:#262b33;box-shadow:none}}`}</style>
+      <style>{`@keyframes lights-load{0%,10%{background:var(--color-line);box-shadow:none}30%,70%{background:#e10600;box-shadow:0 0 14px rgb(225 6 0/.6)}90%,100%{background:var(--color-line);box-shadow:none}}`}</style>
     </div>
   );
 }
@@ -119,6 +119,7 @@ export function Tabs<T extends string>({
   idPrefix,
   className = "",
   size = "md",
+  fill = false,
 }: {
   value: T;
   onChange: (next: T) => void;
@@ -127,6 +128,8 @@ export function Tabs<T extends string>({
   idPrefix: string;
   className?: string;
   size?: "sm" | "md";
+  /** Share the width of the container equally, wrapping a long label onto two lines, instead of scrolling sideways. For a few choices in a narrow column. */
+  fill?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const enabled = options.filter((option) => !option.disabled);
@@ -151,7 +154,7 @@ export function Tabs<T extends string>({
       role="radiogroup"
       aria-label={label}
       onKeyDown={onKeyDown}
-      className={`no-scrollbar inline-flex max-w-full overflow-x-auto border border-line2 bg-tower p-[3px] ${className}`}
+      className={`border border-control bg-tower p-[3px] ${fill ? "flex w-full" : "no-scrollbar inline-flex max-w-full overflow-x-auto"} ${className}`}
     >
       {options.map((option) => {
         const on = option.id === value;
@@ -165,8 +168,10 @@ export function Tabs<T extends string>({
             tabIndex={on ? 0 : -1}
             disabled={option.disabled}
             onClick={() => onChange(option.id)}
-            className={`shrink-0 cursor-pointer font-display font-semibold tracking-[0.08em] uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-              size === "sm" ? "min-h-8 px-3 text-[0.92rem]" : "min-h-10 px-4 text-[1.05rem]"
+            className={`cursor-pointer font-display font-semibold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              fill
+                ? "min-h-11 min-w-0 flex-1 px-1.5 text-center text-[0.95rem] leading-[1.1] tracking-[0.05em]"
+                : `shrink-0 tracking-[0.08em] ${size === "sm" ? "min-h-9 px-3 text-[0.92rem] pointer-coarse:min-h-11" : "min-h-11 px-4 text-[1.05rem]"}`
             } ${on ? "bg-ink text-paper" : "text-steel hover:text-ink"}`}
           >
             {option.label}

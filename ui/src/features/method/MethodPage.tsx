@@ -21,7 +21,7 @@ const IDS = SECTIONS.map((s) => s.id) as string[];
  * It is one long document; the navigator below follows the reader and links to each section.
  */
 export function MethodPage({ section }: { section?: string }) {
-  useTitle("Method walkthrough");
+  useTitle("Method walkthrough", "How the Formula 1 data was cleaned, split by season and checked for leakage, step by step.");
   const active = useScrollSpy(IDS, 150);
 
   // The page mounts lazily, so a link such as #/method/book can arrive before its section exists.
@@ -65,7 +65,7 @@ export function MethodPage({ section }: { section?: string }) {
         ref={track}
         aria-label="Walkthrough sections"
         className="scroll-x sticky z-40 max-w-full overflow-x-auto overscroll-x-contain border-b border-line bg-tower/95 backdrop-blur-sm"
-        style={{ top: "var(--nav-h)" }}
+        style={{ top: "var(--sticky-top)" }}
       >
         <ul className="mx-auto flex w-max min-w-full max-w-[1320px] items-center gap-1 px-4 sm:px-6 lg:px-10">
           {SECTIONS.map((item) => {
@@ -77,7 +77,7 @@ export function MethodPage({ section }: { section?: string }) {
                   href={href(`/method/${item.id}`)}
                   onClick={() => haptic("select")}
                   aria-current={on ? "true" : undefined}
-                  className={`relative block px-3 py-3 font-display text-[0.98rem] leading-none font-semibold tracking-[0.1em] uppercase no-underline transition-colors ${on ? "text-ink" : "text-mute hover:text-ink"}`}
+                  className={`relative flex min-h-11 items-center px-3 font-display text-[0.98rem] leading-none font-semibold tracking-[0.1em] uppercase no-underline transition-colors ${on ? "text-ink" : "text-mute hover:text-ink"}`}
                 >
                   {item.label}
                   <span aria-hidden className={`absolute inset-x-3 bottom-0 h-[2px] bg-signal transition-opacity ${on ? "opacity-100" : "opacity-0"}`} />

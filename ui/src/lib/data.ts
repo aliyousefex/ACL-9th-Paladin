@@ -5,6 +5,7 @@ import circuitIndex from "../data/circuits.json";
 import circuitStatsJson from "../data/circuit-stats.json";
 import portraitsJson from "../data/portraits.json";
 import { useEffect, useState } from "react";
+import type { GraphFile } from "./graph";
 
 /* ------------------------------------------------------------------ types */
 
@@ -200,6 +201,8 @@ export interface Credit {
   licenceUrl: string;
   source: string;
   image: string;
+  /** A 320px-wide copy, when scripts/optimize_portraits.py has made one. */
+  small?: string;
 }
 
 /* ------------------------------------------------------------------ registries */
@@ -307,6 +310,8 @@ function getJson<T>(path: string): Promise<T> {
 export const loadRace = (id: number) => getJson<RaceDetail>(`data/races/${id}.json`);
 export const loadAdvancedRace = (id: number) => getJson<AdvancedRace>(`data/advanced/${id}.json`);
 export const loadLayout = (id: string) => getJson<Layout>(`data/circuits/${id}.json`);
+/** The Milestone 2 knowledge graph, exported from its CSV files. Fetched only by the History page. */
+export const loadGraph = () => getJson<GraphFile>("data/graph/graph.json");
 
 export interface Resource<T> {
   data: T | null;

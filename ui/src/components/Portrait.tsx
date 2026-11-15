@@ -20,6 +20,7 @@ export function Portrait({
   label,
   rounded = false,
   eager = false,
+  sizes,
 }: {
   driver: Driver;
   colour: string;
@@ -28,6 +29,8 @@ export function Portrait({
   label?: string;
   rounded?: boolean;
   eager?: boolean;
+  /** How wide the portrait is drawn, as an HTML `sizes` value, so a small slot is given the small copy. Omit for full width. */
+  sizes?: string;
 }) {
   const photo = portraitFor(driver.ref);
   const shown = number ?? driver.permanentNumber;
@@ -44,6 +47,8 @@ export function Portrait({
       {photo ? (
         <img
           src={`${import.meta.env.BASE_URL}portraits/${photo.file}`}
+          srcSet={photo.small ? `${import.meta.env.BASE_URL}portraits/${photo.small} 320w, ${import.meta.env.BASE_URL}portraits/${photo.file} ${photo.width}w` : undefined}
+          sizes={photo.small ? (sizes ?? "100vw") : undefined}
           alt=""
           width={photo.width}
           height={photo.height}

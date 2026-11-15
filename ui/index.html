@@ -6,52 +6,106 @@
     <title>Paladin · F1 Podium Predictor</title>
     <meta
       name="description"
-      content="Predict, compare and replay the 2022 to 2024 Formula 1 podiums. Paladin is a leakage-safe machine-learning project that uses only what is known after qualifying, with every claim separated into model output, historical record or illustration."
+      content="Predict and replay the 2022–2024 Formula 1 podiums with a leakage-safe model that uses only what is known after qualifying. Every value says where it came from."
     />
-    <meta name="keywords" content="Formula One, F1, podium prediction, machine learning, logistic regression, race analytics, circuits, driver comparison" />
-    <meta name="author" content="Paladin" />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="__SITE_URL__/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="application-name" content="Paladin" />
+    <meta name="apple-mobile-web-app-title" content="Paladin" />
+    <meta name="format-detection" content="telephone=no" />
     <meta name="theme-color" content="#0a0b0e" />
-    <meta name="color-scheme" content="dark" />
-    <link rel="icon" href="/brand/horse-solid.webp" type="image/webp" />
-    <link rel="shortcut icon" href="/brand/horse-solid.webp" type="image/webp" />
+    <meta name="color-scheme" content="dark light" />
+    <script>
+      /* Resolve the theme before the first paint, so nobody sees a flash of the wrong one. Keep in step with src/lib/theme.ts. */
+      (function () {
+        var root = document.documentElement;
+        var pref = "system";
+        try {
+          var stored = localStorage.getItem("paladin:theme");
+          if (stored === "light" || stored === "dark") pref = stored;
+        } catch (e) {}
+        var dark = !window.matchMedia || window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var theme = pref === "system" ? (dark ? "dark" : "light") : pref;
+        root.setAttribute("data-theme", theme);
+        root.setAttribute("data-theme-pref", pref);
+        var chrome = document.querySelector('meta[name="theme-color"]');
+        if (chrome) chrome.setAttribute("content", theme === "light" ? "#f3f2ee" : "#0a0b0e");
+      })();
+    </script>
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Paladin" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:url" content="__SITE_URL__/" />
     <meta property="og:title" content="Paladin · Who finishes on the podium?" />
     <meta property="og:description" content="A leakage-safe Formula 1 podium predictor: pick a Grand Prix, see the model's podium, compare drivers, then reveal what happened." />
-    <meta property="og:image" content="/og-card.png" />
+    <meta property="og:image" content="__SITE_URL__/og-card.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:alt" content="Paladin F1 podium predictor: a predicted podium over a real circuit outline" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Paladin · F1 Podium Predictor" />
+    <meta name="twitter:title" content="Paladin · Who finishes on the podium?" />
     <meta name="twitter:description" content="Predict, compare and replay the 2022 to 2024 Grands Prix with a leakage-safe model." />
-    <meta name="twitter:image" content="/og-card.png" />
+    <meta name="twitter:image" content="__SITE_URL__/og-card.png" />
     <meta name="twitter:image:alt" content="Paladin F1 podium predictor: a predicted podium over a real circuit outline" />
 
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/site.webmanifest" />
     <link rel="preload" href="/fonts/barlow-condensed-700.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/barlow-condensed-600.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/barlow-400.woff2" as="font" type="font/woff2" crossorigin />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "Paladin F1 Podium Predictor",
-        "applicationCategory": "SportsApplication",
-        "description": "Interactive Formula 1 podium prediction built from a leakage-safe machine-learning pipeline, covering the 2022 to 2024 seasons.",
-        "creator": { "@type": "Organization", "name": "Paladin" },
-        "temporalCoverage": "2022/2024"
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "Paladin",
+            "alternateName": "Paladin F1 Podium Predictor",
+            "url": "__SITE_URL__/",
+            "description": "A leakage-safe Formula 1 podium predictor covering the 2022 to 2024 seasons.",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "WebApplication",
+            "name": "Paladin F1 Podium Predictor",
+            "url": "__SITE_URL__/",
+            "description": "Interactive Formula 1 podium prediction built from a leakage-safe machine-learning pipeline, covering the 2022 to 2024 seasons.",
+            "applicationCategory": "SportsApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript",
+            "isAccessibleForFree": true,
+            "inLanguage": "en",
+            "temporalCoverage": "2022/2024",
+            "featureList": [
+              "Pre-race podium prediction for every 2022 to 2024 Grand Prix",
+              "Reveal, replay and what-if scenarios for each race",
+              "Error Atlas of where the model and the starting grid hit and miss",
+              "Season league: call races blind and score yourself against the model",
+              "Driver and circuit archives with circuit maps"
+            ]
+          }
+        ]
       }
     </script>
   </head>
   <body>
+    <noscript>
+      <main style="max-width: 40rem; margin: 4rem auto; padding: 0 1rem; font-family: system-ui, sans-serif; line-height: 1.55">
+        <h1>Paladin · F1 Podium Predictor</h1>
+        <p>
+          Paladin predicts the podium of every 2022 to 2024 Formula 1 Grand Prix with a leakage-safe model that uses only what is known after
+          qualifying, then reveals what happened. Every value on the site says whether it is model output, a historical record, an
+          illustration, a simulation or your own input.
+        </p>
+        <p>The interactive season, race pages and simulations need JavaScript. Please turn it on for this site.</p>
+      </main>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

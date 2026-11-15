@@ -46,7 +46,7 @@ export function PitWallDuel({ entries, config, driverName }: { entries: SimEntry
                         type="button"
                         onClick={() => setAnswers((current) => ({ ...current, [call.id]: option.id }))}
                         aria-pressed={chosen}
-                        className={`min-h-24 border p-4 text-left transition-colors ${chosen ? "border-amber bg-panel2" : "border-line2 bg-panel hover:border-steel"}`}
+                        className={`min-h-24 border p-4 text-left transition-colors ${chosen ? "border-amber bg-panel2" : "border-control bg-panel hover:border-steel"}`}
                       >
                         <span className="block font-display text-[1.05rem] font-bold uppercase">{option.label}</span>
                         <span className="mt-1 block text-[0.8rem] text-mute">{option.detail}</span>
@@ -64,7 +64,7 @@ export function PitWallDuel({ entries, config, driverName }: { entries: SimEntry
       {completed === calls.length && (
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border border-line2 bg-tower p-4" role="status">
           <p className="font-display text-[1.15rem] font-bold uppercase">{score === 3 ? "Clean sweep" : score === 2 ? "Pit wall approved" : "Review the data"} · {score} of 3 stronger calls</p>
-          <button type="button" className="btn btn-ghost !min-h-9" onClick={() => setAnswers({})}>Run the duel again</button>
+          <button type="button" className="btn btn-ghost !min-h-11" onClick={() => setAnswers({})}>Run the duel again</button>
         </div>
       )}
     </section>

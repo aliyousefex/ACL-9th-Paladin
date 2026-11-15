@@ -1,6 +1,11 @@
 export interface ChallengePick {
   ids: number[];
   submittedAt: string;
+  /**
+   * True only when the pick was locked while the result was hidden and the race had never been revealed in this browser.
+   * Only blind picks count in the season league. Picks saved before this field existed are not blind.
+   */
+  blind?: true;
 }
 
 export const challengeKey = (raceId: number) => `paladin:pick:${raceId}`;
@@ -15,7 +20,7 @@ export function parsePick(value: string | null): ChallengePick | null {
     const parsed = JSON.parse(value) as Partial<ChallengePick> | null;
     const ids = parsed?.ids;
     if (!Array.isArray(ids) || ids.length !== 3 || !ids.every((id) => Number.isInteger(id)) || new Set(ids).size !== 3) return null;
-    return { ids, submittedAt: typeof parsed?.submittedAt === "string" ? parsed.submittedAt : "" };
+    return { ids, submittedAt: typeof parsed?.submittedAt === "string" ? parsed.submittedAt : "", ...(parsed?.blind === true ? { blind: true as const } : {}) };
   } catch {
     return null;
   }
@@ -28,6 +33,25 @@ export function parsePick(value: string | null): ChallengePick | null {
  */
 export function scoreChallenge(picked: readonly number[], actualPodium: readonly number[]): number {
   return [...new Set(picked)].filter((id) => actualPodium.includes(id)).length;
+}
+
+/* ------------------------------------------------------------------ has the result been seen? */
+
+export const revealKey = (raceId: number) => `paladin:revealed:${raceId}`;
+
+/** Remember, for good, that this browser has seen the result of a race. A pick made afterwards can never be blind. */
+export function markRevealed(raceId: number): void {
+  try {
+    if (localStorage.getItem(revealKey(raceId)) === null) localStorage.setItem(revealKey(raceId), new Date().toISOString());
+  } catch { /* nothing to remember it in; the pick is then not stored either */ }
+}
+
+export function hasBeenRevealed(raceId: number): boolean {
+  try {
+    return localStorage.getItem(revealKey(raceId)) !== null;
+  } catch {
+    return false;
+  }
 }
 
 export function readChallenge(raceId: number): ChallengePick | null {

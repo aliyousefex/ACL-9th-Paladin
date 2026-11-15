@@ -92,7 +92,7 @@ export function GrandPrixSetup(props: SetupProps) {
                 </p>
               </div>
               <div className="grid min-h-28 place-items-center border border-line bg-tower p-3" aria-hidden>
-                {props.layout ? <CircuitThumb meta={props.layout} className="h-24 w-full" stroke="#f4f4f2" width={11} accent="#262b33" /> : <span className="text-[0.8rem] text-mute">No outline</span>}
+                {props.layout ? <CircuitThumb meta={props.layout} className="h-24 w-full" stroke="var(--color-ink)" width={11} accent="var(--color-line)" /> : <span className="text-[0.8rem] text-mute">No outline</span>}
               </div>
             </div>
           </section>
@@ -129,7 +129,7 @@ export function GrandPrixSetup(props: SetupProps) {
                       tabIndex={on || (driverId === null && e === sorted[0]) ? 0 : -1}
                       aria-label={`${e.name}, ${e.team}, starts ${e.grid ? `P${e.grid}` : "from the pit lane"}, ${tier}`}
                       onClick={() => props.onDriver(e.id)}
-                      className={`relative flex min-h-[7.4rem] min-w-0 flex-col border p-3 pl-4 text-left transition-colors ${on ? "border-ink bg-panel2" : "border-line bg-tower hover:border-line2"}`}
+                      className={`relative flex min-h-[7.4rem] min-w-0 flex-col border p-3 pl-4 text-left transition-colors ${on ? "border-ink bg-panel2" : "border-line bg-tower hover:border-control"}`}
                     >
                       <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: e.colour }} aria-hidden />
                       <span className="flex items-baseline justify-between gap-2">
@@ -184,7 +184,7 @@ export function GrandPrixSetup(props: SetupProps) {
             />
             <p className="mt-1.5 text-[0.82rem] leading-snug text-steel">{props.auto ? ASSISTS.assisted.blurb : ASSISTS[props.assist].blurb}</p>
             <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 border-t border-line pt-3 text-[0.86rem] leading-snug text-steel">
-              <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-signal)]" checked={props.auto} onChange={(event) => props.onAuto(event.target.checked)} />
+              <input type="checkbox" className="mt-1 h-6 w-6 shrink-0 accent-[var(--color-signal)]" checked={props.auto} onChange={(event) => props.onAuto(event.target.checked)} />
               <span>
                 <span className="font-semibold text-ink">Autopilot.</span> The car accelerates and brakes by itself, so you can watch the race with no input. It is not added to your record.
               </span>
@@ -222,7 +222,7 @@ export function GrandPrixSetup(props: SetupProps) {
               ["Points", record.points],
             ].map(([label, value]) => (
               <div key={label} className="bg-panel px-1 py-2">
-                <dt className="label !text-[0.62rem]">{label}</dt>
+                <dt className="label !text-[0.75rem]">{label}</dt>
                 <dd className="figure mt-0.5 text-[1.3rem]">{value}</dd>
               </div>
             ))}

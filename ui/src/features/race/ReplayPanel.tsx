@@ -270,7 +270,7 @@ export function ReplayPanel({
               options={SPEEDS.map((s) => ({ id: s, label: `${s}×` }))}
             />
             <label className="ml-auto flex cursor-pointer items-center gap-2 text-[0.95rem] text-steel">
-              <input type="checkbox" checked={halo} onChange={(e) => setHalo(e.target.checked)} className="h-4 w-4 accent-[var(--color-signal)]" />
+              <input type="checkbox" checked={halo} onChange={(e) => setHalo(e.target.checked)} className="h-6 w-6 accent-[var(--color-signal)]" />
               Ring the model's predicted podium
             </label>
           </div>
@@ -344,7 +344,7 @@ export function ReplayPanel({
                     <span className="h-4 w-1 shrink-0" style={{ background: row.colour }} aria-hidden />
                     <span className="w-9 font-display text-[1rem] leading-none font-bold tracking-wide uppercase">{row.driver.code}</span>
                     <span className="ml-auto flex items-center gap-1.5 text-[0.8rem] tabular-nums text-steel">
-                      {state.inPit && !state.out && <span className="bg-amber px-1 font-display text-[0.7rem] font-bold text-paper">PIT</span>}
+                      {state.inPit && !state.out && <span className="bg-amber px-1 font-display text-[0.75rem] font-bold text-paper">PIT</span>}
                       {state.out ? <span className="text-mute">OUT L{state.k}</span> : gap}
                     </span>
                   </button>

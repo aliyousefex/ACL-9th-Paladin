@@ -131,14 +131,28 @@ test("every kind of information has its own label, including the viewer's own in
   assert.notEqual(render(Tag, { kind: "user" }), render(Tag, { kind: "illustrative" }));
 });
 
-test("the footer says Paladin is an independent hobby project with no university affiliation or endorsement", async () => {
+test("the legend's card layout keeps every marker, its wording and its definition, one card per kind", async () => {
+  const { ProvenanceLegend } = await loadModule<{ ProvenanceLegend: never }>("/src/components/Provenance.tsx");
+  const cards = render(ProvenanceLegend, { variant: "cards" });
+  assert.equal((cards.match(/class="source-card"/g) ?? []).length, 6);
+  for (const kind of ["model", "record", "experimental", "illustrative", "simulation", "user"]) assert.match(cards, new RegExp(`data-kind="${kind}"`));
+  // The same words as the compact list: the layout changes, what each marker says does not.
+  const list = render(ProvenanceLegend, {});
+  const words = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  assert.equal(words(cards), words(list));
+});
+
+test("the footer is the brand and the way around, and names no institution; the no-endorsement notice lives on the model page", async () => {
   const { Shell } = await loadModule<{ Shell: never }>("/src/components/Shell.tsx");
   const html = render(Shell, { section: "", children: "page" });
-  const text = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;| /g, " ").replace(/\s+/g, " ");
-  assert.match(text, /Paladin is an independent hobby project and is not affiliated with or endorsed by any university, Formula 1, the FIA, or any team\./);
+  const text = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;|\u00a0/g, " ").replace(/\s+/g, " ");
   assert.match(html, /<footer/);
-  // Stated once, in readable body text rather than a fine-print aside.
-  assert.equal(count(text, /independent hobby project/gi), 1);
+  assert.match(html, /<nav[^>]*aria-label="Footer"/);
   // No institution is named or implied: the repository does not establish one.
   assert.ok(!/university of|universit[ée] de|college of|institute of technology/i.test(text));
+  // The footer no longer carries the sources list or the independence note; the model page does.
+  assert.doesNotMatch(text, /independent hobby project|Kaggle|MultiViewer|Wikimedia/);
+  const model = readFileSync(new URL("../src/features/model/ModelPage.tsx", import.meta.url), "utf8");
+  assert.equal(count(model, /not affiliated with or endorsed by any university, Formula 1, the FIA or any team/g), 1);
+  assert.match(model, /Wikimedia/);
 });

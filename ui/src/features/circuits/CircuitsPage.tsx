@@ -44,7 +44,7 @@ function hitsAt(circuit: Circuit): { mean: number; races: RaceMeta[] } {
 /* ------------------------------------------------------------------ list */
 
 function CircuitList({ query }: { query: URLSearchParams }) {
-  useTitle("Circuits");
+  useTitle("Circuits", "Circuit maps with corner numbers, sectors and DRS usage for the circuits of the 2022–2024 Formula 1 seasons.");
   const sort = (["name", "length", "corners", "hits"].includes(query.get("sort") ?? "") ? query.get("sort") : "name") as Sort;
   const compare = (query.get("compare") ?? "").split(",").filter(Boolean).slice(0, MAX_COMPARE);
   const update = (next: Record<string, string | undefined>) => replaceQuery({ sort: sort === "name" ? undefined : sort, compare: compare.join(",") || undefined, ...next });
@@ -129,14 +129,14 @@ function CircuitCard({
     <article className={`group relative h-full overflow-hidden border bg-panel transition-colors hover:bg-panel2 ${selected ? "border-ink" : "border-line hover:border-line2"}`}>
       <span className="pointer-events-none absolute top-0 left-0 z-[1] h-3.5 w-3.5 bg-[linear-gradient(135deg,var(--color-signal)_50%,transparent_50%)]" aria-hidden />
       <div className="relative grid h-44 place-items-center overflow-hidden bg-tower px-6 py-5">
-        <CircuitThumb meta={layout} className="h-full w-full max-w-[250px] transition-transform duration-500 group-hover:scale-[1.07]" stroke="#f4f4f2" width={12} accent="#2a3039" />
+        <CircuitThumb meta={layout} className="h-full w-full max-w-[250px] transition-transform duration-500 group-hover:scale-[1.07]" stroke="var(--color-ink)" width={12} accent="#2a3039" />
         <button
           type="button"
           onClick={onSelect}
           disabled={disabled}
           aria-pressed={selected}
           aria-label={`Compare ${circuit.name}`}
-          className={`absolute top-3 right-3 z-10 flex h-9 items-center gap-1.5 px-2.5 font-display text-[0.9rem] font-bold tracking-wide uppercase disabled:cursor-not-allowed disabled:opacity-40 ${selected ? "bg-ink text-paper" : "bg-panel/90 text-steel hover:text-ink"}`}
+          className={`absolute top-3 right-3 z-10 flex h-11 items-center gap-1.5 px-2.5 font-display text-[0.9rem] font-bold tracking-wide uppercase disabled:cursor-not-allowed disabled:opacity-40 ${selected ? "bg-ink text-paper" : "bg-panel/90 text-steel hover:text-ink"}`}
         >
           <Icon name={selected ? "check" : "compare"} size={15} strokeWidth={2.2} />
           Compare
@@ -170,7 +170,7 @@ function CircuitCard({
 function MiniStat({ label, value }: { label: string; value: string | number }) {
   return (
     <div>
-      <dt className="label !text-[0.68rem]">{label}</dt>
+      <dt className="label !text-[0.75rem]">{label}</dt>
       <dd className="figure mt-0.5 text-[1.35rem]">{value}</dd>
     </div>
   );
@@ -186,7 +186,7 @@ function CompareToScale({ refs, onClear, onToggle }: { refs: string[]; onClear: 
       title={circuits.map((c) => c.location || c.name).join(" · ")}
       tag="record"
       actions={
-        <button type="button" className="btn btn-ghost !min-h-9 !px-3 !text-[0.95rem]" onClick={onClear}>
+        <button type="button" className="btn btn-ghost !min-h-11 !px-3 !text-[0.95rem]" onClick={onClear}>
           Clear
         </button>
       }
@@ -268,7 +268,7 @@ function ScaledOutline({ circuit }: { circuit: Circuit }) {
 /* ------------------------------------------------------------------ detail */
 
 function CircuitDetail({ circuit }: { circuit: Circuit }) {
-  useTitle(circuit.name);
+  useTitle(circuit.name, `Map and the 2022–2024 Grands Prix held at ${circuit.name}, ${circuit.location}, ${circuit.country}.`);
   const [layoutId, setLayoutId] = useState(currentLayout(circuit).id);
   const meta = circuit.layouts.find((l) => l.id === layoutId) ?? currentLayout(circuit);
   const { data: layout, loading, error } = useResource<Layout>(meta.file ? meta.id : null, () => loadLayout(meta.id));
@@ -372,9 +372,9 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
                     <span className="display text-[1.5rem] leading-none">{race.year}</span>
                     <span className="figure text-[1.7rem]"><span className={race.hits === 3 ? "text-hit" : race.hits === 0 ? "text-signal-text" : "text-steel"}>{race.hits}</span><span className="text-[1rem] text-mute">/3</span></span>
                   </p>
-                  <p className="label mt-3 !text-[0.7rem]">Model's podium</p>
+                  <p className="label mt-3 !text-[0.75rem]">Model's podium</p>
                   <ChipRow race={race} ids={race.predicted} />
-                  <p className="label mt-2 !text-[0.7rem]">Actual podium</p>
+                  <p className="label mt-2 !text-[0.75rem]">Actual podium</p>
                   <ChipRow race={race} ids={race.actual} plain />
                 </a>
               </li>
@@ -430,13 +430,13 @@ function GridBars({ stats, overall }: { stats: { grid: number; starts: number; p
         const base = overall[i].starts ? overall[i].podiums / overall[i].starts : 0;
         return (
           <li key={s.grid} className="relative flex h-full min-w-0 flex-1 flex-col justify-end">
-            <span className="mb-1 text-center font-display text-[0.72rem] font-semibold tabular-nums sm:text-[0.95rem]">{s.starts ? `${Math.round(rate * 100)}%` : "–"}</span>
+            <span className="mb-1 text-center font-display text-[0.75rem] font-semibold tabular-nums sm:text-[0.95rem]">{s.starts ? `${Math.round(rate * 100)}%` : "–"}</span>
             <div className="relative flex-1">
               <span className="absolute inset-x-0 bottom-0 bg-signal" style={{ height: `${rate * 100}%`, minHeight: s.starts ? 2 : 0 }} />
               <span className="absolute inset-x-[-3px] h-[3px] bg-steel" style={{ bottom: `calc(${base * 100}% - 1px)` }} aria-hidden title={`All circuits: ${Math.round(base * 100)}%`} />
             </div>
             <span className="mt-1.5 text-center font-display text-[0.82rem] text-steel sm:text-[1rem]">P{s.grid}</span>
-            <span className="text-center text-[0.7rem] text-mute"><span className="sm:hidden">{s.starts}</span><span className="hidden sm:inline">{s.starts} starts</span></span>
+            <span className="text-center text-[0.75rem] text-mute"><span className="sm:hidden">{s.starts}</span><span className="hidden sm:inline">{s.starts} starts</span></span>
           </li>
         );
       })}

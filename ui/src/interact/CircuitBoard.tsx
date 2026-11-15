@@ -98,7 +98,7 @@ export function CircuitBoard() {
               <CircuitMap layout={layout} className="block max-h-[340px] w-full" label={`${selected?.circuit} outline with a car lapping`} weight={0.9} startLine={layout.samples.length > 0}>
                 {!reduced && layout.samples.length > 0 && (
                   <g ref={dot}>
-                    <circle r={9} fill="#e10600" stroke="#f4f4f2" strokeWidth={3} />
+                    <circle r={9} fill="#e10600" stroke="var(--color-ink)" strokeWidth={3} />
                   </g>
                 )}
               </CircuitMap>

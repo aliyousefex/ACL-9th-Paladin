@@ -1,0 +1,26 @@
+{
+  "contract": "paladin.firmness-check.v1",
+  "thresholds": {
+    "high": 0.85,
+    "low": 0.6,
+    "nudgeSd": 0.25,
+    "draws": 2000,
+    "seed": 903
+  },
+  "picks": 204,
+  "podiums": 132,
+  "byLabel": {
+    "high confidence": {
+      "picks": 134,
+      "podiums": 96
+    },
+    "contested": {
+      "picks": 46,
+      "podiums": 22
+    },
+    "fragile": {
+      "picks": 24,
+      "podiums": 14
+    }
+  }
+}

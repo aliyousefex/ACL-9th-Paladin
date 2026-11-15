@@ -24,6 +24,8 @@
   --color-signal-text: #ff5a4d;
   --color-line: #262b33;
   --color-line2: #39414c;
+  /* The border of anything you can press or type into. Hairlines (line, line2) are decoration; this one has to be seen. */
+  --color-control: #707987;
   --color-quiet: #c5cad1;
   --color-gold: #f2c53d;
   --color-silver: #c9d0d8;
@@ -34,6 +36,10 @@
   --color-sector2: #4da3ff;
   --color-sector3: #ffc933;
   --color-drs: #2bd576;
+  /* Text that sits on a gold, silver or bronze medal fill. */
+  --color-on-medal: #0a0b0e;
+  /* The purple that means "fastest". */
+  --color-fastest: #d987ff;
 
   --breakpoint-xs: 30rem;
 }
@@ -41,8 +47,63 @@
 :root {
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --nav-h: 3.5rem;
-  --bottom-nav-h: 3.6rem;
+  /* The floating bar: its gap above, its own height, and the room it takes. The dock is the phone's version at the thumb. */
+  --gutter: 1rem;
+  --bar-h: 3.5rem;
+  --nav-h: 4.75rem;
+  --dock-h: 4rem;
+  --bottom-nav-h: calc(var(--dock-h) + 1.25rem + env(safe-area-inset-bottom));
+  --shadow-bar: 0 8px 24px rgb(0 0 0 / 0.28);
+  /* Where a page's own sticky section nav sits: under the bar. On a phone it moves to the top when the bar hides. */
+  --sticky-top: calc(var(--bar-h) + 0.5rem);
+  /* Surfaces that are not a flat colour. The light theme redefines them. */
+  --grain-a: rgb(255 255 255 / 0.022);
+  --grain-b: rgb(255 255 255 / 0.012);
+  --wash: rgb(255 255 255 / 0.03);
+  --skeleton-a: #12161b;
+  --skeleton-b: #1b2027;
+  --scrollbar-thumb: #3a414c;
+}
+
+/*
+  The light theme: the same system on a warm paper sheet. Surfaces keep their roles (tower is the deepest, panel the
+  raised one), colour keeps its meaning (red = the model, green = a hit), and every text and control colour is checked
+  against its surface by tests/theme.test.ts. It is chosen by the data-theme attribute, which theme-init.js sets before
+  the first paint from the saved choice or the system setting.
+*/
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-paper: #f3f2ee;
+  --color-tower: #e9e8e3;
+  --color-panel: #ffffff;
+  --color-panel2: #f8f7f4;
+  --color-ink: #0a0b0e;
+  --color-steel: #2c333c;
+  --color-mute: #545c67;
+  --color-signal: #d10600;
+  --color-signal-text: #b40700;
+  --color-line: #d8d9dc;
+  --color-line2: #b7bbc2;
+  --color-control: #6a727d;
+  --color-quiet: #2c333c;
+  --color-gold: #7d5e00;
+  --color-silver: #5b6470;
+  --color-bronze: #9a5320;
+  --color-hit: #09723a;
+  --color-amber: #8a5600;
+  --color-sector1: #d93a2e;
+  --color-sector2: #1f6fd1;
+  --color-sector3: #b88100;
+  --color-drs: #14994b;
+  --color-on-medal: #ffffff;
+  --color-fastest: #7b2fb5;
+  --grain-a: rgb(0 0 0 / 0.018);
+  --grain-b: rgb(0 0 0 / 0.012);
+  --wash: rgb(0 0 0 / 0.035);
+  --skeleton-a: #e6e5e0;
+  --skeleton-b: #efeee9;
+  --scrollbar-thumb: #b7bbc2;
+  --shadow-bar: 0 6px 22px rgb(30 34 44 / 0.1);
 }
 
 @layer base {
@@ -50,7 +111,7 @@ html {
   background: var(--color-paper);
   color: var(--color-ink);
   color-scheme: dark;
-  scrollbar-color: #3a414c var(--color-tower);
+  scrollbar-color: var(--scrollbar-thumb) var(--color-tower);
 }
 
 body {
@@ -66,6 +127,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* The engraved horse is a pale raster; on the light page it is inverted to a dark one. */
+:root[data-theme="light"] .logo-raster {
+  filter: invert(1);
+}
+
 /* A very faint diagonal field behind everything, so the page is never a flat void. */
 body::before {
   content: "";
@@ -74,8 +140,8 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    linear-gradient(115deg, rgb(255 255 255 / 0.022), transparent 34%),
-    repeating-linear-gradient(135deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 7px);
+    linear-gradient(115deg, var(--grain-a), transparent 34%),
+    repeating-linear-gradient(135deg, var(--grain-b) 0 1px, transparent 1px 7px);
 }
 
 ::selection {
@@ -131,7 +197,7 @@ a {
 .replay-driver dl { display: grid; grid-template-columns: 1fr 1fr; }
 .replay-driver dl div { min-width: 0; padding: .7rem 1rem; border-bottom: 1px solid var(--color-line); }
 .replay-driver dl div:nth-child(odd) { border-right: 1px solid var(--color-line); }
-.replay-driver dt { color: var(--color-mute); font: 600 .68rem/1.15 var(--font-display); }
+.replay-driver dt { color: var(--color-mute); font: 600 0.75rem/1.15 var(--font-display); }
 .replay-driver dd { margin-top: .35rem; overflow: hidden; color: var(--color-ink); font: 600 1rem/1 var(--font-display); text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .replay-comparison__empty, .replay-comparison__limits { padding: 1rem 1.1rem; color: var(--color-mute); font-size: .78rem; line-height: 1.45; }
 .replay-comparison__limits { border-top: 1px solid var(--color-line); }
@@ -148,9 +214,9 @@ a {
 .broadcast-tower__head { display: flex; align-items: end; justify-content: space-between; gap: .75rem; padding: .65rem .55rem .85rem; }
 .broadcast-tower__head strong { display: block; margin-top: .15rem; font: 700 1.65rem/1 var(--font-display); letter-spacing: -.02em; }
 .broadcast-tower__head small { color: var(--color-mute); font-size: .8em; }
-.broadcast-tower__modes { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--color-line2); }
-.broadcast-tower__modes button { min-height: 2.35rem; padding: .35rem; color: var(--color-mute); background: var(--color-tower); font: 600 .72rem/1 var(--font-display); text-transform: uppercase; letter-spacing: .035em; }
-.broadcast-tower__modes button + button { border-left: 1px solid var(--color-line2); }
+.broadcast-tower__modes { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--color-control); }
+.broadcast-tower__modes button { min-height: 2.35rem; padding: .35rem; color: var(--color-mute); background: var(--color-tower); font: 600 0.75rem/1 var(--font-display); text-transform: uppercase; letter-spacing: .035em; }
+.broadcast-tower__modes button + button { border-left: 1px solid var(--color-control); }
 .broadcast-tower__modes button:hover, .broadcast-tower__modes button[aria-pressed="true"] { color: var(--color-ink); background: var(--color-panel2); }
 .broadcast-tower__modes button[aria-pressed="true"] { box-shadow: inset 0 -2px 0 var(--color-ink); }
 .broadcast-tower__rows { position: relative; display: grid; gap: 1px; margin-top: .6rem; background: var(--color-line); overflow: hidden; }
@@ -161,23 +227,23 @@ a {
 .is-controlled .broadcast-tower__position { color: var(--color-paper); }
 .broadcast-tower__team { width: 100%; height: 1.45rem; }
 .broadcast-tower__driver { min-width: 0; overflow: hidden; font: 700 1.05rem/1 var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
-.broadcast-tower__driver small { margin-left: .35rem; color: var(--color-mute); font: 500 .64rem/1 var(--font-sans); }
+.broadcast-tower__driver small { margin-left: .35rem; color: var(--color-mute); font: 500 0.75rem/1 var(--font-sans); }
 .is-controlled .broadcast-tower__driver small { color: #3d4249; }
-.broadcast-tower__value { display: flex; align-items: center; justify-content: flex-end; gap: .3rem; color: var(--color-steel); font: 600 .74rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
-.broadcast-tower__value.is-fastest { color: #d987ff; }
-.broadcast-tower__foot { padding: .75rem .55rem .25rem; color: var(--color-mute); font-size: .68rem; line-height: 1.35; }
+.broadcast-tower__value { display: flex; align-items: center; justify-content: flex-end; gap: .3rem; color: var(--color-steel); font: 600 0.75rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.broadcast-tower__value.is-fastest { color: var(--color-fastest); }
+.broadcast-tower__foot { padding: .75rem .55rem .25rem; color: var(--color-mute); font-size: 0.75rem; line-height: 1.35; }
 
 .driver-chyron { --team-colour: var(--color-steel); display: grid; grid-template-columns: 5.25rem minmax(12rem, 1fr) repeat(3, minmax(7.5rem, .62fr)); min-height: 5.15rem; border-top: 1px solid var(--color-line2); border-bottom: 1px solid var(--color-line); background: var(--color-tower); box-shadow: inset 4px 0 0 var(--team-colour); }
 .driver-chyron > div { display: grid; align-content: center; min-width: 0; padding: .7rem 1rem; }
 .driver-chyron > div + div { border-left: 1px solid var(--color-line); }
-.driver-chyron span { color: var(--color-mute); font: 600 .7rem/1 var(--font-display); letter-spacing: .035em; text-transform: uppercase; }
+.driver-chyron span { color: var(--color-mute); font: 600 0.75rem/1 var(--font-display); letter-spacing: .035em; text-transform: uppercase; }
 .driver-chyron strong { margin-top: .3rem; overflow: hidden; font: 700 1.15rem/1 var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
 .driver-chyron__position { text-align: center; }
 .driver-chyron__position strong { color: var(--team-colour); font-size: 2.25rem; }
 .driver-chyron__identity strong { font-size: 1.45rem; }
 .driver-chyron__identity { position: relative; }
 .driver-chyron__identity::after { content: ""; position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: var(--team-colour); }
-.driver-chyron__metric strong.is-fastest { color: #d987ff; }
+.driver-chyron__metric strong.is-fastest { color: var(--color-fastest); }
 
 @keyframes timing-gain { 0% { box-shadow: inset 0 0 0 1px var(--color-hit); filter: brightness(1.3); } 100% { box-shadow: inset 0 0 0 1px transparent; filter: brightness(1); } }
 
@@ -203,7 +269,7 @@ a {
 .decision-context { color: var(--color-steel); font-size: .82rem; line-height: 1.35; }
 
 .decision-cutoff { padding: 1.25rem clamp(1.25rem, 3vw, 2.5rem); border-bottom: 1px solid var(--color-line); background: var(--color-panel); }
-.decision-range { width: 100%; accent-color: var(--color-signal); cursor: pointer; }
+.decision-range { width: 100%; min-height: 2.75rem; accent-color: var(--color-signal); cursor: pointer; }
 .decision-range:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 5px; }
 .decision-moments { display: flex; gap: .5rem; overflow-x: auto; margin-top: 1rem; padding-bottom: .25rem; scrollbar-width: thin; }
 .decision-moments .chip { flex: 0 0 auto; text-transform: none; letter-spacing: .02em; }
@@ -217,7 +283,7 @@ a {
 .decision-note { margin-top: 1rem; padding-left: .75rem; border-left: 2px solid var(--color-amber); color: var(--color-mute); font-size: .78rem; line-height: 1.55; }
 .decision-forecast { border-top: 1px solid var(--color-line2); }
 .decision-row { display: grid; grid-template-columns: minmax(7rem, 1fr) repeat(3, minmax(4.2rem, .55fr)); gap: .75rem; align-items: center; min-height: 3rem; border-bottom: 1px solid var(--color-line); font-size: .85rem; }
-.decision-row-head { min-height: 2.25rem; color: var(--color-mute); font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.decision-row-head { min-height: 2.25rem; color: var(--color-mute); font-size: 0.75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .decision-evolution { padding: clamp(1rem, 2.5vw, 2rem); border-bottom: 1px solid var(--color-line); }
 .decision-evolution-head { display: flex; align-items: end; justify-content: space-between; gap: 2rem; }
 .decision-evolution-head label { min-width: min(100%, 15rem); }
@@ -228,9 +294,9 @@ a {
 .decision-evolution-stops { display: flex; gap: .25rem; overflow-x: auto; padding: .65rem 0 .15rem; scrollbar-width: thin; }
 .decision-evolution-stops button { flex: 0 0 7rem; display: grid; gap: .12rem; min-height: 3.5rem; padding: .45rem .55rem; border-top: 1px solid var(--color-line2); color: var(--color-mute); text-align: left; }
 .decision-evolution-stops button:hover, .decision-evolution-stops button[aria-current="true"] { border-color: var(--color-signal); color: var(--color-ink); }
-.decision-evolution-stops span { font-size: .68rem; }
+.decision-evolution-stops span { font-size: 0.75rem; }
 .decision-evolution-stops strong { color: var(--color-ink); font-family: var(--font-display); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
-.decision-evolution-stops small { font-size: .65rem; }
+.decision-evolution-stops small { font-size: 0.75rem; }
 .decision-lab { padding: clamp(1.25rem, 3vw, 2.5rem); }
 .decision-intelligence-strip { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--color-line); }
 .decision-intelligence-strip > section { padding: clamp(1rem, 2.5vw, 2rem); min-width: 0; }
@@ -240,7 +306,7 @@ a {
 .decision-analogue:hover strong { color: var(--color-signal); }
 .decision-analogue > span:last-child { text-align: right; color: var(--color-mute); }
 .decision-reliability { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 1rem; border-top: 1px solid var(--color-line2); }
-.decision-reliability div { display: grid; gap: .35rem; padding: .8rem .6rem .8rem 0; border-bottom: 1px solid var(--color-line); color: var(--color-mute); font-size: .7rem; }
+.decision-reliability div { display: grid; gap: .35rem; padding: .8rem .6rem .8rem 0; border-bottom: 1px solid var(--color-line); color: var(--color-mute); font-size: 0.75rem; }
 .decision-reliability strong { color: var(--color-ink); font: 700 1.45rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .decision-lab-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; align-items: stretch; }
 .decision-delta { display: grid; align-content: start; border: 1px solid var(--color-line2); }
@@ -361,6 +427,166 @@ h3 {
   display: none;
 }
 
+/* Guided race investigation: a single narrative spine above the deep tools. */
+.journey {
+  border: 1px solid var(--color-line2);
+  background: var(--color-tower);
+}
+
+.journey-lead {
+  display: grid;
+  gap: 1rem 2rem;
+  padding: 1.5rem 1.5rem 1.4rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.journey-lead h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1;
+  text-wrap: balance;
+}
+
+.journey-lead p { max-width: 72ch; color: var(--color-steel); }
+.journey-lead > div > p:last-child { margin-top: 0.75rem; }
+
+/* Where the reader is in the cutoff: the one fact that changes what the steps can show. */
+.journey-lead .journey-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: end;
+  color: var(--color-mute);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.journey-lead .journey-state::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-mute);
+}
+
+.journey-lead .journey-state[data-open="true"]::before { background: var(--color-hit); }
+
+.journey-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+.journey-steps li {
+  position: relative;
+  min-width: 0;
+}
+
+/* The path: a hairline runs from each step's number to the next one. */
+.journey-steps li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 2.15rem;
+  left: 3.6rem;
+  right: 0;
+  height: 1px;
+  background: var(--color-line2);
+}
+
+.journey-steps li + li::before {
+  content: "";
+  position: absolute;
+  top: 2.15rem;
+  left: 0;
+  width: 1rem;
+  height: 1px;
+  background: var(--color-line2);
+}
+
+.journey-steps a {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 2.3rem minmax(0, 1fr);
+  grid-template-areas: "node go" "text text";
+  align-items: center;
+  row-gap: 0.9rem;
+  min-height: 7.5rem;
+  padding: 1rem;
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+
+.journey-steps a:hover { background: var(--pill-bg); }
+.journey-steps a.is-locked { color: var(--color-mute); cursor: not-allowed; }
+.journey-steps a.is-locked:hover { background: transparent; }
+
+.journey-node {
+  grid-area: node;
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 1px solid var(--color-control);
+  background: var(--color-tower);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.journey-steps a:hover .journey-node { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
+.journey-steps a.is-done .journey-node { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
+.journey-steps a.is-locked .journey-node { border-style: dashed; border-color: var(--color-line2); background: transparent; color: var(--color-mute); }
+
+.journey-go {
+  grid-area: go;
+  justify-self: end;
+  color: var(--color-mute);
+  transition: transform 200ms var(--ease-out), color 160ms ease;
+}
+
+.journey-steps a:hover .journey-go { color: var(--color-ink); transform: translateX(3px); }
+.journey-steps a.is-locked:hover .journey-go { color: var(--color-mute); transform: none; }
+
+.journey-text { grid-area: text; min-width: 0; }
+.journey-steps strong { display: block; font-family: var(--font-display); font-size: 1.25rem; text-transform: uppercase; letter-spacing: .05em; line-height: 1.1; }
+.journey-steps small { display: block; margin-top: .25rem; color: var(--color-mute); font-size: .85rem; line-height: 1.25; }
+
+.journey-readout { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--color-line); background: var(--color-panel); }
+.journey-readout p { padding: 1.1rem 1.4rem 1.2rem; }
+.journey-readout p + p { border-left: 1px solid var(--color-line); }
+.journey-readout span, .journey-readout small { display: block; color: var(--color-mute); font-size: .78rem; }
+.journey-readout span { font-family: var(--font-display); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.journey-readout strong { display: block; margin: .3rem 0 .25rem; font-family: var(--font-display); font-size: 1.5rem; line-height: 1.05; text-transform: uppercase; }
+
+@media (min-width: 901px) {
+  .journey-lead { grid-template-columns: minmax(0, 1fr) auto; }
+}
+
+@media (max-width: 900px) {
+  .journey-steps { grid-template-columns: 1fr; }
+  /* On a narrow screen the path runs down the left, number to number. */
+  .journey-steps li:not(:last-child)::after {
+    top: 3.3rem;
+    bottom: -0.1rem;
+    left: 2.15rem;
+    right: auto;
+    width: 1px;
+    height: auto;
+  }
+  .journey-steps li + li::before { display: none; }
+  .journey-steps a {
+    grid-template-columns: 2.3rem minmax(0, 1fr) auto;
+    grid-template-areas: "node text go";
+    column-gap: 0.9rem;
+    min-height: 4.5rem;
+    row-gap: 0;
+  }
+  .journey-readout { grid-template-columns: 1fr; }
+  .journey-readout p + p { border-left: 0; border-top: 1px solid var(--color-line); }
+}
+
 .rule {
   height: 1px;
   background: var(--color-line);
@@ -378,7 +604,7 @@ h3 {
   gap: 0.4rem;
   padding: 0;
   font-family: var(--font-sans);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
@@ -398,7 +624,7 @@ h3 {
 
 .tag-model {
   background: transparent;
-  color: #ff6b66;
+  color: var(--color-signal-text);
 }
 
 .tag-record {
@@ -430,9 +656,11 @@ h3 {
   flex-direction: column;
   align-items: stretch;
   gap: 0.38rem;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-control);
   background: transparent;
   color: var(--color-steel);
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   padding: 0.42rem 0.7rem 0.5rem;
   font-family: var(--font-display);
   font-weight: 600;
@@ -516,7 +744,7 @@ h3 {
 .btn-ghost {
   background: transparent;
   color: var(--color-ink);
-  box-shadow: inset 0 0 0 1px var(--color-line2);
+  box-shadow: inset 0 0 0 1px var(--color-control);
   clip-path: none;
   padding-inline: 1.1rem;
 }
@@ -530,9 +758,9 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  min-height: 2.25rem;
+  min-height: 2.5rem;
   padding: 0.25rem 0.75rem;
-  border: 1px solid var(--color-line2);
+  border: 1px solid var(--color-control);
   background: transparent;
   color: var(--color-steel);
   font-family: var(--font-display);
@@ -542,6 +770,25 @@ h3 {
   text-transform: uppercase;
   cursor: pointer;
   transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+
+@media (pointer: coarse) {
+  .chip {
+    min-height: 2.75rem;
+  }
+}
+
+/* Checkboxes: a box you can hit, in a row that is a full touch target. */
+input[type="checkbox"] {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  accent-color: var(--color-signal);
+  cursor: pointer;
+}
+
+label:has(> input[type="checkbox"]) {
+  min-height: 2.75rem;
 }
 
 .chip:hover {
@@ -554,21 +801,21 @@ h3 {
 .chip[aria-current="true"] {
   border-color: var(--color-ink);
   background: var(--color-ink);
-  color: #0a0b0e;
+  color: var(--color-paper);
 }
 
 input[type="range"] {
   accent-color: var(--color-signal);
   width: 100%;
-  height: 2px;
+  height: 2.75rem;
   cursor: pointer;
 }
 
 .select {
   appearance: none;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   padding: 0.3rem 2rem 0.3rem 0.8rem;
-  border: 1px solid var(--color-line2);
+  border: 1px solid var(--color-control);
   background: var(--color-panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23c5cad1'/%3E%3C/svg%3E") no-repeat right 0.7rem center;
   color: var(--color-ink);
   font-family: var(--font-display);
@@ -584,9 +831,9 @@ input[type="range"] {
 }
 
 .input {
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   padding: 0.3rem 0.8rem;
-  border: 1px solid var(--color-line2);
+  border: 1px solid var(--color-control);
   background: var(--color-panel);
   color: var(--color-ink);
   font-family: var(--font-display);
@@ -671,7 +918,7 @@ input[type="range"] {
 }
 
 .sheet tbody tr:hover td {
-  background: rgb(255 255 255 / 0.03);
+  background: var(--wash);
 }
 
 table {
@@ -830,7 +1077,7 @@ nav.scroll-x::-webkit-scrollbar {
 }
 
 .skeleton {
-  background: linear-gradient(100deg, #12161b 30%, #1b2027 50%, #12161b 70%);
+  background: linear-gradient(100deg, var(--skeleton-a) 30%, var(--skeleton-b) 50%, var(--skeleton-a) 70%);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
@@ -918,23 +1165,22 @@ nav.scroll-x::-webkit-scrollbar {
   line-height: 1.05;
 }
 
-.nav-link {
-  font-size: .9rem;
-  font-weight: 650;
-  letter-spacing: .01em;
-  line-height: 1;
-}
-
 .nav-brand > [role="img"] {
   width: auto !important;
+}
+
+/* The brand link is a real target even when only the horse is showing (a phone): at least 44px each way. */
+.nav-brand {
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding-inline: 0.5rem;
 }
 
 .nav-brand img {
   object-fit: contain;
 }
 
-.nav-more[open] > summary { color: var(--color-ink); }
-.nav-more summary::-webkit-details-marker { display: none; }
 
 .provenance-key {
   display: grid;
@@ -956,6 +1202,129 @@ nav.scroll-x::-webkit-scrollbar {
   line-height: 1.4;
 }
 
+/* ---- home: how to read the site. A path of three steps (the node takes the colour of what the step is) and a wall of six markers. */
+
+.flow {
+  --flow-c: var(--color-steel);
+  display: grid;
+  list-style: none;
+}
+
+.flow__step {
+  position: relative;
+  min-width: 0;
+  padding: 0 0 1.75rem 3.75rem;
+}
+
+.flow__step:last-child {
+  padding-bottom: 0;
+}
+
+.flow__step[data-kind="model"] {
+  --flow-c: var(--color-signal-text);
+}
+
+.flow__node {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--flow-c);
+  background: var(--color-panel);
+  color: var(--flow-c);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.flow__step::before {
+  content: "";
+  position: absolute;
+  top: 2.75rem;
+  bottom: 0;
+  left: 1.375rem;
+  width: 1px;
+  background: var(--color-line2);
+}
+
+.flow__step:last-child::before {
+  display: none;
+}
+
+.source-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1px;
+  border: 1px solid var(--color-line);
+  background: var(--color-line);
+}
+
+.source-card {
+  --kind-c: var(--color-amber);
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  padding: 1.1rem 1.25rem 1.25rem 1.5rem;
+  background: var(--color-panel);
+}
+
+.source-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--kind-c);
+}
+
+.source-card[data-kind="model"] {
+  --kind-c: var(--color-signal);
+}
+
+.source-card[data-kind="record"] {
+  --kind-c: var(--color-steel);
+}
+
+.source-card[data-kind="user"] {
+  --kind-c: var(--color-ink);
+}
+
+.source-card dd {
+  color: var(--color-mute);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 640px) {
+  .source-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .source-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .flow {
+    grid-template-columns: repeat(3, 1fr);
+    column-gap: 2.5rem;
+  }
+  .flow__step {
+    padding: 4rem 0 0;
+  }
+  /* the path runs along the top, node to node */
+  .flow__step::before {
+    top: 1.375rem;
+    right: -2.5rem;
+    bottom: auto;
+    left: 2.75rem;
+    width: auto;
+    height: 1px;
+  }
+}
+
 .home-console .panel {
   background: transparent;
   border-color: var(--color-line2);
@@ -964,7 +1333,7 @@ nav.scroll-x::-webkit-scrollbar {
 .home-console .figure { font-size: clamp(1.65rem, 3vw, 2.15rem); }
 
 ::selection { background: var(--color-signal); color: #fff; }
-:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 3px; }
 
 @media (max-width: 767px) {
   .product-title { font-size: clamp(2.35rem, 13vw, 3.7rem); }
@@ -994,7 +1363,7 @@ nav.scroll-x::-webkit-scrollbar {
   .race-card > div:last-of-type li { min-width: 0; justify-content: center; padding-inline: .15rem; }
   .race-card > div:last-of-type li .figure { display: none; }
   .race-card h3 { font-size: 1.35rem; }
-  .race-card .label { font-size: .68rem !important; }
+  .race-card .label { font-size: 0.75rem !important; }
 }
 
 /* ------------------------------------------------------------------ utilities */
@@ -1015,13 +1384,641 @@ nav.scroll-x::-webkit-scrollbar {
   clip: rect(0 0 0 0);
 }
 
-/* Leave room for the fixed bottom navigation on small screens. */
-@media (max-width: 767px) {
-  body {
-    padding-bottom: env(safe-area-inset-bottom);
+@media (min-width: 640px) {
+  :root {
+    --gutter: 1.5rem;
   }
-  main {
-    padding-top: var(--bottom-nav-h);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 2.5rem;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --bar-h: 3rem;
+    --nav-h: 4rem;
+  }
+  body {
+    padding-bottom: var(--bottom-nav-h);
+  }
+}
+
+/* ------------------------------------------------------------------ site navigation */
+
+/*
+  The bar, the dock and the theme switch are the one place the system uses a pill, and the one place it uses glass: a floating
+  capsule of frosted, glossy material (a blurred, saturated view of the page behind it, a soft sheen across the top, a bright
+  upper edge and a lifting shadow). The current destination is marked quietly: a tonal pill (a tint of the ink, so it works in
+  both themes) and ink text instead of muted text. The glass is kept dense enough (74% to 80%) that the labels stay legible
+  over any content, and it falls back to a solid surface when the browser cannot blur or the reader asks for less transparency.
+*/
+
+:root {
+  --pill-bg: color-mix(in srgb, var(--color-ink) 9%, transparent);
+  --pill-edge: color-mix(in srgb, var(--color-ink) 13%, transparent);
+
+  /* frosted glass, dark */
+  --glass-bg: color-mix(in srgb, var(--color-tower) 74%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--color-tower) 88%, transparent);
+  --glass-solid: var(--color-tower);
+  --glass-sheen: rgb(255 255 255 / 0.1);
+  --glass-edge: rgb(255 255 255 / 0.15);
+  --glass-shadow: 0 12px 34px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.18), inset 0 -1px 0 rgb(0 0 0 / 0.4);
+  --glass-pill: color-mix(in srgb, var(--color-ink) 13%, transparent);
+  --glass-pill-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 1px 3px rgb(0 0 0 / 0.4);
+  --nav-idle: var(--color-mute);
+  --knob-bg: var(--color-ink);
+  --knob-fg: var(--color-paper);
+}
+
+/* frosted glass, light: whiter than the page, with a defined edge and a deeper shadow so it stands off the paper */
+:root[data-theme="light"] {
+  --glass-bg: color-mix(in srgb, var(--color-panel) 80%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--color-panel) 92%, transparent);
+  --glass-solid: var(--color-panel);
+  --glass-sheen: rgb(255 255 255 / 0.7);
+  --glass-edge: rgb(10 11 14 / 0.16);
+  --glass-shadow: 0 14px 34px rgb(30 34 44 / 0.22), 0 2px 6px rgb(30 34 44 / 0.12), inset 0 1px 0 rgb(255 255 255 / 1), inset 0 -1px 0 rgb(10 11 14 / 0.07);
+  --glass-pill: color-mix(in srgb, var(--color-ink) 9%, transparent);
+  --glass-pill-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 1px 2px rgb(10 11 14 / 0.12), 0 0 0 1px rgb(10 11 14 / 0.07);
+  --nav-idle: var(--color-steel);
+  --knob-bg: var(--color-panel);
+  --knob-fg: var(--color-ink);
+}
+
+.site-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
+  height: var(--nav-h);
+  padding: 0.5rem var(--gutter) 0;
+  pointer-events: none;
+}
+
+/* Three zones: the brand, the destinations, the tools. On a wide bar the destinations sit on the true centre of the capsule. */
+.site-bar__inner {
+  pointer-events: auto;
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 0.5rem;
+  max-width: 1240px;
+  height: var(--bar-h);
+  margin-inline: auto;
+  padding: 0 0.5rem;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background-color: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--glass-shadow);
+}
+
+/* The gloss: a soft sheen down from the top edge. It sits behind the content, above the glass. */
+.site-bar__inner::before,
+.dock::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 58%);
+  pointer-events: none;
+}
+
+.nav-brand {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.site-bar__tools {
+  grid-column: 3;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The search tool is a bare icon: a soft tint on hover and the global focus ring, no outline. Same height as the switch beside it. */
+.site-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--nav-idle);
+  cursor: pointer;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.site-tool:hover {
+  background: var(--pill-bg);
+  color: var(--color-ink);
+}
+
+/* ---- desktop destinations: a pill that slides to the current one */
+
+.site-nav {
+  position: relative;
+  display: none;
+  grid-column: 2;
+  justify-self: start;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.site-nav__pill {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--pill-w, 0px);
+  border-radius: 999px;
+  background: var(--glass-pill);
+  box-shadow: var(--glass-pill-shadow);
+  opacity: var(--pill-on, 0);
+  transform: translateX(var(--pill-x, 0px));
+  transition: transform 340ms var(--ease-out), width 340ms var(--ease-out), opacity 200ms ease;
+}
+
+.site-nav[data-ready="false"] .site-nav__pill {
+  transition: none;
+}
+
+.site-nav__link {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2.5rem;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  color: var(--nav-idle);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 200ms ease;
+}
+
+.site-nav__link:hover,
+.site-nav__link[aria-current="page"] {
+  color: var(--color-ink);
+}
+
+/* The wrapper only groups the button with its list; the list anchors to the nav (desktop) or the dock (phone). */
+.more {
+  display: contents;
+}
+
+.more__chevron {
+  transition: transform 220ms var(--ease-out);
+}
+
+button.site-nav__link,
+button.dock__item {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.site-nav__link[aria-expanded="true"],
+.site-nav__link[data-owns="true"],
+.dock__item[aria-expanded="true"],
+.dock__item[data-owns="true"] {
+  color: var(--color-ink);
+}
+
+.nav-brand {
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding-inline: 0.25rem 0.5rem;
+}
+
+.nav-brand img {
+  /* Preflight sets height:auto on images; the mark is sized here so it fits the capsule and keeps its proportions. */
+  width: auto;
+  max-width: none;
+  height: 2.5rem;
+}
+
+/* "More": the pages that belong to a destination without having a place in the bar. */
+.more-panel {
+  position: absolute;
+  z-index: 60;
+  width: min(21rem, calc(100vw - 2rem));
+  padding: 0.4rem;
+  border: 1px solid var(--glass-edge);
+  border-radius: 1.25rem;
+  background-color: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--glass-shadow);
+  transform-origin: top right;
+}
+
+.more-panel:not([hidden]) {
+  animation: more-in 180ms var(--ease-out) both;
+}
+
+.more-panel--down {
+  top: calc(100% + 1.1rem);
+  right: 0;
+}
+
+.more-panel--up {
+  bottom: calc(100% + 0.75rem);
+  right: 0;
+  transform-origin: bottom right;
+}
+
+@keyframes more-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.more-panel--up:not([hidden]) {
+  animation-name: more-in-up;
+}
+
+@keyframes more-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+.more-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 3.25rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.9rem;
+  color: var(--color-steel);
+  text-decoration: none;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.more-item:hover,
+.more-item[data-active="true"] {
+  background: var(--pill-bg);
+  color: var(--color-ink);
+}
+
+.more-item__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  background: var(--pill-bg);
+  box-shadow: inset 0 0 0 1px var(--pill-edge);
+  color: var(--color-ink);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+/* The page you are on gets the inverted tile, so it is found at a glance. */
+.more-item[data-active="true"] .more-item__icon {
+  background: var(--color-ink);
+  box-shadow: none;
+  color: var(--color-paper);
+}
+
+.more-item__label {
+  display: block;
+  font-size: 0.98rem;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.more-item__detail {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--color-mute);
+  font-size: 0.8rem;
+  line-height: 1.25;
+}
+
+/* ---- the theme switch: one light/dark control whose knob slides */
+
+.theme-control {
+  display: inline-flex;
+  align-items: center;
+}
+
+/*
+  The switch. The track is 52 x 28 and the knob 22, so it travels 24px; the button around it is 56 x 40 so it is a comfortable
+  target. The knob is a small piece of the same glossy material as the bar, and slides with a touch of spring. While it is
+  pressed it stretches, the way a phone's switch does. Its icon turns from sun to moon as it crosses.
+*/
+.theme-toggle {
+  --track-w: 3.25rem;
+  --track-h: 1.75rem;
+  --knob: 1.375rem;
+  --inset: 0.125rem;
+  --travel: calc(var(--track-w) - 2px - var(--knob) - 2 * var(--inset));
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.theme-toggle__track {
+  position: relative;
+  display: block;
+  width: var(--track-w);
+  height: var(--track-h);
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background-color: var(--pill-bg);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.18);
+  transition: background-color 380ms ease, border-color 200ms ease;
+}
+
+.theme-toggle:hover .theme-toggle__track {
+  border-color: var(--color-control);
+}
+
+.theme-toggle[aria-checked="true"] .theme-toggle__track {
+  background-color: color-mix(in srgb, var(--color-ink) 16%, transparent);
+}
+
+.theme-toggle:focus-visible {
+  outline: none;
+}
+
+.theme-toggle:focus-visible .theme-toggle__track {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+/* The two ends of the track, faint, so it reads as a choice between a sun and a moon. */
+.theme-toggle__hint {
+  position: absolute;
+  top: 50%;
+  margin-top: -6.5px;
+  color: var(--color-mute);
+  opacity: 0.8;
+}
+
+.theme-toggle__hint--sun { left: 0.45rem; }
+.theme-toggle__hint--moon { right: 0.45rem; }
+
+.theme-toggle__knob {
+  position: absolute;
+  top: var(--inset);
+  left: var(--inset);
+  display: grid;
+  place-items: center;
+  width: var(--knob);
+  height: var(--knob);
+  border-radius: 999px;
+  background: var(--knob-bg);
+  color: var(--knob-fg);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.45);
+  transition: transform 460ms cubic-bezier(0.34, 1.25, 0.64, 1), width 200ms ease;
+}
+
+.theme-toggle[aria-checked="true"] .theme-toggle__knob {
+  transform: translateX(var(--travel));
+}
+
+.theme-toggle:active .theme-toggle__knob {
+  width: calc(var(--knob) + 0.3rem);
+}
+
+.theme-toggle[aria-checked="true"]:active .theme-toggle__knob {
+  transform: translateX(calc(var(--travel) - 0.3rem));
+}
+
+/* The sun and the moon share the knob; the one that is not showing is turned away and small. */
+.theme-toggle__icon {
+  grid-area: 1 / 1;
+  transition: opacity 280ms ease, transform 460ms cubic-bezier(0.34, 1.25, 0.64, 1);
+}
+
+.theme-toggle[aria-checked="false"] .theme-toggle__icon--moon,
+.theme-toggle[aria-checked="true"] .theme-toggle__icon--sun {
+  opacity: 0;
+  transform: rotate(-110deg) scale(0.4);
+}
+
+.theme-toggle[aria-checked="true"] .theme-toggle__icon--sun {
+  transform: rotate(110deg) scale(0.4);
+}
+
+/* Before the first use nothing slides: the control is simply drawn in the state the page is in. */
+.theme-control:not([data-touched="true"]) .theme-toggle__knob,
+.theme-control:not([data-touched="true"]) .theme-toggle__icon,
+.theme-control:not([data-touched="true"]) .theme-toggle__track {
+  transition: none;
+}
+
+/* ---- changing the theme: the new one grows as a circle from the switch; without view transitions, the colours fade */
+
+/*
+  The wipe is a radial mask on the incoming theme, with a soft edge: the new theme is solid inside the radius and fades out
+  over the last 180px, so it spreads like a tide and not like a cut-out. The radius is a registered property so it can be
+  animated, and it defaults to "everything" so nothing is hidden if the animation does not run.
+*/
+@property --reveal {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 9999px;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+  animation: theme-reveal 900ms cubic-bezier(0.5, 0, 0.2, 1) both;
+  -webkit-mask-image: radial-gradient(circle at var(--vt-x, 50%) var(--vt-y, 0px), #000 max(0px, calc(var(--reveal) - 180px)), transparent var(--reveal));
+  mask-image: radial-gradient(circle at var(--vt-x, 50%) var(--vt-y, 0px), #000 max(0px, calc(var(--reveal) - 180px)), transparent var(--reveal));
+}
+
+@keyframes theme-reveal {
+  from { --reveal: 0px; }
+  to { --reveal: calc(var(--vt-r, 150vmax) + 180px); }
+}
+
+html.theme-fade,
+html.theme-fade *,
+html.theme-fade *::before,
+html.theme-fade *::after {
+  transition: background-color 320ms ease, color 320ms ease, border-color 320ms ease, fill 320ms ease, stroke 320ms ease, box-shadow 320ms ease !important;
+}
+
+/* ---- the phone dock: destinations as a floating capsule at the thumb */
+
+.dock {
+  position: fixed;
+  left: 50%;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  z-index: 50;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  width: min(calc(100% - 1.5rem), 28rem);
+  height: var(--dock-h);
+  padding: 0.375rem;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background-color: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--glass-shadow);
+  transform: translateX(-50%);
+}
+
+.dock__pill {
+  position: absolute;
+  top: 0.375rem;
+  bottom: 0.375rem;
+  left: 0.375rem;
+  width: calc((100% - 0.75rem) / var(--n));
+  border-radius: 999px;
+  background: var(--glass-pill);
+  box-shadow: var(--glass-pill-shadow);
+  opacity: var(--on, 0);
+  transform: translateX(calc(var(--i, 0) * 100%));
+  transition: transform 340ms var(--ease-out), opacity 200ms ease;
+}
+
+.dock__item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-width: 0;
+  border-radius: 999px;
+  color: var(--nav-idle);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  transition: color 200ms ease;
+}
+
+.dock__item:hover,
+.dock__item[aria-current="page"] {
+  color: var(--color-ink);
+}
+
+/* The state each bar is in: on a phone, reading hides the top capsule and the dock stays. */
+@media (max-width: 767px) {
+  :root[data-chrome="compact"] .chrome-bar {
+    transform: translateY(-100%);
+  }
+  .chrome-bar {
+    transition: transform 220ms var(--ease-out);
+  }
+  :root[data-chrome="compact"] {
+    --sticky-top: 0px;
+  }
+  .nav-brand img {
+    height: 2.25rem;
+  }
+}
+
+@media (max-width: 359px) {
+  .dock {
+    width: calc(100% - 1rem);
+  }
+}
+
+/* The bar's links tighten as it narrows. */
+@media (min-width: 768px) {
+  .site-nav {
+    display: flex;
+  }
+  .site-nav__link {
+    padding: 0 0.75rem;
+  }
+  .dock {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-bar__inner {
+    grid-template-columns: 1fr auto 1fr;
+  }
+  .site-nav {
+    justify-self: center;
+  }
+}
+
+@media (min-width: 1280px) {
+  .site-nav__link {
+    padding: 0 0.9rem;
+  }
+}
+
+/* No blur available, or the reader asked for less transparency: a solid surface, same shape and shadow. */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .site-bar__inner,
+  .dock,
+  .more-panel {
+    background-color: var(--glass-solid);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .site-bar__inner,
+  .dock,
+  .more-panel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: var(--glass-solid);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-nav__pill,
+  .dock__pill,
+  .theme-toggle__track,
+  .theme-toggle__knob,
+  .theme-toggle__icon,
+  .chrome-bar {
+    transition: none !important;
+  }
+  .more-panel:not([hidden]) {
+    animation: none;
   }
 }
 

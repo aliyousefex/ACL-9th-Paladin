@@ -51,7 +51,7 @@ function FeatureGroup({ group }: { group: (typeof site.groups)[number] }) {
 
   return (
     <details ref={ref} className="border-b border-line py-3">
-      <summary className="cursor-pointer font-medium" onClick={() => haptic("select")}>
+      <summary className="cursor-pointer py-2.5 font-medium" onClick={() => haptic("select")}>
         {group.name}
       </summary>
       <p className="mt-2 text-quiet">{group.why}</p>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Panel } from "../../components/Panel";
 import { Note, Tabs } from "../../components/Bits";
-import { ProvenanceLegend } from "../../components/Provenance";
+import { ProvenanceLegend, Tag } from "../../components/Provenance";
 import { PORTRAITS, DRIVERS } from "../../lib/data";
 import { FEATURE_GROUP, featureLabel, pct } from "../../lib/format";
 import { useScrollSpy, useTitle } from "../../lib/hooks";
@@ -10,7 +10,7 @@ import { href } from "../../lib/router";
 import model from "../../data/model.json";
 import site from "../../data/site.json";
 
-const SPY = ["glance", "inputs", "compare", "races", "score", "limits", "sources"];
+const SPY = ["glance", "systems", "inputs", "compare", "races", "score", "limits", "sources"];
 const MODELS = ["Logistic regression", "Random forest", "Shallow neural network"] as const;
 
 function metric(modelName: string, split: string, key: string): number {
@@ -19,7 +19,7 @@ function metric(modelName: string, split: string, key: string): number {
 }
 
 export function ModelPage() {
-  useTitle("The model");
+  useTitle("The model", "The model and its limits: metrics, the sixteen inputs, calibration and caveats, measured on seasons it never saw.");
   const active = useScrollSpy(SPY, 160);
   const test = (k: string) => metric(model.name, "test", k);
 
@@ -40,10 +40,11 @@ export function ModelPage() {
         </div>
       </header>
 
-      <nav aria-label="On this page" className="sticky z-40 border-b border-line bg-tower/95 backdrop-blur-sm" style={{ top: "var(--nav-h)" }}>
+      <nav aria-label="On this page" className="sticky z-40 border-b border-line bg-tower/95 backdrop-blur-sm" style={{ top: "var(--sticky-top)" }}>
         <ul className="no-scrollbar mx-auto flex max-w-[1320px] items-center gap-1 overflow-x-auto px-4 sm:px-6 lg:px-10">
           {[
             ["glance", "At a glance"],
+            ["systems", "Which is which"],
             ["inputs", "Inputs"],
             ["compare", "Three models"],
             ["races", "Race by race"],
@@ -59,7 +60,7 @@ export function ModelPage() {
                   document.getElementById(id)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
                 }}
                 aria-current={active === id ? "true" : undefined}
-                className={`relative block px-3 py-3 font-display text-[0.98rem] leading-none font-semibold tracking-[0.1em] uppercase no-underline transition-colors ${active === id ? "text-ink" : "text-mute hover:text-ink"}`}
+                className={`relative flex min-h-11 items-center px-3 font-display text-[0.98rem] leading-none font-semibold tracking-[0.1em] uppercase no-underline transition-colors ${active === id ? "text-ink" : "text-mute hover:text-ink"}`}
               >
                 {label}
                 <span aria-hidden className={`absolute inset-x-3 bottom-0 h-[2px] bg-signal ${active === id ? "opacity-100" : "opacity-0"}`} />
@@ -102,6 +103,7 @@ export function ModelPage() {
           </div>
         </Panel>
 
+        <Systems />
         <Weights />
         <Comparison />
         <RaceLevel />
@@ -116,10 +118,57 @@ export function ModelPage() {
 function Fact({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div>
-      <dt className="label !text-[0.74rem]">{label}</dt>
+      <dt className="label !text-[0.75rem]">{label}</dt>
       <dd className="figure mt-1 text-[2.2rem]">{value}</dd>
       {note && <dd className="mt-0.5 text-[0.82rem] leading-tight text-mute">{note}</dd>}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ which system is which */
+
+const SYSTEMS: { name: string; status: string; tag: "model" | "record" | "experimental" | "simulation"; role: string; where: string }[] = [
+  { name: "Classifier: logistic regression", status: "The coursework model. Selected on validation, frozen, never retrained for the site.", tag: "model", role: "Scores every driver on their own. Every headline number on this page is about this model.", where: "Race page: Prediction and Confidence; Ranking and Compare in Expert view" },
+  { name: "Random forest and shallow network", status: "Compared in the coursework report and scored on the test seasons.", tag: "model", role: "Show that a simple, explainable model is not beaten by complexity, within the noise.", where: "This page, under Three models. Their per-race scores are not on the site." },
+  { name: "Starting-grid top three", status: "A baseline, not a model.", tag: "record", role: "The question any model has to answer: does it name more podium finishers than just reading the grid?", where: "Error Atlas; Autopsy; the ledger of all 68 races" },
+  { name: "Field model", status: "Experimental. Same 16 inputs, a different objective. Judged only on seasons earlier iterations had already looked at.", tag: "experimental", role: "Ranks the whole podium at once and gives a probability for every combination.", where: "Race page, Expert view; Error Atlas" },
+  { name: "Finish-position and retirement models", status: "Experimental research models, kept apart from the coursework model.", tag: "experimental", role: "Estimate finishing positions and retirement risk for Decision replay.", where: "Race page, Expert view, after the reveal" },
+  { name: "Race Lab and the Strategy Lab", status: "Simulations with transparent rules. Not predictions and not history.", tag: "simulation", role: "Let you ask what a different strategy might have done.", where: "Lab; Race page, Expert view, after the reveal" },
+];
+
+function Systems() {
+  return (
+    <Panel id="systems" eyebrow="Which is which" title="One coursework model, and everything built around it" tag={["model", "experimental"]}>
+      <p className="max-w-[78ch] text-[1.02rem] leading-snug text-steel">
+        The site carries more than one system, and they do not have the same standing. Only the first row is the model the coursework is about. Each panel on the site carries a label saying which kind of thing it is showing.
+      </p>
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full min-w-[46rem] border-collapse text-left">
+          <caption className="sr-only">The systems on this site, their standing, their purpose and where they appear</caption>
+          <thead>
+            <tr className="border-b border-line2 text-[0.82rem] text-mute">
+              <th scope="col" className="py-2 pr-4 font-semibold">System</th>
+              <th scope="col" className="py-2 pr-4 font-semibold">Standing</th>
+              <th scope="col" className="py-2 pr-4 font-semibold">What it is for</th>
+              <th scope="col" className="py-2 font-semibold">Where you meet it</th>
+            </tr>
+          </thead>
+          <tbody>
+            {SYSTEMS.map((row) => (
+              <tr key={row.name} className="border-b border-line align-top">
+                <th scope="row" className="py-3 pr-4">
+                  <span className="block font-display text-[1.15rem] leading-tight font-semibold">{row.name}</span>
+                  <span className="mt-1.5 inline-block"><Tag kind={row.tag} /></span>
+                </th>
+                <td className="py-3 pr-4 text-[0.95rem] text-steel">{row.status}</td>
+                <td className="py-3 pr-4 text-[0.95rem] text-steel">{row.role}</td>
+                <td className="py-3 text-[0.95rem] text-mute">{row.where}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
   );
 }
 
@@ -140,7 +189,7 @@ function Weights() {
           <li key={r.feature} className="grid grid-cols-[minmax(0,10rem)_1fr_3.6rem] items-center gap-3 sm:grid-cols-[15rem_1fr_3.6rem]">
             <div className="min-w-0">
               <p className="truncate text-[0.95rem] leading-tight text-ink">{featureLabel(r.feature)}</p>
-              <p className="label !text-[0.66rem]">{FEATURE_GROUP[r.feature]}</p>
+              <p className="label !text-[0.75rem]">{FEATURE_GROUP[r.feature]}</p>
             </div>
             <div className="relative h-4 bg-tower">
               <span className="absolute inset-y-0 left-1/2 w-px bg-line2" aria-hidden />
@@ -215,7 +264,7 @@ function Comparison() {
               <tr key={name} className="border-b border-line">
                 <th scope="row" className="py-3 pr-4 text-[1rem] font-semibold">
                   {name}
-                  {name === model.name && <span className="ml-2 bg-signal px-1.5 py-0.5 align-middle font-display text-[0.7rem] font-bold tracking-wide text-white uppercase">selected</span>}
+                  {name === model.name && <span className="ml-2 bg-signal px-1.5 py-0.5 align-middle font-display text-[0.75rem] font-bold tracking-wide text-white uppercase">selected</span>}
                 </th>
                 {keys.map((k) => {
                   const best = Math.max(...MODELS.map((m) => metric(m, split, k)));
@@ -353,7 +402,7 @@ function Reading() {
         <div className="min-w-[32rem]">
         <div className="relative flex h-56 items-end gap-2 border-b border-l border-line2 pl-1" role="img" aria-label="Share of entries that finished on the podium for each score band">
           <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-            <line x1="0" y1="100" x2="100" y2="0" stroke="#f4f4f2" strokeOpacity="0.35" strokeDasharray="1.5 2" vectorEffect="non-scaling-stroke" />
+            <line x1="0" y1="100" x2="100" y2="0" stroke="var(--color-ink)" strokeOpacity="0.35" strokeDasharray="1.5 2" vectorEffect="non-scaling-stroke" />
           </svg>
           {bins.test.map((b, i) => {
             const rate = b.n ? b.podiums / b.n : 0;
@@ -378,7 +427,7 @@ function Reading() {
           {bins.test.map((b) => (
             <li key={b.lo} className="min-w-0 flex-1 text-center">
               <span className="block font-display text-[0.95rem] text-steel">{b.lo.toFixed(1)}</span>
-              <span className="block text-[0.68rem] text-mute">{b.n} rows</span>
+              <span className="block text-[0.75rem] text-mute">{b.n} rows</span>
             </li>
           ))}
         </ol>
@@ -459,21 +508,21 @@ function Sources() {
             <span className="font-semibold text-ink">Not endorsed.</span> Paladin is an independent hobby project developed from ACL-903 coursework. It is not affiliated with or endorsed by any university, Formula 1, the FIA or any team. Team colours are styling.
           </p>
           <p>
-            <a className="underline decoration-line2 underline-offset-2 hover:text-ink" href={href("/method")}>
+            <a className="inline-flex min-h-11 items-center underline decoration-line2 underline-offset-2 hover:text-ink" href={href("/method")}>
               Read the full method walkthrough
             </a>
           </p>
         </div>
         <div>
           <details className="border border-line bg-tower p-4">
-            <summary className="cursor-pointer font-display text-[1.05rem] tracking-[0.08em] uppercase hover:text-ink">Driver portrait credits ({credits.length})</summary>
+            <summary className="cursor-pointer py-3 font-display text-[1.05rem] tracking-[0.08em] uppercase hover:text-ink">Driver portrait credits ({credits.length})</summary>
             <p className="mt-3 text-[0.85rem] text-mute">Freely licensed photographs from Wikimedia Commons. A photo may be from a different season than the one shown.</p>
             <ul className="mt-3 max-h-96 space-y-1.5 overflow-y-auto pr-2 text-[0.85rem]">
               {credits.map(({ d, c }) => (
                 <li key={d.id} className="flex flex-wrap items-baseline gap-x-2">
                   <span className="font-semibold text-ink">{d.name}</span>
                   <span className="text-mute">{c.author.slice(0, 50)}</span>
-                  <a className="text-steel underline decoration-line2 underline-offset-2 hover:text-ink" href={c.source}>
+                  <a className="inline-flex min-h-11 min-w-11 items-center justify-center text-steel underline decoration-line2 underline-offset-2 hover:text-ink" href={c.source}>
                     {c.licence}
                   </a>
                 </li>

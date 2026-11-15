@@ -31,23 +31,23 @@ export function HomeChart() {
         <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block h-auto w-full" role="img" aria-label="Podium rate by grid band for away and home drivers">
           {[0, 0.15, 0.3, 0.45, 0.6].map((t) => (
             <g key={t}>
-              <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="#262b33" />
-              <text x={PAD.l - 8} y={y(t) + 4} textAnchor="end" fill="#c5cad1" fontSize={13} style={{ fontFamily: "var(--font-display)" }}>
+              <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="var(--color-line)" />
+              <text x={PAD.l - 8} y={y(t) + 4} textAnchor="end" fill="var(--color-steel)" fontSize={13} style={{ fontFamily: "var(--font-display)" }}>
                 {pct(t, 0)}
               </text>
             </g>
           ))}
           {rows.map((row, i) => (
-            <text key={row.band} x={x(i)} y={H - 8} textAnchor="middle" fill="#c5cad1" fontSize={13} style={{ fontFamily: "var(--font-display)" }}>
+            <text key={row.band} x={x(i)} y={H - 8} textAnchor="middle" fill="var(--color-steel)" fontSize={13} style={{ fontFamily: "var(--font-display)" }}>
               {row.band}
             </text>
           ))}
-          {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={H - PAD.b} stroke="#39414c" />}
-          <path d={line((r) => r.awayRate)} fill="none" stroke="#c5cad1" strokeWidth={1.9} strokeLinejoin="round" />
+          {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={H - PAD.b} stroke="var(--color-line2)" />}
+          <path d={line((r) => r.awayRate)} fill="none" stroke="var(--color-steel)" strokeWidth={1.9} strokeLinejoin="round" />
           <path d={line((r) => r.homeRate)} fill="none" stroke="#e10600" strokeWidth={1.9} strokeLinejoin="round" />
           {rows.map((row, i) => (
             <g key={row.band}>
-              <circle cx={x(i)} cy={y(row.awayRate)} r={hover === i ? 5.5 : 3.5} fill="#c5cad1" />
+              <circle cx={x(i)} cy={y(row.awayRate)} r={hover === i ? 5.5 : 3.5} fill="var(--color-steel)" />
               <circle cx={x(i)} cy={y(row.homeRate)} r={hover === i ? 5.5 : 3.5} fill="#e10600" />
               <rect
                 x={x(i) - slot / 2}

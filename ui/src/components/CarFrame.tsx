@@ -156,14 +156,14 @@ export function CarFrame({
         {photo.detail}{" "}
         <a
           href={photo.creditHref}
-          className="underline decoration-line underline-offset-[3px] hover:text-ink"
+          className="inline-block py-1.5 underline decoration-line underline-offset-[3px] hover:text-ink"
         >
           {photo.credit}
         </a>
         {", "}
         <a
           href={photo.licenseHref}
-          className="underline decoration-line underline-offset-[3px] hover:text-ink"
+          className="inline-block py-1.5 underline decoration-line underline-offset-[3px] hover:text-ink"
         >
           {photo.license}
         </a>

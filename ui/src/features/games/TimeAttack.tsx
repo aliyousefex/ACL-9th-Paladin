@@ -101,7 +101,7 @@ export function TimeAttack() {
             <CircuitMap layout={layout.data} className="mx-auto h-[26rem] w-full" weight={0.85} corners={false} label={`Illustrative track attack on ${circuit.name}`}>
               {ghostPoint && (
                 <g opacity={0.48} transform={`translate(${ghostPoint.x} ${ghostPoint.y}) rotate(${ghostPoint.angle})`}>
-                  <VectorRaceCar colour="#c5cad1" ink="#090a0c" number={0} scale={0.9} />
+                  <VectorRaceCar colour="var(--color-steel)" ink="#090a0c" number={0} scale={0.9} />
                 </g>
               )}
               <g transform={`translate(${point.x} ${point.y}) rotate(${point.angle})`}>
@@ -184,5 +184,5 @@ function readGhost(key: string): GhostSample[] {
 }
 
 function Readout({ label, value, tone }: { label: string; value: string; tone?: "good" | "bad" }) {
-  return <div className="bg-panel p-3"><dt className="label !text-[0.68rem]">{label}</dt><dd className={`figure mt-1 text-[1.35rem] ${tone === "good" ? "text-hit" : tone === "bad" ? "text-signal-text" : ""}`}>{value}</dd></div>;
+  return <div className="bg-panel p-3"><dt className="label !text-[0.75rem]">{label}</dt><dd className={`figure mt-1 text-[1.35rem] ${tone === "good" ? "text-hit" : tone === "bad" ? "text-signal-text" : ""}`}>{value}</dd></div>;
 }

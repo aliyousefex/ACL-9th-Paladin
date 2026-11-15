@@ -11,6 +11,10 @@ const CircuitsPage = lazy(() => import("./features/circuits/CircuitsPage").then(
 const ModelPage = lazy(() => import("./features/model/ModelPage").then((m) => ({ default: m.ModelPage })));
 const MethodPage = lazy(() => import("./features/method/MethodPage").then((m) => ({ default: m.MethodPage })));
 const RaceLabPage = lazy(() => import("./features/raceLab/RaceLabPage").then((m) => ({ default: m.RaceLabPage })));
+const HistoryPage = lazy(() => import("./features/history/HistoryPage").then((m) => ({ default: m.HistoryPage })));
+const LeaguePage = lazy(() => import("./features/league/LeaguePage").then((m) => ({ default: m.LeaguePage })));
+const GuidePage = lazy(() => import("./features/guide/GuidePage").then((m) => ({ default: m.GuidePage })));
+const ErrorAtlasPage = lazy(() => import("./features/analysis/ErrorAtlasPage").then((m) => ({ default: m.ErrorAtlasPage })));
 
 export default function App() {
   const location = useLocation();
@@ -44,6 +48,18 @@ export default function App() {
     case "race-lab":
       page = <RaceLabPage query={location.query} />;
       break;
+    case "analysis":
+      page = <ErrorAtlasPage />;
+      break;
+    case "history":
+      page = <HistoryPage query={location.query} />;
+      break;
+    case "league":
+      page = <LeaguePage query={location.query} />;
+      break;
+    case "guide":
+      page = <GuidePage />;
+      break;
     default:
       page = <Home query={location.query} />;
   }
@@ -52,7 +68,7 @@ export default function App() {
   const key = section === "method" ? "method" : location.path.join("/");
 
   return (
-    <Shell section={["race", "race-lab", "drivers", "circuits", "model", "method"].includes(section) ? section : ""}>
+    <Shell section={["race", "race-lab", "analysis", "history", "league", "drivers", "circuits", "model", "method", "guide"].includes(section) ? section : ""}>
       <Suspense fallback={<div className="pt-32"><LightsLoader label="Loading" /></div>}>
         <div key={key}>{page}</div>
       </Suspense>

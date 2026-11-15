@@ -63,7 +63,7 @@ export function Podium({
       title="Predicted podium"
       tag="model"
       actions={
-        <button type="button" className="btn btn-ghost !min-h-9 !px-3 !text-[0.95rem]" onClick={onRun}>
+        <button type="button" className="btn btn-ghost !min-h-11 !px-3 !text-[0.95rem]" onClick={onRun}>
           <Icon name="replay" size={16} /> Replay
         </button>
       }
@@ -148,6 +148,7 @@ function PodiumStep({
           colour={row.colour}
           number={row.entry.n}
           className="h-[68px] w-[68px] border-2 sm:h-[112px] sm:w-[112px]"
+          sizes="112px"
           rounded
           eager
           label={`${row.driver.name}, ${row.team.short}`}
@@ -167,9 +168,9 @@ function PodiumStep({
           className={`absolute inset-0 ${show ? "rise" : "scale-y-0"}`}
           style={{
             ...style,
-            background: `linear-gradient(180deg, ${row.colour}33 0%, #11151b 38%, #0b0e12 100%)`,
+            background: `linear-gradient(180deg, ${row.colour}33 0%, var(--color-panel) 38%, var(--color-tower) 100%)`,
             borderTop: `4px solid ${row.colour}`,
-            boxShadow: "inset 0 0 0 1px #262b33",
+            boxShadow: "inset 0 0 0 1px var(--color-line)",
           }}
         />
         <div className={`relative flex h-full flex-col items-center justify-between px-1 pt-2 pb-3 sm:pt-3 ${show ? "pop-in" : "opacity-0"}`} style={{ "--delay": `${delay + 650}ms` } as CSSProperties}>
@@ -181,7 +182,7 @@ function PodiumStep({
             {place}
           </span>
           <div className="w-full text-center">
-            <p className="label !text-[0.7rem] sm:!text-[0.8rem]">Podium score</p>
+            <p className="label !text-[0.75rem] sm:!text-[0.8rem]">Podium score</p>
             <p className="figure text-[1.9rem] sm:text-[2.7rem]">{score.toFixed(2)}</p>
           </div>
         </div>

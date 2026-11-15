@@ -39,7 +39,7 @@ export function DriversPage({ reference, query }: { reference?: string; query: U
 /* ------------------------------------------------------------------ list */
 
 function DriverList({ query }: { query: URLSearchParams }) {
-  useTitle("Drivers");
+  useTitle("Drivers", "Every driver of the held-out 2022–2024 seasons, with results and how Paladin scored them.");
   const season = (SEASONS as readonly number[]).includes(Number(query.get("season"))) ? Number(query.get("season")) : 2024;
   const team = query.get("team") ?? "";
   const sort = (["score", "podiums", "starts", "name"].includes(query.get("sort") ?? "") ? query.get("sort") : "score") as Sort;
@@ -99,7 +99,7 @@ function DriverList({ query }: { query: URLSearchParams }) {
               value={search}
               placeholder="Search a driver"
               onChange={(e) => update({ q: e.target.value || undefined })}
-              className="min-h-10 w-52 border border-line2 bg-panel pr-3 pl-9 text-[1rem] text-ink placeholder:text-mute focus:border-ink focus:outline-none"
+              className="min-h-11 w-52 border border-control bg-panel pr-3 pl-9 text-[1rem] text-ink placeholder:text-mute focus:border-ink focus:outline-none"
             />
           </label>
           <label className="ml-auto flex items-center gap-2 text-[0.9rem] text-mute">
@@ -169,7 +169,7 @@ function DriverCard({
       style={{ borderTop: `4px solid ${colour}` }}
     >
       <div className="relative aspect-[5/4] overflow-hidden">
-        <Portrait driver={driver} colour={colour} number={line.number} className="h-full w-full" />
+        <Portrait driver={driver} colour={colour} number={line.number} className="h-full w-full" sizes="(min-width: 1280px) 300px, (min-width: 1024px) 32vw, (min-width: 640px) 48vw, 94vw" />
         <span
           aria-hidden
           className="figure pointer-events-none absolute bottom-0 left-3 translate-y-[18%] text-[6.5rem] leading-none text-transparent"
@@ -188,7 +188,7 @@ function DriverCard({
         disabled={disabled}
         aria-pressed={selected}
         aria-label={`Compare ${driver.name}`}
-        className={`absolute top-3 right-3 z-10 flex h-9 items-center gap-1.5 px-2.5 font-display text-[0.9rem] font-bold tracking-wide uppercase disabled:cursor-not-allowed disabled:opacity-40 ${
+        className={`absolute top-3 right-3 z-10 flex h-11 items-center gap-1.5 px-2.5 font-display text-[0.9rem] font-bold tracking-wide uppercase disabled:cursor-not-allowed disabled:opacity-40 ${
           selected ? "bg-ink text-paper" : "bg-tower/85 text-steel hover:text-ink"
         }`}
       >
@@ -216,7 +216,7 @@ function DriverCard({
 
         <div className="mt-3">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="label !text-[0.72rem]">Mean podium score</p>
+            <p className="label !text-[0.75rem]">Mean podium score</p>
             <p className="figure text-[1.5rem]">{line.meanScore.toFixed(2)}</p>
           </div>
           <ScoreBar value={line.meanScore} colour={colour} height={6} cutoff={false} className="mt-1.5" />
@@ -232,7 +232,7 @@ function DriverCard({
 function Mini({ label, value }: { label: string; value: string | number }) {
   return (
     <div>
-      <dt className="label !text-[0.68rem]">{label}</dt>
+      <dt className="label !text-[0.75rem]">{label}</dt>
       <dd className="figure mt-0.5 text-[1.5rem]">{value}</dd>
     </div>
   );
@@ -271,7 +271,7 @@ function ComparePanel({ refs, season, onClear, onToggle }: { refs: string[]; sea
       title={drivers.map((d) => d.last).join(" vs ")}
       tag="model"
       actions={
-        <button type="button" className="btn btn-ghost !min-h-9 !px-3 !text-[0.95rem]" onClick={onClear}>
+        <button type="button" className="btn btn-ghost !min-h-11 !px-3 !text-[0.95rem]" onClick={onClear}>
           Clear
         </button>
       }
@@ -383,7 +383,7 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
   const line = driver.seasons[String(season)];
   const colour = teamColour(line.constructorId, season);
   const team = teamOf(line.constructorId);
-  useTitle(driver.name);
+  useTitle(driver.name, `${driver.name}: results in the 2022–2024 seasons and how Paladin scored them.`);
 
   const races = racesIn(season);
   const byRace = new Map(races.map((r) => [r.id, r]));
@@ -552,7 +552,7 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
                       <td className="py-2 pr-3">
                         <span
                           className="inline-block min-w-[2.6rem] px-1.5 py-1 text-center font-display text-[0.95rem] leading-none font-bold"
-                          style={r[4] <= 3 ? { background: PLACE_COLOURS[r[4] - 1], color: "#0a0b0e" } : { background: "#1c2128", color: "#c5cad1" }}
+                          style={r[4] <= 3 ? { background: PLACE_COLOURS[r[4] - 1], color: "var(--color-on-medal)" } : { background: "var(--color-panel2)", color: "var(--color-steel)" }}
                         >
                           {/^\d+$/.test(r[6]) ? `P${r[6]}` : r[6] === "R" ? "Ret" : r[6]}
                         </span>
@@ -582,7 +582,7 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
 function Big({ label, value, note }: { label: string; value: string | number; note?: string }) {
   return (
     <div>
-      <dt className="label !text-[0.72rem]">{label}</dt>
+      <dt className="label !text-[0.75rem]">{label}</dt>
       <dd className="figure mt-1 text-[2.2rem]">{value}</dd>
       {note && <dd className="text-[0.78rem] text-mute">{note}</dd>}
     </div>

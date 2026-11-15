@@ -66,7 +66,7 @@ export function GrandPrixRace(props: RaceViewProps) {
           {/* HUD */}
           <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3 sm:p-4">
             <div className="bg-tower/90 px-2.5 py-2 whitespace-nowrap sm:px-3">
-              <p className="label !text-[0.68rem]" data-hud="lap">{lapText(lapOf(car, state.config.laps), state.config.laps)}</p>
+              <p className="label !text-[0.75rem]" data-hud="lap">{lapText(lapOf(car, state.config.laps), state.config.laps)}</p>
               <p className="font-display text-[0.9rem] font-bold tracking-wide text-ink uppercase">
                 {entrant.code}
                 <span className="hidden sm:inline"> · {entrant.team}</span>
@@ -74,13 +74,13 @@ export function GrandPrixRace(props: RaceViewProps) {
             </div>
             <div className="bg-tower/90 px-3 py-1.5 text-center whitespace-nowrap sm:px-4" aria-hidden>
               <p className="figure text-[2.6rem] leading-none sm:text-[3.2rem]" data-hud="position" style={{ color: position === 1 ? "var(--color-gold)" : undefined }}>P{position}</p>
-              <p className={`text-[0.72rem] font-semibold tracking-wide uppercase ${delta > 0 ? "text-hit" : delta < 0 ? "text-signal-text" : "text-mute"}`}>
+              <p className={`text-[0.75rem] font-semibold tracking-wide uppercase ${delta > 0 ? "text-hit" : delta < 0 ? "text-signal-text" : "text-mute"}`}>
                 {delta > 0 ? `▲ ${delta}` : delta < 0 ? `▼ ${-delta}` : `Started P${started}`}
                 {delta !== 0 && <span className="hidden sm:inline"> from the grid</span>}
               </p>
             </div>
             <div className="bg-tower/90 px-2.5 py-2 text-right whitespace-nowrap sm:min-w-[7rem] sm:px-3" aria-hidden>
-              <p className="label !text-[0.68rem]">{ahead === null ? (behind === null ? "Alone" : `Lead over ${state.entrants[behind].code}`) : `Behind ${state.entrants[ahead].code}`}</p>
+              <p className="label !text-[0.75rem]">{ahead === null ? (behind === null ? "Alone" : `Lead over ${state.entrants[behind].code}`) : `Behind ${state.entrants[ahead].code}`}</p>
               <p className="figure text-[1.35rem]">{ahead === null ? (behind === null ? "–" : gapPlain(gapSeconds(state, behind, me))) : gapPlain(gapSeconds(state, me, ahead))}</p>
             </div>
           </div>
@@ -93,13 +93,13 @@ export function GrandPrixRace(props: RaceViewProps) {
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-3 sm:p-4">
             <div className="w-40 bg-tower/90 px-3 py-2" aria-hidden>
               <div className="flex items-baseline justify-between">
-                <span className="label !text-[0.68rem]">Speed</span>
+                <span className="label !text-[0.75rem]">Speed</span>
                 <span className="figure text-[1.1rem]" data-hud="speed">{speed}</span>
               </div>
               <span className="mt-1 block h-2 bg-line">
                 <span className="block h-2 transition-[width] duration-100 motion-reduce:transition-none" style={{ width: `${Math.min(100, speed)}%`, background: props.throttle ? "var(--color-hit)" : entrant.colour }} />
               </span>
-              <p className="mt-1 text-[0.7rem] font-semibold tracking-wide text-mute uppercase">{props.throttle ? "Accelerating" : "Braking"}</p>
+              <p className="mt-1 text-[0.75rem] font-semibold tracking-wide text-mute uppercase">{props.throttle ? "Accelerating" : "Braking"}</p>
             </div>
             {cue ? (
               <p className="bg-signal px-4 py-2 font-display text-[1.3rem] font-bold tracking-[0.1em] text-white uppercase" role="status">Brake</p>
@@ -144,7 +144,7 @@ export function GrandPrixRace(props: RaceViewProps) {
             disabled={phase === "paused"}
             data-throttle
             aria-label="Throttle. Press and hold to accelerate, release to brake."
-            className={`min-h-16 select-none border px-4 font-display text-[1.3rem] font-bold tracking-[0.08em] uppercase transition-colors disabled:opacity-50 ${props.throttle ? "border-hit bg-hit text-paper" : "border-line2 bg-panel text-ink hover:border-steel"}`}
+            className={`min-h-16 select-none border px-4 font-display text-[1.3rem] font-bold tracking-[0.08em] uppercase transition-colors disabled:opacity-50 ${props.throttle ? "border-hit bg-hit text-paper" : "border-control bg-panel text-ink hover:border-steel"}`}
             style={{ touchAction: "none" }}
             onContextMenu={(event) => event.preventDefault()}
             onPointerDown={(event) => {
@@ -179,7 +179,7 @@ export function GrandPrixRace(props: RaceViewProps) {
                   <span className="mr-1 text-mute">P{order.indexOf(index) + 1}</span>
                   {state.entrants[index].code}
                 </span>
-                <span className="block text-[0.72rem] text-mute">{index === me ? "You" : slot === 0 ? `${gapPlain(gapSeconds(state, me, index))} ahead` : `${gapPlain(gapSeconds(state, index, me))} behind`}</span>
+                <span className="block text-[0.75rem] text-mute">{index === me ? "You" : slot === 0 ? `${gapPlain(gapSeconds(state, me, index))} ahead` : `${gapPlain(gapSeconds(state, index, me))} behind`}</span>
               </li>
             ),
           )}
@@ -204,7 +204,7 @@ export function GrandPrixRace(props: RaceViewProps) {
                 <span className="figure text-right text-[1.05rem]">{row.position}</span>
                 <span className="h-4 w-1" style={{ background: e.colour }} aria-hidden />
                 <span className="truncate font-display text-[1rem] font-bold uppercase">{e.code}</span>
-                <span className={`text-[0.72rem] font-semibold ${index === me ? "text-paper/70" : moved > 0 ? "text-hit" : moved < 0 ? "text-signal-text" : "text-mute"}`} aria-hidden>
+                <span className={`text-[0.75rem] font-semibold ${index === me ? "text-paper/70" : moved > 0 ? "text-hit" : moved < 0 ? "text-signal-text" : "text-mute"}`} aria-hidden>
                   {moved > 0 ? `▲${moved}` : moved < 0 ? `▼${-moved}` : "–"}
                 </span>
                 <span className={`text-right text-[0.78rem] tabular-nums ${index === me ? "text-paper/80" : "text-steel"}`}>{gapToLeader === null ? "Leader" : gapText(gapToLeader)}</span>
@@ -212,7 +212,7 @@ export function GrandPrixRace(props: RaceViewProps) {
             );
           })}
         </ol>
-        <p className="mt-3 px-1 text-[0.72rem] leading-snug text-mute">▲ ▼ show places gained or lost since the start. Gaps are rough: distance to the leader at the leader's current speed.</p>
+        <p className="mt-3 px-1 text-[0.75rem] leading-snug text-mute">▲ ▼ show places gained or lost since the start. Gaps are rough: distance to the leader at the leader's current speed.</p>
       </aside>
     </div>
   );

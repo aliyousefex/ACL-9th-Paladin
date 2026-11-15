@@ -1,14 +1,79 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 const SUFFIX = "Paladin · F1 Podium Predictor";
 
-export function useTitle(title: string | null): void {
+/** The document title for a page: its own name, then the site's. The home page is just the site's. */
+export const pageTitle = (title: string | null): string => (title ? `${title} · ${SUFFIX}` : SUFFIX);
+
+/** Head tags a page restates, as [selector, what it carries]. A page without its own title leaves the site-wide share title alone. */
+const HEAD_TAGS: [string, "title" | "description"][] = [
+  ['meta[name="description"]', "description"],
+  ['meta[property="og:title"]', "title"],
+  ['meta[property="og:description"]', "description"],
+  ['meta[name="twitter:title"]', "title"],
+  ['meta[name="twitter:description"]', "description"],
+];
+
+/**
+ * Name the page for the browser tab, history, bookmarks and anything that reads the head after the app has run (a share
+ * sheet, a crawler that renders scripts). `description` replaces the site-wide one while the page is open and is put back
+ * when it closes, so a page that gives none shows the site's. The address of a hash route is not a separate page to a
+ * search engine, so this is for the people and tools that do see it, not a promise of its own search listing.
+ */
+export function useTitle(title: string | null, description?: string): void {
   useEffect(() => {
-    document.title = title ? `${title} · ${SUFFIX}` : SUFFIX;
-  }, [title]);
+    document.title = pageTitle(title);
+    const undo: (() => void)[] = [];
+    for (const [selector, kind] of HEAD_TAGS) {
+      const value = kind === "title" ? (title ? pageTitle(title) : undefined) : description;
+      const tag = document.head.querySelector(selector);
+      if (value === undefined || !tag) continue;
+      const before = tag.getAttribute("content") ?? "";
+      tag.setAttribute("content", value);
+      undo.push(() => tag.setAttribute("content", before));
+    }
+    return () => undo.forEach((restore) => restore());
+  }, [title, description]);
 }
 
 /** A boolean kept in localStorage; falls back to memory when storage is blocked. */
+/** Layout effect on the client, plain effect on the server, so rendering to markup stays quiet. */
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/**
+ * Slide a pill to the current item of a row of links. The row marks each item with `data-nav-key`; the hook measures the
+ * current one and publishes `--pill-x`, `--pill-w` and `--pill-on` on the row for the CSS to move the pill with. It stays
+ * correct when the row resizes or the fonts arrive, and the first placement is instant, not animated from nothing.
+ */
+export function useSlidingPill<T extends HTMLElement>(activeKey: string | null): { ref: RefObject<T | null>; ready: boolean } {
+  const ref = useRef<T>(null);
+  const [ready, setReady] = useState(false);
+  useIsoLayoutEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const place = () => {
+      const item = activeKey !== null ? root.querySelector<HTMLElement>(`[data-nav-key="${activeKey}"]`) : null;
+      if (!item) {
+        root.style.setProperty("--pill-on", "0");
+        return;
+      }
+      root.style.setProperty("--pill-x", `${item.offsetLeft}px`);
+      root.style.setProperty("--pill-w", `${item.offsetWidth}px`);
+      root.style.setProperty("--pill-on", "1");
+    };
+    place();
+    const frame = requestAnimationFrame(() => setReady(true));
+    const watch = typeof ResizeObserver !== "undefined" ? new ResizeObserver(place) : null;
+    watch?.observe(root);
+    void document.fonts?.ready.then(place);
+    return () => {
+      cancelAnimationFrame(frame);
+      watch?.disconnect();
+    };
+  }, [activeKey]);
+  return { ref, ready };
+}
+
 export function useStoredFlag(key: string, initial = false): [boolean, (next: boolean) => void] {
   const [value, setValue] = useState(() => {
     try {

@@ -57,11 +57,11 @@ export function ReshufflePanel({ rows }: { rows: Row[] }) {
                 disabled={locked}
                 onClick={() => toggle(group)}
                 className={`flex min-h-14 min-w-0 flex-col items-start justify-center gap-0.5 border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed ${
-                  on ? "border-ink/70 bg-panel2 text-ink hover:border-ink" : "border-dashed border-line2 bg-transparent text-steel hover:border-steel hover:text-ink"
+                  on ? "border-ink/70 bg-panel2 text-ink hover:border-ink" : "border-dashed border-control bg-transparent text-steel hover:border-steel hover:text-ink"
                 }`}
               >
                 <span className="font-display text-[1.05rem] leading-none font-bold tracking-[0.06em] uppercase">{group}</span>
-                <span className={`text-[0.72rem] leading-snug font-semibold tracking-[0.08em] uppercase ${on ? "text-ink" : "text-mute"}`}>
+                <span className={`text-[0.75rem] leading-snug font-semibold tracking-[0.08em] uppercase ${on ? "text-ink" : "text-mute"}`}>
                   {on ? "Counts" : "Held at average"}
                   <span className="font-normal tracking-normal text-mute normal-case"> · {inputsOf(group).length} {inputsOf(group).length === 1 ? "input" : "inputs"}</span>
                 </span>
@@ -76,7 +76,7 @@ export function ReshufflePanel({ rows }: { rows: Row[] }) {
             <button
               key={preset.id}
               type="button"
-              className="chip !min-h-9 !px-3"
+              className="chip !min-h-11 !px-3"
               aria-pressed={sameSet(held, preset.hold)}
               onClick={() => {
                 haptic("select");

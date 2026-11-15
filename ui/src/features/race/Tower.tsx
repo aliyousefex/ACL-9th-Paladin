@@ -134,8 +134,8 @@ export function Tower({
                       className="inline-block min-w-[2.6rem] px-1.5 py-1 text-center font-display text-[0.95rem] leading-none font-bold"
                       style={
                         row.finish && row.finish <= 3
-                          ? { background: PLACE_COLOURS[row.finish - 1], color: "#0a0b0e" }
-                          : { background: "#1c2128", color: "#c5cad1" }
+                          ? { background: PLACE_COLOURS[row.finish - 1], color: "var(--color-on-medal)" }
+                          : { background: "var(--color-panel2)", color: "var(--color-steel)" }
                       }
                     >
                       {classifiedLabel(row)}

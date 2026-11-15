@@ -21,7 +21,7 @@ import {
 } from "../../lib/data";
 import { longDate } from "../../lib/format";
 import { THRESHOLD } from "../../lib/model";
-import { readBookmarks, toggleBookmark } from "../../lib/challenge";
+import { markRevealed, readBookmarks, toggleBookmark } from "../../lib/challenge";
 import { useScrollSpy, useStoredFlag, useTitle } from "../../lib/hooks";
 import { href, navigate } from "../../lib/router";
 import { CircuitPanel } from "./CircuitPanel";
@@ -45,8 +45,13 @@ import { WhatIfPanel } from "./WhatIfPanel";
 import { SimulationPanel } from "../simulation/SimulationPanel";
 import { DecisionStudio } from "../decision/DecisionStudio";
 import { PLACE_COLOURS, buildRows, type Row } from "./rows";
+import { GuidedJourney } from "./GuidedJourney";
+import { FieldPanel } from "./FieldPanel";
+import { FirmnessPanel } from "./FirmnessPanel";
+import { ModeSwitch, MoreTools } from "./ModeSwitch";
+import { linkNeedsExpert, panelVisible, useViewMode, type ViewMode } from "../../lib/mode";
 
-const SPY = ["circuit", "grid", "challenge", "prediction", "rebels", "leaderboard", "compare", "reshuffle", "what-if", "result", "decision", "autopsy", "trace", "replay", "lab", "championship"];
+const SPY = ["circuit", "grid", "challenge", "prediction", "firmness", "field", "rebels", "leaderboard", "compare", "reshuffle", "what-if", "result", "decision", "autopsy", "trace", "replay", "lab", "championship"];
 
 export function RacePage({ year, slug }: { year: number; slug: string }) {
   const race = RACES.find((r) => r.year === year && r.slug === slug);
@@ -56,7 +61,7 @@ export function RacePage({ year, slug }: { year: number; slug: string }) {
 
 function Race({ race }: { race: RaceMeta }) {
   const circuit = circuitOf(race.circuitId);
-  useTitle(`${race.name} ${race.year}`);
+  useTitle(`${race.name} ${race.year}`, `Paladin's podium call for the ${race.name} ${race.year}: the grid, the prediction, then the result and what the model missed.`);
   useEffect(() => rememberRace(raceHref(race)), [race]);
 
   const detail = useResource(String(race.id), () => loadRace(race.id));
@@ -75,6 +80,14 @@ function Race({ race }: { race: RaceMeta }) {
   const [presenting, setPresenting] = useState(() => /[?&]present=1(&|$)/.test(window.location.hash));
   const [flag, setFlag] = useState(false);
   const revealed = always || flag;
+  // Remember for good that this browser has seen the result, so a later pick can never count as blind.
+  useEffect(() => {
+    if (revealed) markRevealed(race.id);
+  }, [revealed, race.id]);
+  // Simple mode follows one path; Expert adds every tool. A shared scenario link opens in Expert for that visit.
+  const [storedMode, setMode] = useViewMode();
+  const mode: ViewMode = storedMode === "expert" || linkNeedsExpert(window.location.hash) ? "expert" : "simple";
+  const show = (id: string) => panelVisible(id, mode);
 
   // defaults once the rows exist: compare the two highest scores, look at the top-ranked driver
   useEffect(() => {
@@ -88,7 +101,7 @@ function Race({ race }: { race: RaceMeta }) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id].slice(-3)));
   };
 
-  const active = useScrollSpy(SPY);
+  const active = useScrollSpy(SPY.filter(show));
 
   // Post-race material for the presenter exists only once the result is revealed, so the script cannot mention it earlier.
   const post = useMemo(() => {
@@ -113,10 +126,12 @@ function Race({ race }: { race: RaceMeta }) {
 
   return (
     <div className="page-in">
-      <RaceHeader race={race} circuitName={circuit.name} flag={circuit.flag} top={rows.slice(0, 3)} revealed={revealed} presenting={presenting} canPresent={rows.length > 0} onPresent={() => setPresenting((on) => !on)} />
-      <SubNav active={active} />
+      <RaceHeader race={race} circuitName={circuit.name} flag={circuit.flag} top={rows.slice(0, 3)} revealed={revealed} presenting={presenting} canPresent={rows.length > 0} onPresent={() => setPresenting((on) => !on)} mode={mode} onMode={setMode} />
+      <SubNav active={active} mode={mode} />
       <div className="mx-auto max-w-[1320px] space-y-6 px-4 pt-6 sm:px-6 lg:px-10">
         <CircuitPanel race={race} circuit={circuit} revealed={revealed} />
+
+        <GuidedJourney race={race} rows={rows} revealed={revealed} />
 
         {detail.loading && !detail.data && (
           <div className="panel">
@@ -136,9 +151,20 @@ function Race({ race }: { race: RaceMeta }) {
             <Lazy id="prediction" minHeight={640}>
               <Podium top={rows.slice(0, 3)} runKey={runKey} onRun={() => setRunKey((k) => k + 1)} revealed={revealed} />
             </Lazy>
+            <Lazy id="firmness" minHeight={520}>
+              <FirmnessPanel race={race} rows={rows} />
+            </Lazy>
+            {show("field") && (
+            <Lazy id="field" minHeight={700}>
+              <FieldPanel rows={rows} revealed={revealed} />
+            </Lazy>
+            )}
+            {show("rebels") && (
             <Lazy id="rebels" minHeight={420}>
               <GridRebels rows={rows} revealed={revealed} />
             </Lazy>
+            )}
+            {show("leaderboard") && (
             <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
               <Lazy id="leaderboard" minHeight={1150}>
                 <Tower rows={rows} selected={selected} onToggle={toggle} revealed={revealed} hovered={hovered} onHover={setHovered} />
@@ -153,27 +179,37 @@ function Race({ race }: { race: RaceMeta }) {
                 />
               </Lazy>
             </div>
+            )}
+            {show("reshuffle") && (
             <Lazy id="reshuffle" minHeight={1000}>
               <ReshufflePanel rows={rows} />
             </Lazy>
+            )}
+            {show("what-if") && (
             <Lazy id="what-if" minHeight={560}>
               <WhatIfPanel rows={rows} focus={focus} onFocus={setFocus} />
             </Lazy>
+            )}
 
             <LightsOut />
 
             <Lazy id="result" minHeight={revealed ? 1500 : 220}>
               <ResultPanel race={race} rows={rows} revealed={revealed} onReveal={() => setFlag(true)} alwaysShow={always} onAlwaysShow={setAlways} />
             </Lazy>
+            {show("decision") && (
             <Lazy id="decision" minHeight={revealed ? 1180 : 0}>
               {revealed && detail.data ? <DecisionStudio race={race} rows={rows} detail={detail.data} advanced={advanced.data} /> : null}
             </Lazy>
+            )}
             <Lazy id="autopsy" minHeight={revealed ? 1000 : 0}>
               {revealed ? <Autopsy race={race} rows={rows} /> : null}
             </Lazy>
+            {show("trace") && (
             <Lazy id="trace" minHeight={revealed ? 1100 : 0}>
               {revealed && detail.data ? <RaceTrace race={race} rows={rows} detail={detail.data} /> : null}
             </Lazy>
+            )}
+            {show("replay") && (
             <Lazy id="replay" minHeight={revealed ? 900 : 0}>
               {revealed && detail.data ? (
                 <ReplayPanel
@@ -185,12 +221,18 @@ function Race({ race }: { race: RaceMeta }) {
                 />
               ) : null}
             </Lazy>
+            )}
+            {show("lab") && (
             <Lazy id="lab" minHeight={revealed ? 980 : 0}>
               {revealed ? <SimulationPanel rows={rows} layout={layout.data} totalLaps={race.scheduledLaps ?? detail.data?.laps.n ?? race.lapsRun} /> : null}
             </Lazy>
+            )}
+            {show("championship") && (
             <Lazy id="championship" minHeight={revealed ? 900 : 0}>
               {revealed ? <ChampionshipWhatIf race={race} rows={rows} /> : null}
             </Lazy>
+            )}
+            {mode === "simple" && <MoreTools onExpert={() => setMode("expert")} />}
           </>
         )}
       </div>
@@ -226,6 +268,8 @@ function RaceHeader({
   presenting,
   canPresent,
   onPresent,
+  mode,
+  onMode,
 }: {
   race: RaceMeta;
   circuitName: string;
@@ -235,6 +279,8 @@ function RaceHeader({
   presenting: boolean;
   canPresent: boolean;
   onPresent: () => void;
+  mode: ViewMode;
+  onMode: (next: ViewMode) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [bookmarked, setBookmarked] = useState(() => readBookmarks().includes(race.id));
@@ -251,23 +297,24 @@ function RaceHeader({
       <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="eyebrow">
-            <a className="inline-flex min-h-8 items-center no-underline hover:text-ink" href={href("/", { season: race.year })}>
+            <a className="inline-flex min-h-11 items-center no-underline hover:text-ink" href={href("/", { season: race.year })}>
               {race.year} season
             </a>
             <span aria-hidden className="text-mute">/</span>
             Round {race.round}
           </p>
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-            <a className="btn btn-ghost !min-h-10 !px-3" href={href("/race-lab", { r: race.id })}>
+            <ModeSwitch mode={mode} onChange={onMode} />
+            <a className="btn btn-ghost !min-h-11 !min-w-11 !px-3" href={href("/race-lab", { r: race.id })}>
               <Icon name="sliders" size={15} /> Race Lab
             </a>
-            <button type="button" className="btn btn-ghost !min-h-10 !px-3" aria-pressed={presenting} disabled={!canPresent} onClick={onPresent}>
+            <button type="button" className="btn btn-ghost !min-h-11 !min-w-11 !px-3" aria-pressed={presenting} disabled={!canPresent} onClick={onPresent}>
               <Icon name="play" size={14} />
               {presenting ? "Presenting" : "Present"}
             </button>
             <button
               type="button"
-              className={`btn btn-ghost !min-h-10 !px-3 ${bookmarked ? "!border-amber !text-amber" : ""}`}
+              className={`btn btn-ghost !min-h-11 !min-w-11 !px-3 ${bookmarked ? "!border-amber !text-amber" : ""}`}
               aria-pressed={bookmarked}
               onClick={() => setBookmarked(toggleBookmark(race.id).includes(race.id))}
             >
@@ -275,7 +322,7 @@ function RaceHeader({
             </button>
             <button
               type="button"
-              className="btn btn-ghost !min-h-10 !px-3"
+              className="btn btn-ghost !min-h-11 !min-w-11 !px-3"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(window.location.href);
@@ -290,7 +337,7 @@ function RaceHeader({
               {copied ? "Link copied" : "Share race"}
             </button>
             <a
-              className={`btn btn-ghost !min-h-10 !px-3 ${prev ? "" : "pointer-events-none opacity-30"}`}
+              className={`btn btn-ghost !min-h-11 !min-w-11 !px-3 ${prev ? "" : "pointer-events-none opacity-30"}`}
               href={prev ? href(raceHref(prev)) : undefined}
               aria-label={prev ? `Previous race: ${prev.name} ${prev.year}` : "No previous race"}
               aria-disabled={!prev}
@@ -313,7 +360,7 @@ function RaceHeader({
               </select>
             </label>
             <a
-              className={`btn btn-ghost !min-h-10 !px-3 ${next ? "" : "pointer-events-none opacity-30"}`}
+              className={`btn btn-ghost !min-h-11 !min-w-11 !px-3 ${next ? "" : "pointer-events-none opacity-30"}`}
               href={next ? href(raceHref(next)) : undefined}
               aria-label={next ? `Next race: ${next.name} ${next.year}` : "No next race"}
               aria-disabled={!next}
@@ -348,6 +395,8 @@ const SUBNAV = [
   { id: "grid", label: "Grid" },
   { id: "challenge", label: "Your call" },
   { id: "prediction", label: "Prediction" },
+  { id: "firmness", label: "Confidence" },
+  { id: "field", label: "Field model" },
   { id: "rebels", label: "Rebels" },
   { id: "leaderboard", label: "Ranking" },
   { id: "compare", label: "Compare" },
@@ -362,7 +411,8 @@ const SUBNAV = [
   { id: "championship", label: "Alternate", after: true },
 ];
 
-function SubNav({ active }: { active: string }) {
+function SubNav({ active, mode }: { active: string; mode: ViewMode }) {
+  const items = SUBNAV.filter((item) => panelVisible(item.id, mode));
   const jump = (id: string) => (event: React.MouseEvent) => {
     event.preventDefault();
     const node = document.getElementById(id);
@@ -374,17 +424,17 @@ function SubNav({ active }: { active: string }) {
     <nav
       aria-label="On this race"
       className="sticky z-40 border-b border-line bg-tower/95 backdrop-blur-sm"
-      style={{ top: "var(--nav-h)" }}
+      style={{ top: "var(--sticky-top)" }}
     >
       <ul className="no-scrollbar mx-auto flex max-w-[1320px] items-center gap-1 overflow-x-auto px-4 sm:px-6 lg:px-10">
-        {SUBNAV.map((item, i) => (
+        {items.map((item, i) => (
           <li key={item.id} className="flex shrink-0 items-center">
-            {item.after && !SUBNAV[i - 1]?.after && <span className="mx-2 h-5 w-[3px] -skew-x-12 bg-signal" aria-hidden title="Lights out" />}
+            {item.after && !items[i - 1]?.after && <span className="mx-2 h-5 w-[3px] -skew-x-12 bg-signal" aria-hidden title="Lights out" />}
             <a
               href={`#${item.id}`}
               onClick={jump(item.id)}
               aria-current={active === item.id ? "true" : undefined}
-              className={`relative px-3 py-3 font-display text-[0.98rem] leading-none font-semibold tracking-[0.1em] uppercase no-underline transition-colors ${
+              className={`relative flex min-h-11 items-center px-3 font-display text-[0.98rem] leading-none font-semibold tracking-[0.1em] uppercase no-underline transition-colors ${
                 active === item.id ? "text-ink" : "text-mute hover:text-ink"
               }`}
             >
@@ -424,8 +474,8 @@ function PredictionStrip({ top, revealed }: { top: Row[]; revealed: boolean }) {
       aria-label="Jump to the predicted podium"
     >
       <span className="flex items-center justify-between gap-3">
-        <span className="label !text-[0.74rem]">Model's top three</span>
-        <span className="tag tag-model !text-[0.66rem]">Model output</span>
+        <span className="label !text-[0.75rem]">Model's top three</span>
+        <span className="tag tag-model !text-[0.75rem]">Model output</span>
       </span>
       <span className="mt-2 flex gap-2" aria-hidden={top.length === 0}>
         {top.length === 0

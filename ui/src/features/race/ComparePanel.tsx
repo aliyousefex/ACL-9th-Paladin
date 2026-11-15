@@ -159,7 +159,7 @@ function DriverCard({ row, onRemove, revealed, field }: { row: Row; onRemove: ()
   const above = row.score >= THRESHOLD;
   return (
     <article className="relative flex gap-4 border border-line bg-tower p-3 sm:p-4" style={{ borderTop: `3px solid ${row.colour}` }}>
-      <Portrait driver={row.driver} colour={row.colour} number={row.entry.n} className="h-20 w-20 shrink-0 sm:h-24 sm:w-24" label={row.driver.name} />
+      <Portrait driver={row.driver} colour={row.colour} number={row.entry.n} className="h-20 w-20 shrink-0 sm:h-24 sm:w-24" sizes="96px" label={row.driver.name} />
       <div className="min-w-0 flex-1">
         <p className="truncate font-display text-[1.5rem] leading-none font-bold uppercase">{row.driver.last}</p>
         <p className="mt-1 truncate text-[0.88rem] text-mute">
@@ -216,17 +216,17 @@ function FieldStrip({ rows, chosen }: { rows: Row[]; chosen: Row[] }) {
     <figure ref={wrap} className="mt-6">
       <figcaption className="label mb-2">Where the field sits on the score axis</figcaption>
       <svg viewBox={`0 0 ${W} ${height + 26}`} width={W} height={height + 26} className="block h-auto w-full" role="img" aria-label="Podium scores of every driver on a 0 to 1 axis">
-        <line x1={EDGE} x2={W - EDGE} y1={height} y2={height} stroke="#39414c" />
+        <line x1={EDGE} x2={W - EDGE} y1={height} y2={height} stroke="var(--color-line2)" />
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <g key={t}>
-            <line x1={at(t)} x2={at(t)} y1={height} y2={height + 6} stroke="#39414c" />
-            <text x={at(t)} y={height + 22} fill="#98a0ab" fontSize={13} textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"}>
+            <line x1={at(t)} x2={at(t)} y1={height} y2={height + 6} stroke="var(--color-line2)" />
+            <text x={at(t)} y={height + 22} fill="var(--color-mute)" fontSize={13} textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"}>
               {t.toFixed(2)}
             </text>
           </g>
         ))}
-        <line x1={at(THRESHOLD)} x2={at(THRESHOLD)} y1={4} y2={height} stroke="#f4f4f2" strokeOpacity={0.7} strokeDasharray="4 4" />
-        <text x={at(THRESHOLD) + 6} y={14} fill="#c5cad1" fontSize={13}>
+        <line x1={at(THRESHOLD)} x2={at(THRESHOLD)} y1={4} y2={height} stroke="var(--color-ink)" strokeOpacity={0.7} strokeDasharray="4 4" />
+        <text x={at(THRESHOLD) + 6} y={14} fill="var(--color-steel)" fontSize={13}>
           cutoff {THRESHOLD.toFixed(3)}
         </text>
         {lanes.map(({ row, lane }) => {
@@ -235,9 +235,9 @@ function FieldStrip({ rows, chosen }: { rows: Row[]; chosen: Row[] }) {
           const cy = height - 12 - lane * 16;
           return (
             <g key={row.driver.id}>
-              <circle cx={cx} cy={cy} r={on ? 7 : 5} fill={on ? row.colour : "#4a525d"} stroke={on ? "#f4f4f2" : "none"} strokeWidth={2} />
+              <circle cx={cx} cy={cy} r={on ? 7 : 5} fill={on ? row.colour : "#4a525d"} stroke={on ? "var(--color-ink)" : "none"} strokeWidth={2} />
               {on && (
-                <text x={Math.min(W - 22, Math.max(22, cx))} y={cy - 12} fill="#f4f4f2" fontSize={14} fontWeight={700} textAnchor="middle" style={{ fontFamily: "var(--font-display)" }}>
+                <text x={Math.min(W - 22, Math.max(22, cx))} y={cy - 12} fill="var(--color-ink)" fontSize={14} fontWeight={700} textAnchor="middle" style={{ fontFamily: "var(--font-display)" }}>
                   {row.driver.code}
                 </text>
               )}

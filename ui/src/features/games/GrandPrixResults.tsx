@@ -139,7 +139,7 @@ export function GrandPrixResults(props: ResultsProps) {
 function Stat({ label, value, note }: { label: string; value: string; note: string }) {
   return (
     <div className="bg-panel px-3 py-3">
-      <dt className="label !text-[0.68rem]">{label}</dt>
+      <dt className="label !text-[0.75rem]">{label}</dt>
       <dd className="figure mt-1 text-[1.8rem]">{value}</dd>
       <dd className="mt-0.5 text-[0.75rem] text-mute">{note}</dd>
     </div>

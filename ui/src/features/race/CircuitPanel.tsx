@@ -4,6 +4,7 @@ import { Panel } from "../../components/Panel";
 import { Note, Stat } from "../../components/Bits";
 import { driver, loadLayout, useResource, layoutFor, type Circuit, type Layout, type RaceMeta } from "../../lib/data";
 import { lapTime } from "../../lib/format";
+import { href } from "../../lib/router";
 
 /** The real circuit: outline, numbered corners, sectors and DRS usage, with the facts that go with it. */
 export function CircuitPanel({ race, circuit, revealed }: { race: RaceMeta; circuit: Circuit; revealed: boolean }) {
@@ -61,6 +62,15 @@ export function CircuitPanel({ race, circuit, revealed }: { race: RaceMeta; circ
               valueClassName="text-[2.2rem]"
             />
           </dl>
+
+          {revealed && (
+            <p className="mt-6 text-[0.95rem] text-steel">
+              <a className="inline-flex min-h-11 items-center underline decoration-line2 underline-offset-2 hover:text-ink" href={href("/history", { tab: "circuit", c: race.circuitId })}>
+                Who has stood on this circuit's podium, constructor by constructor
+              </a>
+              <span className="block text-[0.82rem] text-mute">From the knowledge graph. Counts every year to 2024, including this race, so it appears only after the reveal.</span>
+            </p>
+          )}
 
           {meta.file && meta.note && (
             <div className="mt-6">

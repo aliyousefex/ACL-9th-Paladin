@@ -1,4 +1,4 @@
-const VERSION = "paladin-v1";
+const VERSION = "paladin-v2";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 const CORE = [

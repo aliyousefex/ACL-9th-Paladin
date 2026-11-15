@@ -119,12 +119,12 @@ function CaseCard({ item, field }: { item: AutopsyCase; field: number }) {
       <p className="mt-1 text-[0.8rem] text-mute">{kind.detail}</p>
 
       <div className="mt-4">
-        <p className="label !text-[0.72rem] !text-signal-text">Before the start</p>
+        <p className="label !text-[0.75rem] !text-signal-text">Before the start</p>
         <p className="mt-1 text-[0.98rem] text-steel">
           Ranked {ordinal(item.modelRank)} of {field}, score <span className="font-semibold text-ink tabular-nums">{item.score.toFixed(2)}</span>
           {item.aboveCutoff ? ", above" : ", below"} the cutoff. Started {item.grid ? `P${item.grid}` : "from the pit lane"}.
         </p>
-        <p className="label mt-3 !text-[0.72rem]">{item.kind === "miss" ? "Held back by" : "Lifted by"}</p>
+        <p className="label mt-3 !text-[0.75rem]">{item.kind === "miss" ? "Held back by" : "Lifted by"}</p>
         {item.reasons.length === 0 ? (
           <p className="mt-1 text-[0.9rem] text-mute">No single input stands out from the field.</p>
         ) : (
@@ -140,7 +140,7 @@ function CaseCard({ item, field }: { item: AutopsyCase; field: number }) {
       </div>
 
       <div className="mt-4 border-t border-line pt-3">
-        <p className="label !text-[0.72rem] !text-steel">After the flag</p>
+        <p className="label !text-[0.75rem] !text-steel">After the flag</p>
         <p className="mt-1 text-[0.98rem] font-semibold text-ink">{item.aftermath}</p>
         {item.didNotFinish && item.kind !== "miss" && (
           <p className="mt-1 text-[0.85rem] text-mute">None of the model's 16 inputs measures reliability, so this was outside what it could see.</p>

@@ -9,7 +9,7 @@ export function Flag({ code, className = "" }: { code: string | null | undefined
       height={12}
       loading="lazy"
       decoding="async"
-      className={`inline-block h-3 w-[18px] shrink-0 border border-white/20 object-cover ${className}`}
+      className={`inline-block h-3 w-[18px] shrink-0 border border-line2 object-cover ${className}`}
     />
   );
 }

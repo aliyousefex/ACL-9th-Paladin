@@ -637,6 +637,58 @@ Credits: results and laps from the Kaggle copy of the Ergast database; circuit m
 (per-photo credits are listed on the model page and in `ui/src/data/portraits.json`); flags from country-flag-icons (MIT); fonts Barlow, Barlow Condensed and Anton
 (SIL Open Font Licence). Paladin is an independent hobby project developed from ACL-903 coursework. It is not affiliated with or endorsed by any university, Formula 1, the FIA or any team.
 
+## Beyond Milestone 1: field ranking, uncertainty, error analysis and the graph
+
+These additions sit beside the frozen coursework model. They never replace it, and every artifact they write records `officialCourseworkBaselineChanged: false`. Each is labelled on the site, so a viewer can tell the coursework model from an experiment.
+
+| Addition | What it is | Regenerate | Checked by |
+| --- | --- | --- | --- |
+| Field model | A Plackett-Luce ranking over the same 16 inputs: one utility per driver, and the podium drawn three times without replacement. It gives an exact probability for every podium combination. | `.venv\Scripts\python.exe scripts\run_field_ranking.py` writes `artifacts/field-ranking/` and `ui/src/data/field-model.json` | `tests/test_field_ranking.py`; `ui/tests/fieldModel.test.ts` (the browser reproduces the Python probabilities) |
+| Firmness label | A per-driver label (high confidence, contested, fragile) from how often a name survives small input nudges and whether the field model agrees, evaluated on all 68 races | `npm run evaluate:firmness` in `ui/` writes `ui/src/data/firmness.json` | `ui/tests/firmness.test.ts` (fails if the saved file is stale) |
+| Error Atlas | `#/analysis`: where Paladin and the starting grid hit and miss, and a five-question breakdown of every held-out race. Computed in the browser from `drivers.json` and `races.json`. | nothing to run | `ui/tests/atlas.test.ts` |
+| History graph | `#/history`: teammate chains, driver careers and circuit podium networks from the Milestone 2 graph. The site is static, so it answers from an export of the same CSV files. | `.venv\Scripts\python.exe scripts\export_graph_data.py` writes `ui/public/data/graph/graph.json` | `tests/test_graph_export.py`; `ui/tests/graph.test.ts` |
+| Simple and Expert view, search | The race page has two levels of detail, a first-visit guide, and search (`/` or Ctrl+K) over races, drivers, circuits and pages. | nothing to run | `ui/tests/mode.test.ts`, `ui/tests/search.test.ts`, `ui/e2e/release.spec.ts` |
+| Season league and share cards | `#/league`: call races blind, compare with Paladin and the grid on the same races, download a card, and compare with a friend through a short checksummed code. Everything stays in the browser. | nothing to run | `ui/tests/league.test.ts`, `ui/tests/shareCode.test.ts`, `ui/tests/card.test.ts`, `ui/e2e/release.spec.ts` |
+
+What the measurements say, including the parts that do not flatter the additions:
+
+- **Names per race, 68 held-out races.** The classifier's top three held 132 podium finishers, the starting grid's held 133, and the field model's held 130. All three paired bootstrap intervals contain zero, so none is shown to name more podium finishers than another. The classifier and the grid trade names: the classifier adds 21 podium finishers who started outside the top three and leaves out 22 who started inside it.
+- **Field model.** Only its L2 strength was chosen, on 2020-2021 validation log-likelihood. On test its log-loss on the real podium is 4.755, against 4.763 for the classifier's scores used the same way and 5.598 for the grid alone (guessing scores 8.828). Its probabilities sum to exactly 3 per race, and its most likely podium happened in 13 of 68 races (19%) against an average stated chance of 19%. Its raw Brier score looks far better than the classifier's, but that comparison is unfair: the classifier was trained with `class_weight="balanced"`, so its score is a ranking score and not a probability. Recalibrated on validation, the two are level (0.0701 against 0.0709). `field_size` and `year` are constant within a race, so they cancel out of this model.
+- **Firmness label.** Its thresholds and the nudge size were fixed before any outcome was looked at. High-confidence names reached the podium 96 times in 134 (72%); the other 70 names reached it 36 times (51%). Contested (22 of 46) and fragile (14 of 24) are not separated from each other by that many names, and the page says so.
+- **Season league.** It is a game, not model evaluation, and it is an honor system. A pick counts only if it was locked while the result was hidden, in a browser that had never shown that race's result (reveals are remembered, so a refresh cannot launder a pick), and a counted pick is final once revealed. Paladin and the grid are scored on exactly the races you called, so choosing easy races cannot flatter a score, and a verdict ("ahead", "behind") appears only from 10 races and only when a resampled interval excludes zero. Paladin's call is visible on the race page, so a player can copy it; the league reports how often your picks matched Paladin's. Share codes carry a checksum, which catches typos and edits, and not a signature, so anyone can build a valid one by hand.
+- **Evaluation status.** 2022-2024 was reviewed during earlier product iterations, so these are retrospective benchmarks and not a pristine final hold-out.
+- **History graph.** Race-result points only: the Milestone 2 graph does not load `sprint_results.csv`, so a season total can sit a few points under the official one (Verstappen 2021: 388.5 here, 395.5 officially, the 7-point difference being his sprint points). A driver at a race counts once, even in the early seasons when a driver could hold two results. The Cypher in `milestone_2/product_queries.cypher` gives each question with parameters instead of hard-coded ids, and the site shows it beside every answer. It was **not executed against a live Neo4j** when written; the exported answers are checked against independent recomputation from the CSV files.
+
+## Light theme, accessibility and performance
+
+The interface has a light theme and a dark one (the default). A sliding light/dark switch in the header follows the device (live) until it is flipped, then remembers the choice. The new theme spreads from the switch as a soft-edged wipe (a fade where the browser has no view transitions, and nothing at all with reduced motion). The design rules and the numbers are in `DESIGN.md`; what keeps them true is below.
+
+| Concern | What was done | Checked by |
+| --- | --- | --- |
+| Light and dark theme | Colour is a token everywhere; the light palette is checked pair by pair for WCAG AA. The theme is resolved before first paint. | `ui/tests/theme.test.ts`, and an e2e test that measures the rendered contrast of every text run on nine pages in both themes |
+| Control visibility | A dedicated control-border colour, at least 3:1 on every surface in both themes | `ui/tests/theme.test.ts` |
+| Text size | Nothing below 12px; provenance tags 12.8px | `ui/tests/typography.test.ts` |
+| Touch targets | Nothing pressable under 24px on a phone, and under 10% under 44px | e2e `touch targets` |
+| Navigation | A floating pill bar, centred on its middle, with a quiet tonal indicator that slides to the current destination, and a sliding light/dark switch (a real `role="switch"`: Space flips it). On a phone the destinations move to a bottom dock of five destinations and More; scrolling down slides the brand bar away while the dock stays, and the Race page's section navigation takes the top. Scrolling up or focusing the bar restores it. | e2e `phone header` and `theme`, `ui/tests/accessibility.test.ts` |
+| Long pages | The Error Atlas ledger shows 15 races at a time; a back-to-top button appears after two screens | e2e `Error Atlas` |
+| Image weight | A 320px copy of each driver portrait, chosen by `srcset` when the slot is small: `.venv\Scripts\python.exe scripts\optimize_portraits.py` | `tests/test_optimize_portraits.py`, `ui/tests/portraits.test.ts` |
+
+A note on one number. An early audit reported the Drivers page at about 910 KB on a phone. That figure was measured after scrolling to the very end of the page; a real first view is about 350 KB, and the service worker serves repeat visits from its cache. The portrait copies cut the bytes a desktop visitor downloads for the driver cards by roughly 40%. `vercel.json` also sets long cache lifetimes for hashed assets, fonts and images; that file is listed in `.gitignore`, so it is part of your local deployment setup and not of the repository.
+
+The end-to-end suite pins the dark theme by default (`colorScheme: "dark"` in `ui/playwright.config.ts`) so its screenshots stay comparable, and tests the light theme explicitly.
+
+### Icons, search and sharing
+
+| Concern | What was done | Checked by |
+| --- | --- | --- |
+| Favicon and app icons | The rearing horse from the logo, in ink on the page's near-black. It is traced once from the logo into a single vector outline (`.venv\Scripts\python.exe scripts\trace_horse.py` writes `scripts/horse_outline.json`), so it is a drawing and not a shrunken bitmap, and it stays recognisable at 16px. The SVG and every raster size (`favicon.ico` with 16, 32 and 48px, `icon-192`, `icon-512`, a separate padded `icon-maskable-512`, and a full-bleed `apple-touch-icon`) are drawn from that outline by one script: `.venv\Scripts\python.exe scripts\make_icons.py` | `tests/test_make_icons.py`, `ui/tests/seo.test.ts` |
+| Page head | One title, a 70 to 160 character description, language, robots, complete Open Graph and Twitter tags with alt text, and structured data (`WebSite` and `WebApplication`) that claims no ratings or offers. A `noscript` block gives crawlers and readers without scripts something to read. | `ui/tests/seo.test.ts` |
+| Per page | Every page sets its own tab title and, while it is open, its own description and share title (`useTitle`). The home page keeps the site-wide ones. | `ui/tests/seo.test.ts` |
+| Address-dependent tags | The canonical link, `og:url`, absolute share-image URLs, `robots.txt` and `sitemap.xml` need the public address. Build with `VITE_SITE_URL=https://your-domain npm run build` (Vercel's production host is picked up automatically). With no address those tags are left out rather than guessed. | `ui/tests/seo.test.ts` |
+| Offline cache | The service worker cache name was bumped (`paladin-v2`) so returning visitors drop the old icons and shell. | n/a |
+
+What this cannot do. The site is one page with hash routes (`#/race/2024/monaco`), and search engines and link-preview bots ignore everything after the `#`, so a race or driver page has no search listing or share preview of its own: they all see the home page's. Giving each race its own preview needs path routing and pre-rendered pages, which depends on where it is deployed.
+
 ## Kaggle notebook
 
 The repository notebook is the Kaggle submission notebook too. Wa7ed notebook is easier to check and avoids local and Kaggle copies drifting apart.
@@ -683,6 +735,12 @@ The first notebook cell searches `/kaggle/input` for `results.csv`. All analysis
 18. `F` rows leave before any feature is built and `W` rows stay: no podium is lost, field size and race counts use entered races only, and the validation and test rows are unchanged.
 19. The non-starter experiment compares the decision on the same validation rows.
 20. The race bootstrap covers validation and test without rescoring or choosing anything.
+
+Added after Milestone 1 (these need only numpy, pandas, scipy and pytest, never scikit-learn):
+
+- `tests/test_field_ranking.py`: the Plackett-Luce gradient matches finite differences, the podium distribution is exact (sums to one, marginals sum to three), the fit recovers the weights that generated simulated races, race-constant inputs cancel, and the saved results agree with the shipped hit counts.
+- `tests/test_graph_export.py`: every expected value is recomputed by a different code path from the CSV files, including Query 1 (2021 standings) and Query 3 (Hamilton and Bottas). It also checks that race points plus sprint points equal the official 395.5 and 387.5, and that every Cypher parameter is declared.
+- The UI suite (`npm test` in `ui/`) adds tests for the atlas arithmetic, the field model parity with Python, the firmness label, the graph queries (chain length checked against an independent search), Simple and Expert view, and search.
 
 ## Verified headline results
 

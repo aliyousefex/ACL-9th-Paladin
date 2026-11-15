@@ -211,7 +211,7 @@ function LoadedStage({ name, layout, maxHeight, onCorner }: { name: string; layo
               type="button"
               disabled={!zoomed}
               onClick={() => apply({ type: "reset" })}
-              className="inline-flex min-h-11 items-center gap-2 border border-line2 px-3 font-display text-[0.92rem] font-bold tracking-[0.08em] text-ink uppercase transition-colors hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:text-mute"
+              className="inline-flex min-h-11 items-center gap-2 border border-control px-3 font-display text-[0.92rem] font-bold tracking-[0.08em] text-ink uppercase transition-colors hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:text-mute"
             >
               <Icon name="replay" size={16} /> Reset<span className="max-[420px]:sr-only">{" view"}</span>
             </button>
@@ -264,7 +264,7 @@ function ZoomButton({ label, disabled, onClick, children }: { label: string; dis
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="inline-grid min-h-11 min-w-11 place-items-center border border-line2 text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:text-mute"
+      className="inline-grid min-h-11 min-w-11 place-items-center border border-control text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:text-mute"
     >
       {children}
     </button>

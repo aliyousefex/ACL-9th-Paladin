@@ -92,7 +92,7 @@ export function SimulationPanel({ rows, layout, totalLaps }: { rows: Row[]; layo
       eyebrow="Strategy Laboratory"
       title="Run a synthetic strategy scenario"
       tag="simulation"
-      actions={<><button type="button" className="btn btn-ghost !min-h-9 !px-3 !text-[0.95rem]" onClick={share}>{copied ? "Scenario copied" : "Share scenario"}</button><button type="button" className="btn !min-h-9 !px-3 !text-[0.95rem]" onClick={() => { setSeed((value) => value + 1); setLap(0); setPlaying(!reduce); }}>Run new seed</button></>}
+      actions={<><button type="button" className="btn btn-ghost !min-h-11 !px-3 !text-[0.95rem]" onClick={share}>{copied ? "Scenario copied" : "Share scenario"}</button><button type="button" className="btn !min-h-11 !px-3 !text-[0.95rem]" onClick={() => { setSeed((value) => value + 1); setLap(0); setPlaying(!reduce); }}>Run new seed</button></>}
     >
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_22rem]">
         <div className="min-w-0">
@@ -147,10 +147,10 @@ export function SimulationPanel({ rows, layout, totalLaps }: { rows: Row[]; layo
                     type="button"
                     onClick={() => { setPlaying(false); setLap(item.lap); }}
                     aria-current={lap === item.lap ? "step" : undefined}
-                    className={`min-h-10 border px-3 py-1 text-left transition-colors ${lap === item.lap ? "border-amber bg-amber text-paper" : item.kind === "retirement" ? "border-signal text-signal-text hover:bg-panel2" : "border-line2 text-steel hover:border-steel hover:text-ink"}`}
+                    className={`min-h-10 border px-3 py-1 text-left transition-colors ${lap === item.lap ? "border-amber bg-amber text-paper" : item.kind === "retirement" ? "border-signal text-signal-text hover:bg-panel2" : "border-control text-steel hover:border-steel hover:text-ink"}`}
                   >
                     <span className="block font-display text-[0.86rem] font-bold tracking-[0.07em] uppercase">{item.label}</span>
-                    <span className={`block text-[0.68rem] ${lap === item.lap ? "text-paper/70" : "text-mute"}`}>Lap {item.lap}</span>
+                    <span className={`block text-[0.75rem] ${lap === item.lap ? "text-paper/70" : "text-mute"}`}>Lap {item.lap}</span>
                   </button>
                 </li>
               ))}
@@ -214,8 +214,8 @@ export function SimulationPanel({ rows, layout, totalLaps }: { rows: Row[]; layo
               {safety ? `Safety car projected on lap ${safety}. Do you take the compressed pit loss or protect track position?` : "Add a safety car above to unlock a race-engineer decision."}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" className="btn btn-ghost !min-h-10 !px-2" disabled={!safety} onClick={() => safety && setPitLap(safety)}>Box now</button>
-              <button type="button" className="btn btn-ghost !min-h-10 !px-2" disabled={!safety} onClick={() => safety && setPitLap(Math.min(laps - 2, safety + 5))}>Stay out</button>
+              <button type="button" className="btn btn-ghost !min-h-11 !px-2" disabled={!safety} onClick={() => safety && setPitLap(safety)}>Box now</button>
+              <button type="button" className="btn btn-ghost !min-h-11 !px-2" disabled={!safety} onClick={() => safety && setPitLap(Math.min(laps - 2, safety + 5))}>Stay out</button>
             </div>
           </div>
 
@@ -238,7 +238,7 @@ export function SimulationPanel({ rows, layout, totalLaps }: { rows: Row[]; layo
 }
 
 function Readout({ label, value }: { label: string; value: string }) {
-  return <div className="bg-panel p-4"><p className="label !text-[0.7rem]">{label}</p><p className="figure mt-1 text-[1.9rem]">{value}</p></div>;
+  return <div className="bg-panel p-4"><p className="label !text-[0.75rem]">{label}</p><p className="figure mt-1 text-[1.9rem]">{value}</p></div>;
 }
 
 function StrategyCompare({ rows, onChoose }: { rows: ReturnType<typeof comparePitWindow>; onChoose: (lap: number) => void }) {

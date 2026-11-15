@@ -18,7 +18,7 @@ export function LogoMark({
       width={Math.round(height * LOCKUP.horse.ratio)}
       height={height}
       decoding="async"
-      className={`block shrink-0 ${className}`}
+      className={`logo-raster block shrink-0 ${className}`}
       aria-hidden
     />
   );
@@ -53,7 +53,7 @@ export function LogoLockup({ height = 150, className = "" }: { height?: number; 
         loading="lazy"
         decoding="async"
         aria-hidden
-        className="absolute top-0 block h-full"
+        className="logo-raster absolute top-0 block h-full"
         style={{ left: `${horse.left}%`, width: `${horse.width}%` }}
       />
       <Wordmark

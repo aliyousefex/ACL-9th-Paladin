@@ -1,15 +1,25 @@
 ﻿{
+  "id": "/",
   "name": "Paladin: F1 Podium Predictor",
   "short_name": "Paladin",
   "description": "A leakage-safe Formula 1 podium prediction project: predict, compare and replay the 2022 to 2024 Grands Prix.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0a0b0e",
   "theme_color": "#0a0b0e",
+  "categories": ["sports", "education"],
   "icons": [
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Season league", "short_name": "League", "description": "Call races blind and score yourself against Paladin", "url": "/#/league" },
+    { "name": "Error Atlas", "short_name": "Errors", "description": "Where Paladin and the grid hit and miss", "url": "/#/analysis" },
+    { "name": "Race Lab", "short_name": "Lab", "description": "Seeded race simulations and what-if scenarios", "url": "/#/race-lab" }
   ]
 }

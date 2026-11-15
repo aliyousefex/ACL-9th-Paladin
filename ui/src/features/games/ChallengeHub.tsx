@@ -111,7 +111,7 @@ function CircuitQuiz() {
     <div className="panel overflow-hidden">
       <div className="grid min-h-[31rem] md:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="relative grid min-h-72 place-items-center border-b border-line bg-tower p-8 md:border-r md:border-b-0">
-          <CircuitThumb meta={meta} className="h-64 w-full max-w-[480px]" stroke={answered ? "#f4f4f2" : "#c5cad1"} width={11} accent="#262b33" />
+          <CircuitThumb meta={meta} className="h-64 w-full max-w-[480px]" stroke={answered ? "var(--color-ink)" : "var(--color-steel)"} width={11} accent="var(--color-line)" />
           <div className="absolute top-4 left-4">
             <p className="label">Circuit identification</p>
             <p className="mt-1 text-[0.82rem] text-mute">Question {round + 1} · score {score}</p>
@@ -131,7 +131,7 @@ function CircuitQuiz() {
               const chosen = answer === circuit.circuitId;
               const isCorrect = circuit.circuitId === correct.circuitId;
               return (
-                <button key={circuit.circuitId} type="button" disabled={answered} onClick={() => choose(circuit)} className={`min-h-12 border px-3 py-2 text-left font-display text-[1.05rem] font-semibold uppercase transition-colors disabled:cursor-default ${answered && isCorrect ? "border-hit bg-hit text-paper" : chosen ? "border-signal bg-signal text-white" : "border-line2 bg-panel text-steel hover:border-steel hover:text-ink"}`}>
+                <button key={circuit.circuitId} type="button" disabled={answered} onClick={() => choose(circuit)} className={`min-h-12 border px-3 py-2 text-left font-display text-[1.05rem] font-semibold uppercase transition-colors disabled:cursor-default ${answered && isCorrect ? "border-hit bg-hit text-paper" : chosen ? "border-signal bg-signal text-white" : "border-control bg-panel text-steel hover:border-steel hover:text-ink"}`}>
                   {circuit.name}
                 </button>
               );

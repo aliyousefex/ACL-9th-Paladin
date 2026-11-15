@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircuitMap, CircuitThumb } from "../../components/CircuitMap";
 import { Flag } from "../../components/Flag";
 import { Icon } from "../../components/Icon";
 import { Panel } from "../../components/Panel";
-import { ProvenanceLegend, Tag } from "../../components/Provenance";
+import { Tag } from "../../components/Provenance";
 import { Tabs } from "../../components/Bits";
 import { VectorRaceCar } from "../../components/VectorRaceCar";
 import {
@@ -31,6 +31,8 @@ import { pickUniform, readBookmarks, readChallenge } from "../../lib/challenge";
 import { pointAt } from "../race/replay";
 import model from "../../data/model.json";
 import { ChallengeHub } from "../games/ChallengeHub";
+import { FirstVisit } from "./FirstVisit";
+import { playsFrom, summariseLeague } from "../../lib/league";
 
 type View = "calendar" | "standings";
 
@@ -45,6 +47,7 @@ export function Home({ query }: { query: URLSearchParams }) {
     <div className="page-in">
       <Hero />
       <div className="mx-auto max-w-[1320px] space-y-16 px-4 pt-10 sm:px-6 lg:px-10">
+        <FirstVisit />
         <section aria-labelledby="season-title" id="season" className="scroll-mt-24">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -81,7 +84,6 @@ export function Home({ query }: { query: URLSearchParams }) {
 
         <Highlights />
         <ChallengeHub />
-        <HowItWorks />
       </div>
     </div>
   );
@@ -134,7 +136,7 @@ function Hero() {
 function Kpi({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div>
-      <dt className="label min-h-[2.3em] !text-[0.74rem] !leading-tight">{label}</dt>
+      <dt className="label min-h-[2.3em] !text-[0.75rem] !leading-tight">{label}</dt>
       <dd className="figure mt-1.5 text-[2.3rem]">{value}</dd>
       {note && <dd className="mt-0.5 text-[0.78rem] leading-tight text-mute">{note}</dd>}
     </div>
@@ -205,7 +207,7 @@ function Tracer() {
           <span>
             <span className="font-semibold text-steel">Suzuka</span> · real F1 timing map, sectors from telemetry
           </span>
-          <a className="text-steel underline decoration-line2 underline-offset-2 hover:text-ink" href={href("/circuits/suzuka")}>
+          <a className="inline-flex min-h-11 items-center text-steel underline decoration-line2 underline-offset-2 hover:text-ink" href={href("/circuits/suzuka")}>
             Explore circuits
           </a>
         </p>
@@ -265,9 +267,8 @@ function ChallengeProgress({ season }: { season: number }) {
     };
   }, []);
   const races = racesIn(season);
-  const played = races.map((race) => ({ race, pick: readChallenge(race.id) })).filter((item) => item.pick !== null);
-  const hits = played.reduce((sum, item) => sum + item.pick!.ids.filter((id) => item.race.actual.includes(id)).length, 0);
-  const modelHits = played.reduce((sum, item) => sum + item.race.hits, 0);
+  // The same rule as the season league: only picks locked while the result was hidden count.
+  const league = summariseLeague(RACES, playsFrom(readChallenge, races).plays);
   const bookmarks = readBookmarks().map((id) => RACES.find((race) => race.id === id)).filter((race): race is RaceMeta => Boolean(race));
   void version;
 
@@ -275,16 +276,16 @@ function ChallengeProgress({ season }: { season: number }) {
     <div className="mt-4 border border-line bg-tower px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
         <div>
-          <p className="label">Your {season} challenge</p>
-          <p className="mt-1 text-[0.9rem] text-mute">Picks are stored only in this browser.</p>
+          <p className="label">Your {season} league</p>
+          <p className="mt-1 text-[0.9rem] text-mute">Picks are stored only in this browser. <a className="text-steel underline decoration-line2 underline-offset-2 hover:text-ink" href={href("/league", { season })}>Open your league</a></p>
         </div>
-        <p className="figure text-[1.8rem]">{played.length}<span className="ml-1 font-sans text-[0.9rem] font-normal tracking-normal text-mute">/ {races.length} races played</span></p>
-        <p className="figure text-[1.8rem]">{hits}<span className="ml-1 font-sans text-[0.9rem] font-normal tracking-normal text-mute">your hits</span></p>
-        <p className="figure text-[1.8rem] text-steel">{modelHits}<span className="ml-1 font-sans text-[0.9rem] font-normal tracking-normal text-mute">model hits on the same races</span></p>
+        <p className="figure text-[1.8rem]">{league.played}<span className="ml-1 font-sans text-[0.9rem] font-normal tracking-normal text-mute">/ {races.length} races called blind</span></p>
+        <p className="figure text-[1.8rem]">{league.you}<span className="ml-1 font-sans text-[0.9rem] font-normal tracking-normal text-mute">your podium names</span></p>
+        <p className="figure text-[1.8rem] text-steel">{league.paladin}<span className="ml-1 font-sans text-[0.9rem] font-normal tracking-normal text-mute">Paladin's on the same races</span></p>
         {bookmarks.length > 0 && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <span className="label">Saved</span>
-            {bookmarks.slice(0, 4).map((race) => <a key={race.id} className="chip !min-h-8 no-underline" href={href(raceHref(race))}>{race.name.replace(" Grand Prix", "")} {String(race.year).slice(2)}</a>)}
+            {bookmarks.slice(0, 4).map((race) => <a key={race.id} className="chip !min-h-11 no-underline" href={href(raceHref(race))}>{race.name.replace(" Grand Prix", "")} {String(race.year).slice(2)}</a>)}
           </div>
         )}
       </div>
@@ -326,7 +327,7 @@ function HitsStrip({ season }: { season: number }) {
                   }}
                 />
               </a>
-              <span className="mt-1.5 text-center text-[0.68rem] leading-none text-mute">{race.round}</span>
+              <span className="mt-1.5 text-center text-[0.75rem] leading-none text-mute">{race.round}</span>
             </li>
           );
         })}
@@ -390,13 +391,13 @@ function RaceCard({ race }: { race: RaceMeta }) {
       </div>
       <div className="race-card-map grid flex-1 place-items-center px-5 py-4">
         {thumb.thumb && layoutMeta.years.includes(race.year) ? (
-          <CircuitThumb meta={thumb} className="h-24 w-full max-w-[210px] transition-transform duration-500 group-hover:scale-105" stroke="#c5cad1" width={13} accent="#262b33" />
+          <CircuitThumb meta={thumb} className="h-24 w-full max-w-[210px] transition-transform duration-500 group-hover:scale-105" stroke="var(--color-steel)" width={13} accent="var(--color-line)" />
         ) : (
           <p className="text-center text-[0.8rem] text-mute">Layout outline not available</p>
         )}
       </div>
       <div className="border-t border-line px-4 py-3">
-        <p className="label !text-[0.72rem]">Model's podium</p>
+        <p className="label !text-[0.75rem]">Model's podium</p>
         <ul className="mt-1.5 flex gap-2">
           {race.predicted.map((id, i) => {
             const d = driverOf(id);
@@ -517,7 +518,7 @@ function Highlights() {
             <ul className="mt-3 flex flex-wrap gap-1.5">
               {card.list.slice(0, 6).map((r) => (
                 <li key={r.id}>
-                  <a className="chip !min-h-7 !px-2 !text-[0.85rem] no-underline" href={href(raceHref(r))} title={`${r.name} ${r.year}`}>
+                  <a className="chip !min-h-11 !px-2 !text-[0.85rem] no-underline" href={href(raceHref(r))} title={`${r.name} ${r.year}`}>
                     {r.name.replace(" Grand Prix", "").slice(0, 10)} {String(r.year).slice(2)}
                   </a>
                 </li>
@@ -526,47 +527,6 @@ function Highlights() {
             </ul>
           </div>
         ))}
-      </div>
-    </section>
-  );
-}
-
-function HowItWorks() {
-  const steps = useMemo(
-    () => [
-      { n: "1", title: "Known after qualifying", body: "Grid slot, qualifying order, each driver's last five podium rates, championship points and rank before the race, age and year. Sixteen inputs, all fixed before the lights go out." },
-      { n: "2", title: "One model, one score each", body: "A logistic regression, selected on 2020–21, turns those inputs into a podium score for every driver. It never sees a lap, a pit stop or a result from the race it is scoring." },
-      { n: "3", title: "Then the race happens", body: "Only after the prediction do we reveal the classification, so the page can show how many of the model's three drivers really reached the podium." },
-    ],
-    [],
-  );
-  return (
-    <section aria-labelledby="how-title" className="border-t border-line pt-16">
-      <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr]">
-        <div>
-          <h2 id="how-title" className="section-title">Know what every value represents</h2>
-          <p className="mt-4 max-w-[54ch] text-[1.05rem] leading-relaxed text-steel">
-            Compact source markers separate a prediction from a recorded result, a synthetic simulation, explanatory motion, or a value you changed.
-          </p>
-          <div className="mt-6">
-            <ProvenanceLegend />
-          </div>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a className="btn btn-ghost" href={href("/model")}>Model card and limits</a>
-            <a className="btn btn-ghost" href={href("/method")}>Method walkthrough</a>
-          </div>
-        </div>
-        <ol className="space-y-4">
-          {steps.map((step) => (
-            <li key={step.n} className="panel grid grid-cols-[3rem_1fr] gap-4 p-5">
-              <span className="figure text-[3rem] text-signal-text">{step.n}</span>
-              <div>
-                <h3 className="display text-[1.6rem] leading-none">{step.title}</h3>
-                <p className="mt-2 text-[0.98rem] leading-snug text-steel">{step.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
       </div>
     </section>
   );

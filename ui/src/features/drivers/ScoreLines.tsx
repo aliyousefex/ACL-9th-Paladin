@@ -34,29 +34,29 @@ export function ScoreLines({ season, series }: { season: number; series: Series[
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block h-auto w-full" role="img" aria-label={`Podium score by round in ${season} for ${series.map((s) => s.driver.name).join(", ")}`}>
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <g key={t}>
-            <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="#262b33" />
-            <text x={PAD.l - 8} y={y(t) + 4} textAnchor="end" fill="#98a0ab" fontSize={13}>
+            <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="var(--color-line)" />
+            <text x={PAD.l - 8} y={y(t) + 4} textAnchor="end" fill="var(--color-mute)" fontSize={13}>
               {t.toFixed(2)}
             </text>
           </g>
         ))}
-        <line x1={PAD.l} x2={W - PAD.r} y1={y(THRESHOLD)} y2={y(THRESHOLD)} stroke="#f4f4f2" strokeOpacity={0.55} strokeDasharray="5 5" />
-        <text x={W - PAD.r - 2} y={y(THRESHOLD) - 6} textAnchor="end" fill="#c5cad1" fontSize={12}>
+        <line x1={PAD.l} x2={W - PAD.r} y1={y(THRESHOLD)} y2={y(THRESHOLD)} stroke="var(--color-ink)" strokeOpacity={0.55} strokeDasharray="5 5" />
+        <text x={W - PAD.r - 2} y={y(THRESHOLD) - 6} textAnchor="end" fill="var(--color-steel)" fontSize={12}>
           cutoff {THRESHOLD.toFixed(3)}
         </text>
 
         {races.map((race, i) =>
           i % every === 0 || i === races.length - 1 ? (
-            <text key={race.id} x={x(i)} y={H - 16} textAnchor="middle" fill="#98a0ab" fontSize={12.5}>
+            <text key={race.id} x={x(i)} y={H - 16} textAnchor="middle" fill="var(--color-mute)" fontSize={12.5}>
               {race.round}
             </text>
           ) : null,
         )}
-        <text x={PAD.l} y={H - 2} fill="#98a0ab" fontSize={11}>
+        <text x={PAD.l} y={H - 2} fill="var(--color-mute)" fontSize={12}>
           round
         </text>
 
-        {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={H - PAD.b} stroke="#39414c" />}
+        {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={H - PAD.b} stroke="var(--color-line2)" />}
 
         {series.map((s) => {
           const segments: string[] = [];

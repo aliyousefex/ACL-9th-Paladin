@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type Provenance = "model" | "record" | "illustrative" | "simulation" | "user";
+export type Provenance = "model" | "record" | "experimental" | "illustrative" | "simulation" | "user";
 
 const COPY: Record<Provenance, { label: string; title: string; className: string }> = {
   model: {
@@ -12,6 +12,11 @@ const COPY: Record<Provenance, { label: string; title: string; className: string
     label: "Historical record",
     title: "A real result or measurement from the dataset. Not produced by the model.",
     className: "tag tag-record",
+  },
+  experimental: {
+    label: "Experimental model",
+    title: "A research variant fitted with the same rules and the same 16 inputs, but not the coursework model. Judged only on a retrospective benchmark of seasons that earlier product iterations had already looked at.",
+    className: "tag tag-illus",
   },
   illustrative: {
     label: "Illustrative",
@@ -40,11 +45,13 @@ export function Tag({ kind, children }: { kind: Provenance; children?: ReactNode
   );
 }
 
-export function ProvenanceLegend() {
+/** The key to every marker. "list" is the compact ruled list for a narrow column; "cards" is a wall of six, each edged in its kind's colour. */
+export function ProvenanceLegend({ variant = "list" }: { variant?: "list" | "cards" }) {
+  const cards = variant === "cards";
   return (
-    <dl className="provenance-key" aria-label="Data source key">
+    <dl className={cards ? "source-grid" : "provenance-key"} aria-label="Data source key">
       {(Object.keys(COPY) as Provenance[]).map((kind) => (
-        <div key={kind} className="provenance-key-item">
+        <div key={kind} className={cards ? "source-card" : "provenance-key-item"} data-kind={kind}>
           <dt>
             <Tag kind={kind} />
           </dt>

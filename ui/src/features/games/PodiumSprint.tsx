@@ -148,11 +148,11 @@ export function PodiumSprint() {
                   disabled={revealed}
                   aria-pressed={on}
                   onClick={() => toggle(driver.id)}
-                  className={`relative min-h-16 border px-3 py-2 text-left transition-colors disabled:cursor-default ${actual ? "border-hit bg-hit text-paper" : on ? "border-ink bg-ink text-paper" : "border-line2 bg-panel text-ink hover:border-steel"}`}
+                  className={`relative min-h-16 border px-3 py-2 text-left transition-colors disabled:cursor-default ${actual ? "border-hit bg-hit text-paper" : on ? "border-ink bg-ink text-paper" : "border-control bg-panel text-ink hover:border-steel"}`}
                 >
                   <span className="absolute inset-y-0 left-0 w-1" style={{ background: colour }} aria-hidden />
                   <span className="block font-display text-[1.05rem] font-bold uppercase">{driver.code}</span>
-                  <span className={`block truncate text-[0.72rem] ${actual || on ? "text-paper/75" : "text-mute"}`}>{team.short} · {slot ? `P${slot}` : "pit"}</span>
+                  <span className={`block truncate text-[0.75rem] ${actual || on ? "text-paper/75" : "text-mute"}`}>{team.short} · {slot ? `P${slot}` : "pit"}</span>
                 </button>
               );
             })}

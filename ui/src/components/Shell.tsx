@@ -1,8 +1,12 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Icon, type IconName } from "./Icon";
-import { LogoLockup, LogoMark, Wordmark } from "./Logo";
+import { BackToTop } from "./BackToTop";
+import { CommandPalette } from "./CommandPalette";
+import { ThemeSwitch } from "./ThemeSwitch";
+import { LogoMark, Wordmark } from "./Logo";
 import { haptic } from "../lib/haptic";
 import { RACES } from "../lib/data";
+import { useSlidingPill } from "../lib/hooks";
 import { href } from "../lib/router";
 
 interface NavItem {
@@ -11,6 +15,13 @@ interface NavItem {
   short: string;
   to: string;
   icon: IconName;
+  /** Other sections that live under this destination, so the viewer is always shown where they are. */
+  children?: string[];
+}
+
+/** True when `section` is this destination or one of the pages that belongs to it. */
+export function isCurrent(item: Pick<NavItem, "key" | "children">, section: string): boolean {
+  return item.key === section || (item.children ?? []).includes(section);
 }
 
 const LAST_RACE_KEY = "paladin:last-race";
@@ -34,16 +45,58 @@ function lastRacePath(): string {
 
 function items(): NavItem[] {
   return [
-    { key: "", label: "Races", short: "Races", to: "/", icon: "home" },
-    { key: "race", label: "Prediction", short: "Predict", to: lastRacePath(), icon: "flag" },
-    { key: "race-lab", label: "Simulation", short: "Simulate", to: "/race-lab", icon: "sliders" },
-    { key: "drivers", label: "Drivers", short: "Drivers", to: "/drivers", icon: "user" },
-    { key: "circuits", label: "Circuits", short: "Tracks", to: "/circuits", icon: "track" },
-    { key: "model", label: "Research", short: "Research", to: "/model", icon: "chart" },
+    { key: "", label: "Season", short: "Season", to: "/", icon: "calendar", children: ["drivers", "circuits", "history", "league"] },
+    { key: "race", label: "Race", short: "Race", to: lastRacePath(), icon: "flagGrid" },
+    { key: "analysis", label: "Analysis", short: "Errors", to: "/analysis", icon: "target" },
+    { key: "race-lab", label: "Lab", short: "Lab", to: "/race-lab", icon: "flask" },
+    { key: "model", label: "Research", short: "Research", to: "/model", icon: "bookOpen", children: ["method", "guide"] },
   ];
 }
 
+/**
+ * On a phone, slide the brand bar away while reading and bring it back on the way up. The rule: past 80px of scroll,
+ * scrolling down by 10px hides it and scrolling up by 10px shows it; focusing anything in the header shows it, so a
+ * keyboard or screen-reader user can never land on something that is off screen. Wider screens never hide it.
+ */
+function useCompactChrome(): void {
+  useEffect(() => {
+    const root = document.documentElement;
+    const phone = window.matchMedia("(max-width: 767px)");
+    let last = window.scrollY;
+    const set = (compact: boolean) => {
+      if (compact) root.dataset.chrome = "compact";
+      else delete root.dataset.chrome;
+    };
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (!phone.matches || y < 80) {
+        set(false);
+        last = y;
+        return;
+      }
+      if (y - last > 10) set(true);
+      else if (last - y > 10) set(false);
+      else return;
+      last = y;
+    };
+    const onFocus = (event: FocusEvent) => {
+      if ((event.target as HTMLElement | null)?.closest("header.chrome-bar")) set(false);
+    };
+    const onWidth = () => !phone.matches && set(false);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("focusin", onFocus);
+    phone.addEventListener("change", onWidth);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("focusin", onFocus);
+      phone.removeEventListener("change", onWidth);
+      set(false);
+    };
+  }, []);
+}
+
 export function Shell({ section, children }: { section: string; children: ReactNode }) {
+  useCompactChrome();
   const nav = items();
   return (
     <>
@@ -62,147 +115,238 @@ export function Shell({ section, children }: { section: string; children: ReactN
         {children}
       </main>
       <Footer />
-      <BottomNav nav={nav} section={section} />
+      <Dock nav={nav} section={section} />
+      <BackToTop />
     </>
   );
 }
 
-function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+/** Pages that belong to a destination without a place in the bar. They live under "More", and the destination that owns them stays marked. */
+export const MORE: { key: string; label: string; detail: string; to: string; icon: IconName }[] = [
+  { key: "method", label: "Method and data", detail: "The pipeline, step by step", to: "/method", icon: "database" },
+  { key: "guide", label: "How to read this site", detail: "What every marker and value means", to: "/guide", icon: "legend" },
+  { key: "history", label: "History graph", detail: "Drivers, teams and races as a graph", to: "/history", icon: "network" },
+  { key: "league", label: "Season league", detail: "Pick podiums blind and keep score", to: "/league", icon: "cup" },
+  { key: "drivers", label: "Driver archive", detail: "Every driver in the data", to: "/drivers", icon: "helmet" },
+  { key: "circuits", label: "Circuit archive", detail: "Every circuit and its maps", to: "/circuits", icon: "circuit" },
+];
 
+const ownedByMore = (section: string): boolean => MORE.some((entry) => entry.key === section);
+
+/**
+ * The "More" disclosure. It is a button that shows a short list of links, not an ARIA menu: the links stay in the page and
+ * in the tab order while it is open, Escape closes it and returns focus to the button, and so does moving away from it or
+ * pressing outside. The list is always in the markup (hidden when closed) so it is never a surprise to a crawler or a test.
+ */
+function MoreMenu({ section, placement }: { section: string; placement: "down" | "up" }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+  const close = (restoreFocus = false) => {
+    setOpen(false);
+    if (restoreFocus) button.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) close();
+    };
+    const onFocus = (event: FocusEvent) => {
+      if (!root.current?.contains(event.target as Node)) close();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close(true);
+    };
+    const onHash = () => close();
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("focusin", onFocus);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("hashchange", onHash);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("focusin", onFocus);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("hashchange", onHash);
+    };
+  }, [open]);
+
+  const owns = ownedByMore(section);
   return (
-    <header
-      className={`fixed inset-x-0 top-0 z-50 border-b transition-colors duration-200 ${
-        scrolled ? "border-line bg-tower/95 backdrop-blur-sm" : "border-transparent bg-tower/70"
-      }`}
-      style={{ height: "var(--nav-h)" }}
-    >
-      <div className="mx-auto flex h-full max-w-[1320px] items-center gap-4 px-4 sm:px-6 lg:gap-6 lg:px-10">
+    <div ref={root} className="more">
+      <button
+        ref={button}
+        type="button"
+        className={placement === "down" ? "site-nav__link" : "dock__item"}
+        aria-expanded={open}
+        aria-controls={panelId}
+        data-owns={owns ? "true" : undefined}
+        onClick={() => {
+          haptic("select");
+          setOpen((value) => !value);
+        }}
+      >
+        {placement === "down" ? (
+          <>
+            More
+            <Icon name="chevronDown" size={14} className={`more__chevron ${open ? "rotate-180" : ""}`} />
+          </>
+        ) : (
+          <>
+            <Icon name="more" size={20} strokeWidth={2.6} />
+            More
+          </>
+        )}
+      </button>
+      <div id={panelId} hidden={!open} className={`more-panel more-panel--${placement === "down" ? "down" : "up"}`}>
+        {MORE.map((entry) => (
+          <a
+            key={entry.key}
+            href={href(entry.to)}
+            data-active={entry.key === section ? "true" : undefined}
+            className="more-item"
+            onClick={() => {
+              haptic("select");
+              close();
+            }}
+          >
+            <span className="more-item__icon" aria-hidden>
+              <Icon name={entry.icon} size={22} strokeWidth={1.7} />
+            </span>
+            <span className="min-w-0">
+              <span className="more-item__label">{entry.label}</span>
+              <span className="more-item__detail">{entry.detail}</span>
+            </span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The bar: a floating capsule with the brand, the destinations (a solid pill slides to the current one), search, and the
+ * theme switch. On a phone it carries only the brand and the tools, since the destinations move to the dock.
+ */
+function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
+  const current = nav.find((item) => isCurrent(item, section));
+  const { ref, ready } = useSlidingPill<HTMLElement>(current ? current.key : null);
+  return (
+    <header className="chrome-bar site-bar fixed inset-x-0 top-0 z-50">
+      <div className="site-bar__inner">
         <a href={href("/")} onClick={() => haptic("select")} className="nav-brand flex shrink-0 items-center no-underline" aria-label="Paladin F1, season overview">
-          <LogoMark height={46} variant="line" />
-          <Wordmark className="ml-2.5 h-[15px] text-ink lg:h-[17px]" />
+          <LogoMark height={40} variant="solid" />
         </a>
-        <nav className="hidden min-w-0 flex-1 items-center gap-1 md:flex" aria-label="Primary">
-          {nav.map((item) => {
-            const on = item.key === section;
-            return (
-              <a
-                key={item.key}
-                href={href(item.to)}
-                aria-current={on ? "page" : undefined}
-                onClick={() => haptic("select")}
-                className={`nav-link relative whitespace-nowrap px-2 py-2 no-underline transition-colors lg:px-3 ${
-                  on ? "text-ink" : "text-mute hover:text-ink"
-                }`}
-              >
-                {item.label}
-                <span
-                  aria-hidden
-                  className={`absolute inset-x-3 -bottom-[13px] h-[3px] origin-left bg-signal transition-transform duration-300 ${
-                    on ? "scale-x-100" : "scale-x-0"
-                  }`}
-                />
-              </a>
-            );
-          })}
-          <details className="nav-more relative">
-            <summary aria-current={section === "method" ? "page" : undefined} className={`nav-link cursor-pointer list-none px-2 py-2 lg:px-3 ${section === "method" ? "text-ink" : "text-mute hover:text-ink"}`}>More</summary>
-            <div className="absolute right-0 top-[calc(100%+12px)] min-w-52 border border-line bg-tower p-2 shadow-xl">
-              <a className="block px-3 py-2 text-steel no-underline hover:bg-panel hover:text-ink" href={href("/method")}>Method and data</a>
-              <a className="block px-3 py-2 text-steel no-underline hover:bg-panel hover:text-ink" href={href("/circuits")}>Circuit archive</a>
-            </div>
-          </details>
+        <nav ref={ref} className="site-nav" data-ready={ready ? "true" : "false"} aria-label="Primary">
+          <span aria-hidden className="site-nav__pill" />
+          {nav.map((item) => (
+            <a
+              key={item.key}
+              href={href(item.to)}
+              data-nav-key={item.key}
+              aria-current={current === item ? "page" : undefined}
+              onClick={() => haptic("select")}
+              className="site-nav__link"
+            >
+              {item.label}
+            </a>
+          ))}
+          <MoreMenu section={section} placement="down" />
         </nav>
-        <p className="ml-auto hidden items-center gap-2 text-[0.8rem] text-mute lg:flex">
-          <span className="h-1.5 w-1.5 rounded-full bg-hit" aria-hidden />
-          Held-out seasons 2022–2024
-        </p>
-        <p className="ml-auto hidden font-display text-[0.95rem] font-semibold tracking-[0.1em] text-mute uppercase min-[420px]:block md:hidden">
-          {nav.find((item) => item.key === section)?.label ?? ""}
-        </p>
+        <div className="site-bar__tools">
+          <CommandPalette />
+          <ThemeSwitch />
+        </div>
       </div>
     </header>
   );
 }
 
-function BottomNav({ nav, section }: { nav: NavItem[]; section: string }) {
+/** The phone's destinations: a capsule at the thumb, one slot per destination plus More, with the same sliding pill. */
+function Dock({ nav, section }: { nav: NavItem[]; section: string }) {
+  const index = nav.findIndex((item) => isCurrent(item, section));
+  const style: CSSProperties = { ["--i" as string]: Math.max(index, 0), ["--n" as string]: nav.length + 1, ["--on" as string]: index >= 0 ? 1 : 0 };
   return (
-    <nav
-      className="fixed inset-x-0 top-[var(--nav-h)] z-40 border-b border-line bg-tower/98 md:hidden"
-      style={{ height: "var(--bottom-nav-h)" }}
-      aria-label="Primary"
-    >
-      <ul className="grid h-full grid-cols-[repeat(6,minmax(0,1fr))]">
-        {nav.filter((item) => ["", "race", "race-lab", "drivers", "circuits", "model"].includes(item.key)).map((item) => {
-          const on = item.key === section || (item.key === "model" && section === "method");
-          return (
-            <li key={item.key}>
-              <a
-                href={href(item.to)}
-                aria-current={on ? "page" : undefined}
-                onClick={() => haptic("select")}
-                className={`relative flex min-w-0 h-full flex-col items-center justify-center gap-1 overflow-hidden text-[0.68rem] font-semibold no-underline min-[380px]:text-[0.72rem] ${
-                  on ? "text-ink" : "text-mute"
-                }`}
-              >
-                <span aria-hidden className={`absolute inset-x-3 bottom-0 h-[3px] bg-signal transition-opacity ${on ? "opacity-100" : "opacity-0"}`} />
-                <Icon name={item.icon} size={20} />
-                {item.short}
-              </a>
-            </li>
-          );
-        })}
-      </ul>
+    <nav className="dock" aria-label="Primary" style={style}>
+      <span aria-hidden className="dock__pill" />
+      {nav.map((item, position) => (
+        <a
+          key={item.key}
+          href={href(item.to)}
+          aria-current={position === index ? "page" : undefined}
+          onClick={() => haptic("select")}
+          className="dock__item"
+        >
+          <Icon name={item.icon} size={22} strokeWidth={1.7} />
+          {item.short}
+        </a>
+      ))}
+      <MoreMenu section={section} placement="up" />
     </nav>
   );
 }
 
+const FOOTER_LINKS: { title: string; links: { label: string; to: string }[] }[] = [
+  {
+    title: "Explore",
+    links: [
+      { label: "Season calendar", to: "/" },
+      { label: "Error Atlas", to: "/analysis" },
+      { label: "Race Lab", to: "/race-lab" },
+      { label: "Season league", to: "/league" },
+    ],
+  },
+  {
+    title: "Archives",
+    links: [
+      { label: "Drivers", to: "/drivers" },
+      { label: "Circuits", to: "/circuits" },
+      { label: "History graph", to: "/history" },
+    ],
+  },
+  {
+    title: "Understand",
+    links: [
+      { label: "The model and its limits", to: "/model" },
+      { label: "Method walkthrough", to: "/method" },
+      { label: "How to read this site", to: "/guide" },
+    ],
+  },
+];
+
+/** The brand with one paragraph about the project, and the way around the site. */
 function Footer() {
   return (
     <footer className="mt-24 border-t border-line bg-tower">
-      <div className="mx-auto grid max-w-[1320px] gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr] lg:px-10">
-        <div>
-          <LogoLockup height={150} />
-          <p className="mt-4 max-w-[46ch] text-[0.95rem] leading-relaxed text-mute">
-            An ACL-903 Milestone 1 project. A logistic regression, a random forest and a shallow network are trained on
-            1950–2019, selected on 2020–2021, and scored on the unseen 2022–2024 seasons using only what is known after
-            qualifying.
-          </p>
-        </div>
-        <div>
-          <p className="label">Explore</p>
-          <ul className="mt-2 space-y-0.5 text-[1rem]">
-            <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/")}>Season calendar</a></li>
-            <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/drivers")}>Drivers</a></li>
-            <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/circuits")}>Circuits</a></li>
-            <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/race-lab")}>Race Lab</a></li>
-            <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/model")}>The model and its limits</a></li>
-            <li><a className="inline-block py-1 text-steel no-underline hover:text-ink" href={href("/method")}>Method walkthrough</a></li>
-          </ul>
-        </div>
-        <div>
-          <p className="label">Sources</p>
-          <ul className="mt-3 space-y-2 text-[0.95rem] leading-snug text-mute">
-            <li>Race results, laps, pit stops and standings: Kaggle / Ergast Formula 1 World Championship, 1950–2024.</li>
-            <li>Circuit maps and corner numbers: F1 timing track maps via MultiViewer. Sectors and DRS usage: OpenF1 telemetry.</li>
-            <li>
-              Portraits: Wikimedia Commons, credited on the <a className="inline-block py-1 text-steel underline decoration-line2 underline-offset-2 hover:text-ink" href={href("/model")}>model page</a>.
-            </li>
-          </ul>
-        </div>
-      </div>
-      <div className="border-t border-line">
-        <div className="mx-auto grid max-w-[1320px] gap-2 px-4 py-6 sm:px-6 md:grid-cols-[11rem_minmax(0,1fr)] md:gap-x-8 lg:px-10">
-          <p className="label !text-ink">Independent project</p>
-          <p id="independence" className="max-w-[80ch] text-[0.95rem] leading-relaxed text-steel">
-            Paladin is an independent hobby project and is not affiliated with or endorsed by any university, Formula 1, the FIA, or any team. Formula 1 and related marks belong to their owners; team colours on this site are styling only.
-          </p>
+      <div className="mx-auto max-w-[1320px] px-4 py-12 sm:px-6 lg:px-10">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,24rem)_1fr] lg:gap-20">
+          <div>
+            <div className="flex items-center gap-3">
+              <LogoMark height={40} variant="solid" />
+              <Wordmark className="h-[15px] text-ink" />
+            </div>
+            <p className="mt-5 max-w-[42ch] text-[0.95rem] leading-relaxed text-mute">
+              An ACL-903 Milestone 1 project. A logistic regression, a random forest and a shallow network are trained on 1950–2019,
+              selected on 2020–2021, and scored on the unseen 2022–2024 seasons using only what is known after qualifying.
+            </p>
+          </div>
+          <nav aria-label="Footer" className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3">
+            {FOOTER_LINKS.map((group, index) => (
+              <div key={group.title} className={index === FOOTER_LINKS.length - 1 ? "col-span-2 sm:col-span-1" : undefined}>
+                <p className="label">{group.title}</p>
+                <ul className={`mt-2 ${index === FOOTER_LINKS.length - 1 ? "grid grid-cols-2 gap-x-6 sm:block" : ""}`}>
+                  {group.links.map((link) => (
+                    <li key={link.to}>
+                      <a className="flex min-h-11 items-center text-[0.95rem] text-steel no-underline transition-colors hover:text-ink" href={href(link.to)}>
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
         </div>
       </div>
     </footer>

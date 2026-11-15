@@ -33,7 +33,7 @@ export function ResultPanel({
               drivers reached the podium, and how the starting grid alone would have done.
             </p>
             <label className="mt-4 flex cursor-pointer items-center gap-2 text-[0.95rem] text-steel">
-              <input type="checkbox" checked={alwaysShow} onChange={(e) => onAlwaysShow(e.target.checked)} className="h-4 w-4 accent-[var(--color-signal)]" />
+              <input type="checkbox" checked={alwaysShow} onChange={(e) => onAlwaysShow(e.target.checked)} className="h-6 w-6 accent-[var(--color-signal)]" />
               Always show results on race pages
             </label>
           </div>
@@ -91,14 +91,14 @@ export function ResultPanel({
                   <td className="py-2 pr-3">
                     <span
                       className="inline-block min-w-[2.6rem] px-1.5 py-1 text-center font-display text-[1rem] leading-none font-bold"
-                      style={row.finish && row.finish <= 3 ? { background: PLACE_COLOURS[row.finish - 1], color: "#0a0b0e" } : { background: "#1c2128", color: "#c5cad1" }}
+                      style={row.finish && row.finish <= 3 ? { background: PLACE_COLOURS[row.finish - 1], color: "var(--color-on-medal)" } : { background: "var(--color-panel2)", color: "var(--color-steel)" }}
                     >
                       {classifiedLabel(row)}
                     </span>
                   </td>
                   <td className="py-2 pr-3">
                     <span className="flex items-center gap-2.5">
-                      <Portrait driver={row.driver} colour={row.colour} number={row.entry.n} className="hidden h-8 w-8 shrink-0 sm:block" rounded />
+                      <Portrait driver={row.driver} colour={row.colour} number={row.entry.n} className="hidden h-8 w-8 shrink-0 sm:block" sizes="32px" rounded />
                       <span className="h-5 w-1 shrink-0 sm:hidden" style={{ background: row.colour }} aria-hidden />
                       <span>
                         <span className="block font-display text-[1.1rem] leading-none font-bold uppercase">{row.driver.last}</span>
