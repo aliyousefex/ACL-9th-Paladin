@@ -180,23 +180,31 @@ The one exception is navigation, because it is the one thing that floats above t
 
 The global shell is a floating capsule in three zones: the brand, five destinations, and the tools (search and the theme switch). On a wide screen the destinations sit on the capsule's true centre. The current destination is marked quietly: a tonal pill (a tint of the ink, so it works in both themes) slides to it and its text rises from muted to ink. The same pill sits under the current slot of the phone dock. The capsule is frosted glass in the manner of a phone's system chrome: a blurred, saturated view of the page behind it, a soft sheen down from the top edge, a bright upper edge and a shadow that lifts it. In the light theme it is whiter than the page and has a darker edge, so it stands off the paper; in the dark theme it is a deep smoked glass. Every control in it is 40px tall, so the row reads as one line.
 
-**The Legible Glass Rule.** The glass is kept dense (74% in the dark theme, 80% in the light) so a label stays readable over whatever scrolls beneath it, the sheen is a separate layer (so the rendered-contrast audit can still measure the labels), and where the browser cannot blur, or the reader has asked for less transparency, the bar, the dock and the More list become solid surfaces of the same shape. Glass is for the floating navigation only.
+**The Legible Glass Rule.** The glass is kept dense (74% in the dark theme, 80% in the light) so a label stays readable over whatever scrolls beneath it, the sheen is a separate layer (so the rendered-contrast audit can still measure the labels), and where the browser cannot blur, or the reader has asked for less transparency, the bar and the dock become solid surfaces of the same shape. Glass is for the floating navigation only, and one frosted surface never sits inside another: a blur can only see as far as the nearest frosted ancestor, so the **More** list, which opens from inside the bar or the dock, is solid (a blurred panel there let the page behind show through sharp, as ghost text behind the labels). For the same reason nothing that must cover the screen lives inside the bar: a frosted ancestor becomes the containing block of its fixed descendants, so the search palette is mounted on the body.
 
 Pages that belong to a destination without a place in the bar (Method, History graph, Season league, the Driver and Circuit archives) live under **More**, a disclosure whose list names the page you are on; the destination that owns the page stays marked in the bar. On a phone the bar carries only the brand and the tools and slides away while reading, and the dock (five destinations and More) stays at the thumb. Hover and active states use tonal or text contrast, with red reserved for the current signal rather than decorating every link.
 
+### Search
+
+Search is a palette over a dimmed screen, opened from the bar's search icon, `/` or Ctrl+K. It is mounted on the body so the dimming always covers the whole screen. On a phone it hugs the top of the screen and is sized to what the on-screen keyboard leaves (so the list is never behind the keys), the page behind it does not scroll, the close control is a 44px cross, and nothing names a key: the "Up and down to move" line and "Esc" appear only where there is a keyboard (`(hover: hover) and (pointer: fine)`), as does the page's own "Press / to search" line (`.keyboard-only`). The field has no box of its own, so instead of the global ring floating around empty space the row carries the focus mark, a 2px ink rule under it.
+
+The back-to-top button is a small glass circle that matches the dock, never a heavy outlined disc over the content.
+
 ### Footer
 
-One quiet band on the Tower surface and no more: the brand and the one paragraph about the project on the left, and the way around the site on the right in three short groups (Explore, Archives, Understand). The data sources and the no-endorsement notice are not repeated here; they live on the model page, where the numbers they apply to are explained. No lockup, no second logo, no decoration; links are text that rises to ink on hover.
+One quiet band on the Tower surface and no more: the brand and the one paragraph about the project on the left, and the way around the site on the right in three short groups (Explore, Archives, Understand). The data sources and the no-endorsement notice are not repeated here; they live on the model page, where the numbers they apply to are explained. No lockup, no second logo, no decoration; links are text that rises to ink on hover. On a phone the footer itself (not the page body) leaves room for the dock, so its surface runs to the bottom edge of the screen instead of ending in a strip of page colour.
 
 ### Favicon
 
-The rearing horse of the logo, in ink on the page's near-black square, nothing else: no red tile, no frame. It is traced from the logo into one vector outline, so it is a drawing rather than a shrunken bitmap and stays recognisable at 16px; the same outline draws every size.
+The logo's triangle in white on a square of the logo's own blue (`#1800ad`, 12.8:1), nothing else. The artwork is hairline line work, which is gone at 16px, so each size draws it with its lines thickened to about 0.8 of a pixel (a frame drawn for each size in the `.ico`, not one image scaled); the pieces stay cut out of the triangle, so it reads as the same mark and not a solid wedge. It is drawn from the supplied path, not redrawn, and sits a little above centre because a triangle's weight is low in its box.
 
 ### Theme Switch
 
-One light/dark switch. It is a pill track with a faint sun at one end and a moon at the other and a glossy knob that slides between them with a touch of spring, stretching while it is pressed, its icon turning from sun to moon as it crosses. It is a real switch (Space and Enter flip it) and always shows the theme on screen. Until it is flipped the site follows the device, live; flipping it saves an explicit choice. There is no third control for "match my device": the default is that, and a reader who has chosen is choosing.
+One day/night switch, drawn as a small sky and made only of CSS shapes. In the light it is a pale daytime sky with a cloud and the knob is the sun; in the dark it is a night sky with a few stars and the knob is the moon with its craters. The knob slides between them with a touch of spring, stretching while it is pressed, and the sky, stars and cloud fade across as it goes. It is a real switch (Space and Enter flip it) and always shows the theme on screen. Until it is flipped the site follows the device, live; flipping it saves an explicit choice. There is no third control for "match my device": the default is that, and a reader who has chosen is choosing.
 
-The change itself is a wipe: the incoming theme is revealed through a radial mask that grows from the knob, with the last 180px feathered so it spreads like a tide rather than a cut-out. Browsers without view transitions get a 320ms colour fade instead. Under reduced motion the knob, the pills and the wipe all jump instead of moving, and nothing animates before the reader has first used the switch.
+**The knob answers the press first.** The page cannot: changing the theme re-styles and repaints all of it, and a view transition paints it twice more and holds the screen still while it does, which measured at a phone's speed as a stall of most of a second between the press and the first change. So the control shows the theme it is changing to at once, and the page changes a frame later, after the knob has started to move (a transform animation carries on while the page is busy).
+
+On a desktop (a precise pointer) the change is a circle growing from the knob over half a second, as a clip-path: it starts fast and settles, and a clip is cheap to animate where a mask redrawn every frame was not. On a phone or tablet, in a browser with no view transitions, and under reduced motion the page simply changes in one step. There is deliberately no page-wide colour fade: animating every element's colours froze a phone for seconds. Nothing animates before the reader has first used the switch.
 
 ### Provenance Tags
 
@@ -227,7 +235,7 @@ and every pair is checked.
   wrong theme, and `src/lib/theme.ts` keeps it current, including when the device switches while the choice is "match my device".
 - The browser's own chrome (a phone's address bar) follows the page through `theme-color`, and native controls and scrollbars follow
   through `color-scheme`.
-- The raster horse logo is pale, so it is inverted on the light page; the wordmark is drawn in `currentColor`.
+- The logo mark is vector and takes `--color-brand` (the logo's blue on the light page, a lighter tint of it on the dark one); the wordmark is drawn in `currentColor`. The bar carries the mark alone; the footer pairs it with the wordmark.
 - Team colours are identification, not theme, and are the same in both. Text on a team colour is chosen for that colour.
 
 ### Named Rules

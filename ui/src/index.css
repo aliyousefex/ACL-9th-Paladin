@@ -40,6 +40,8 @@
   --color-on-medal: #0a0b0e;
   /* The purple that means "fastest". */
   --color-fastest: #d987ff;
+  /* The logo's blue. The light page uses it as drawn (#1800ad); on the dark page that would be 1.5:1, so the dark theme uses a lighter tint of the same hue. */
+  --color-brand: #8270ff;
 
   --breakpoint-xs: 30rem;
 }
@@ -97,6 +99,7 @@
   --color-drs: #14994b;
   --color-on-medal: #ffffff;
   --color-fastest: #7b2fb5;
+  --color-brand: #1800ad;
   --grain-a: rgb(0 0 0 / 0.018);
   --grain-b: rgb(0 0 0 / 0.012);
   --wash: rgb(0 0 0 / 0.035);
@@ -127,9 +130,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* The engraved horse is a pale raster; on the light page it is inverted to a dark one. */
-:root[data-theme="light"] .logo-raster {
-  filter: invert(1);
+/* The logo mark is vector, so it simply takes the brand colour of the theme (see --color-brand). Its thickened lines run a little past the box. */
+.logo-mark {
+  color: var(--color-brand);
+  overflow: visible;
 }
 
 /* A very faint diagonal field behind everything, so the page is never a flat void. */
@@ -1165,20 +1169,12 @@ nav.scroll-x::-webkit-scrollbar {
   line-height: 1.05;
 }
 
-.nav-brand > [role="img"] {
-  width: auto !important;
-}
-
-/* The brand link is a real target even when only the horse is showing (a phone): at least 44px each way. */
+/* The brand link is a real target even when only the mark is showing (a phone): at least 44px each way. */
 .nav-brand {
   justify-content: center;
   min-width: 2.75rem;
   min-height: 2.75rem;
   padding-inline: 0.5rem;
-}
-
-.nav-brand img {
-  object-fit: contain;
 }
 
 
@@ -1401,7 +1397,11 @@ nav.scroll-x::-webkit-scrollbar {
     --bar-h: 3rem;
     --nav-h: 4rem;
   }
-  body {
+}
+
+/* The dock floats over the foot of the page, so the footer, not the body, makes room for it: its own surface runs to the edge of the screen instead of ending in a strip of page colour. */
+@media (max-width: 767px) {
+  .site-footer {
     padding-bottom: var(--bottom-nav-h);
   }
 }
@@ -1422,7 +1422,6 @@ nav.scroll-x::-webkit-scrollbar {
 
   /* frosted glass, dark */
   --glass-bg: color-mix(in srgb, var(--color-tower) 74%, transparent);
-  --glass-bg-strong: color-mix(in srgb, var(--color-tower) 88%, transparent);
   --glass-solid: var(--color-tower);
   --glass-sheen: rgb(255 255 255 / 0.1);
   --glass-edge: rgb(255 255 255 / 0.15);
@@ -1437,7 +1436,6 @@ nav.scroll-x::-webkit-scrollbar {
 /* frosted glass, light: whiter than the page, with a defined edge and a deeper shadow so it stands off the paper */
 :root[data-theme="light"] {
   --glass-bg: color-mix(in srgb, var(--color-panel) 80%, transparent);
-  --glass-bg-strong: color-mix(in srgb, var(--color-panel) 92%, transparent);
   --glass-solid: var(--color-panel);
   --glass-sheen: rgb(255 255 255 / 0.7);
   --glass-edge: rgb(10 11 14 / 0.16);
@@ -1601,19 +1599,24 @@ button.dock__item {
 
 .nav-brand {
   justify-content: center;
-  min-width: 2.5rem;
-  min-height: 2.5rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   padding-inline: 0.25rem 0.5rem;
 }
 
-.nav-brand img {
-  /* Preflight sets height:auto on images; the mark is sized here so it fits the capsule and keeps its proportions. */
+/* Sized here, in the capsule's terms, by height; the width follows the mark's own proportions (a little wider than tall). */
+.nav-brand .logo-mark {
   width: auto;
-  max-width: none;
-  height: 2.5rem;
+  height: 2.125rem;
+  aspect-ratio: 1.2611;
 }
 
-/* "More": the pages that belong to a destination without having a place in the bar. */
+/*
+  "More": the pages that belong to a destination without having a place in the bar.
+  It opens from inside the bar or the dock, which are themselves frosted, and a frosted element inside a frosted one has no page
+  to blur (the outer one is the limit of what it can see): the page behind showed through it sharp, as ghost text behind the
+  labels. So the list is a solid surface with the glass's edge, sheen-free shadow and shape.
+*/
 .more-panel {
   position: absolute;
   z-index: 60;
@@ -1621,9 +1624,7 @@ button.dock__item {
   padding: 0.4rem;
   border: 1px solid var(--glass-edge);
   border-radius: 1.25rem;
-  background-color: var(--glass-bg-strong);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
+  background-color: var(--glass-solid);
   box-shadow: var(--glass-shadow);
   transform-origin: top right;
 }
@@ -1714,7 +1715,7 @@ button.dock__item {
   line-height: 1.25;
 }
 
-/* ---- the theme switch: one light/dark control whose knob slides */
+/* ---- the theme switch: one day/night control whose knob slides */
 
 .theme-control {
   display: inline-flex;
@@ -1722,42 +1723,44 @@ button.dock__item {
 }
 
 /*
-  The switch. The track is 52 x 28 and the knob 22, so it travels 24px; the button around it is 56 x 40 so it is a comfortable
-  target. The knob is a small piece of the same glossy material as the bar, and slides with a touch of spring. While it is
-  pressed it stretches, the way a phone's switch does. Its icon turns from sun to moon as it crosses.
+  The switch is a small sky. The track is 60 x 32 and the knob 26, so the knob travels 28px; the button around it is 68 x 44, a
+  comfortable target. In the light the track is a pale daytime sky with a cloud and the knob is the sun; in the dark it is a
+  night sky with a few stars and the knob is the moon. Everything that is not the knob fades between the two while the knob
+  slides across with a touch of spring, stretching while it is pressed, the way a phone's switch does.
 */
 .theme-toggle {
-  --track-w: 3.25rem;
-  --track-h: 1.75rem;
-  --knob: 1.375rem;
-  --inset: 0.125rem;
+  --track-w: 3.75rem;
+  --track-h: 2rem;
+  --knob: 1.625rem;
+  --inset: 0.1875rem;
   --travel: calc(var(--track-w) - 2px - var(--knob) - 2 * var(--inset));
   display: grid;
   place-items: center;
-  width: 3.5rem;
-  height: 2.5rem;
+  width: 4.25rem;
+  height: 2.75rem;
   border-radius: 999px;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .theme-toggle__track {
   position: relative;
   display: block;
+  overflow: hidden;
   width: var(--track-w);
   height: var(--track-h);
   border: 1px solid var(--glass-edge);
   border-radius: 999px;
-  background-color: var(--pill-bg);
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.18);
-  transition: background-color 380ms ease, border-color 200ms ease;
+  background: linear-gradient(180deg, #0b0d13 0%, #1a1f2b 100%);
+  /* The night sky stops at the border, so the border is a soft edge on the bar, not a dark ring around the day. */
+  background-clip: padding-box;
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.5), 0 1px 0 rgb(255 255 255 / 0.05);
+  transition: border-color 200ms ease;
 }
 
 .theme-toggle:hover .theme-toggle__track {
   border-color: var(--color-control);
-}
-
-.theme-toggle[aria-checked="true"] .theme-toggle__track {
-  background-color: color-mix(in srgb, var(--color-ink) 16%, transparent);
 }
 
 .theme-toggle:focus-visible {
@@ -1769,31 +1772,96 @@ button.dock__item {
   outline-offset: 3px;
 }
 
-/* The two ends of the track, faint, so it reads as a choice between a sun and a moon. */
-.theme-toggle__hint {
+/* Day: a soft sky over the night, faded in or out. */
+.theme-toggle__sky {
   position: absolute;
-  top: 50%;
-  margin-top: -6.5px;
-  color: var(--color-mute);
-  opacity: 0.8;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #8fbcf0 0%, #d4e6fb 100%);
+  box-shadow: inset 0 2px 5px rgb(20 50 100 / 0.28);
+  opacity: 0;
+  transition: opacity 420ms ease;
 }
 
-.theme-toggle__hint--sun { left: 0.45rem; }
-.theme-toggle__hint--moon { right: 0.45rem; }
+/* Night: a few stars on the side the moon has left. */
+.theme-toggle__stars {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 17% 30%, #fff 0 0.7px, transparent 1.3px),
+    radial-gradient(circle at 32% 66%, rgb(255 255 255 / 0.85) 0 0.55px, transparent 1.1px),
+    radial-gradient(circle at 42% 26%, rgb(255 255 255 / 0.7) 0 0.5px, transparent 1px),
+    radial-gradient(circle at 25% 52%, rgb(255 255 255 / 0.6) 0 0.45px, transparent 0.95px);
+  opacity: 0;
+  transition: opacity 360ms ease 60ms;
+}
+
+/* Day: one soft cloud on the side the sun has left: three puffs on a flat base. */
+.theme-toggle__clouds {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  width: 1.4rem;
+  height: 0.75rem;
+  background:
+    radial-gradient(circle at 25% 68%, #fff 0 3.4px, transparent 3.9px),
+    radial-gradient(circle at 50% 40%, #fff 0 4.9px, transparent 5.4px),
+    radial-gradient(circle at 76% 66%, #fff 0 3.7px, transparent 4.2px),
+    linear-gradient(#fff, #fff) 12% 100% / 76% 36% no-repeat;
+  filter: drop-shadow(0 1px 1px rgb(50 90 150 / 0.3));
+  opacity: 0;
+  transition: opacity 360ms ease;
+}
 
 .theme-toggle__knob {
   position: absolute;
   top: var(--inset);
   left: var(--inset);
-  display: grid;
-  place-items: center;
   width: var(--knob);
   height: var(--knob);
   border-radius: 999px;
-  background: var(--knob-bg);
-  color: var(--knob-fg);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.45);
-  transition: transform 460ms cubic-bezier(0.34, 1.25, 0.64, 1), width 200ms ease;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.38);
+  transition: transform 400ms cubic-bezier(0.3, 1.35, 0.5, 1), width 180ms ease, filter 160ms ease;
+}
+
+.theme-toggle:hover .theme-toggle__knob {
+  filter: brightness(1.07);
+}
+
+/* The sun and the moon are the knob itself, one face over the other. */
+.theme-toggle__face {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 280ms ease;
+}
+
+.theme-toggle__face--sun {
+  background: radial-gradient(circle at 34% 30%, #fff4bd 0%, #ffc93f 48%, #f59e0b 100%);
+  box-shadow: 0 0 0 3px rgb(255 196 60 / 0.3), inset 0 1px 1px rgb(255 255 255 / 0.85), inset 0 -2px 3px rgb(170 85 0 / 0.4);
+}
+
+.theme-toggle__face--moon {
+  background:
+    radial-gradient(circle at 63% 63%, rgb(120 132 160 / 0.5) 0 2.3px, transparent 2.8px),
+    radial-gradient(circle at 31% 60%, rgb(120 132 160 / 0.42) 0 1.7px, transparent 2.1px),
+    radial-gradient(circle at 60% 27%, rgb(120 132 160 / 0.36) 0 1.4px, transparent 1.8px),
+    radial-gradient(circle at 34% 30%, #ffffff 0%, #dde3ee 55%, #b3bccf 100%);
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 0.9), inset -3px -2px 4px rgb(70 82 115 / 0.35);
+}
+
+/* Day: the sun, the sky and the cloud, the knob at the left. */
+.theme-toggle[aria-checked="false"] .theme-toggle__sky,
+.theme-toggle[aria-checked="false"] .theme-toggle__clouds,
+.theme-toggle[aria-checked="false"] .theme-toggle__face--sun {
+  opacity: 1;
+}
+
+/* Night: the moon and the stars, the knob at the right. */
+.theme-toggle[aria-checked="true"] .theme-toggle__stars,
+.theme-toggle[aria-checked="true"] .theme-toggle__face--moon {
+  opacity: 1;
 }
 
 .theme-toggle[aria-checked="true"] .theme-toggle__knob {
@@ -1808,42 +1876,24 @@ button.dock__item {
   transform: translateX(calc(var(--travel) - 0.3rem));
 }
 
-/* The sun and the moon share the knob; the one that is not showing is turned away and small. */
-.theme-toggle__icon {
-  grid-area: 1 / 1;
-  transition: opacity 280ms ease, transform 460ms cubic-bezier(0.34, 1.25, 0.64, 1);
-}
-
-.theme-toggle[aria-checked="false"] .theme-toggle__icon--moon,
-.theme-toggle[aria-checked="true"] .theme-toggle__icon--sun {
-  opacity: 0;
-  transform: rotate(-110deg) scale(0.4);
-}
-
-.theme-toggle[aria-checked="true"] .theme-toggle__icon--sun {
-  transform: rotate(110deg) scale(0.4);
-}
-
-/* Before the first use nothing slides: the control is simply drawn in the state the page is in. */
+/* Before the first use nothing slides or fades: the control is simply drawn in the state the page is in. */
 .theme-control:not([data-touched="true"]) .theme-toggle__knob,
-.theme-control:not([data-touched="true"]) .theme-toggle__icon,
+.theme-control:not([data-touched="true"]) .theme-toggle__face,
+.theme-control:not([data-touched="true"]) .theme-toggle__sky,
+.theme-control:not([data-touched="true"]) .theme-toggle__stars,
+.theme-control:not([data-touched="true"]) .theme-toggle__clouds,
 .theme-control:not([data-touched="true"]) .theme-toggle__track {
   transition: none;
 }
 
-/* ---- changing the theme: the new one grows as a circle from the switch; without view transitions, the colours fade */
+/* ---- changing the theme: on a desktop the new one grows as a circle from the switch; elsewhere it simply changes (see setThemePref) */
 
 /*
-  The wipe is a radial mask on the incoming theme, with a soft edge: the new theme is solid inside the radius and fades out
-  over the last 180px, so it spreads like a tide and not like a cut-out. The radius is a registered property so it can be
-  animated, and it defaults to "everything" so nothing is hidden if the animation does not run.
+  The new theme is clipped to a circle that grows from the knob. A clip-path is cheap for the browser to animate (a mask
+  that changes every frame is not), the curve starts fast and settles gently so the page answers the press at once, and
+  half a second is long enough to read as a motion and short enough never to feel like a wait. With no animation the clip
+  is simply absent and nothing is hidden.
 */
-@property --reveal {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 9999px;
-}
-
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -1856,21 +1906,12 @@ button.dock__item {
 
 ::view-transition-new(root) {
   z-index: 2;
-  animation: theme-reveal 900ms cubic-bezier(0.5, 0, 0.2, 1) both;
-  -webkit-mask-image: radial-gradient(circle at var(--vt-x, 50%) var(--vt-y, 0px), #000 max(0px, calc(var(--reveal) - 180px)), transparent var(--reveal));
-  mask-image: radial-gradient(circle at var(--vt-x, 50%) var(--vt-y, 0px), #000 max(0px, calc(var(--reveal) - 180px)), transparent var(--reveal));
+  animation: theme-reveal 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes theme-reveal {
-  from { --reveal: 0px; }
-  to { --reveal: calc(var(--vt-r, 150vmax) + 180px); }
-}
-
-html.theme-fade,
-html.theme-fade *,
-html.theme-fade *::before,
-html.theme-fade *::after {
-  transition: background-color 320ms ease, color 320ms ease, border-color 320ms ease, fill 320ms ease, stroke 320ms ease, box-shadow 320ms ease !important;
+  from { clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 0px)); }
+  to { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 0px)); }
 }
 
 /* ---- the phone dock: destinations as a floating capsule at the thumb */
@@ -1933,8 +1974,9 @@ html.theme-fade *::after {
 
 /* The state each bar is in: on a phone, reading hides the top capsule and the dock stays. */
 @media (max-width: 767px) {
+  /* Past its own height by the reach of its shadow, so the capsule's drop shadow does not hang over the top of the page as a grey haze. */
   :root[data-chrome="compact"] .chrome-bar {
-    transform: translateY(-100%);
+    transform: translateY(calc(-100% - 3.5rem));
   }
   .chrome-bar {
     transition: transform 220ms var(--ease-out);
@@ -1942,8 +1984,8 @@ html.theme-fade *::after {
   :root[data-chrome="compact"] {
     --sticky-top: 0px;
   }
-  .nav-brand img {
-    height: 2.25rem;
+  .nav-brand .logo-mark {
+    height: 1.875rem;
   }
 }
 
@@ -1984,16 +2026,14 @@ html.theme-fade *::after {
 /* No blur available, or the reader asked for less transparency: a solid surface, same shape and shadow. */
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .site-bar__inner,
-  .dock,
-  .more-panel {
+  .dock {
     background-color: var(--glass-solid);
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
   .site-bar__inner,
-  .dock,
-  .more-panel {
+  .dock {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background-color: var(--glass-solid);
@@ -2013,12 +2053,218 @@ html.theme-fade *::after {
   .dock__pill,
   .theme-toggle__track,
   .theme-toggle__knob,
-  .theme-toggle__icon,
+  .theme-toggle__face,
+  .theme-toggle__sky,
+  .theme-toggle__stars,
+  .theme-toggle__clouds,
   .chrome-bar {
     transition: none !important;
   }
   .more-panel:not([hidden]) {
     animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ search palette */
+
+/*
+  Mounted on <body> (a portal), never inside the glass bar: a frosted ancestor is the containing block of its fixed
+  descendants, so inside the bar this backdrop was only as big as the bar. It stays under the on-screen keyboard's share of
+  the screen by sizing to the visual viewport (--vv-h, set while it is open), and the page behind does not scroll.
+*/
+.palette {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem 0;
+  background: rgb(0 0 0 / 0.65);
+  overscroll-behavior: contain;
+}
+
+.palette__panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 40rem;
+  max-height: calc(var(--vv-h, 100dvh) - 1.5rem);
+  overflow: hidden;
+  border: 1px solid var(--color-line2);
+  background: var(--color-tower);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
+}
+
+.palette__field {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding-left: 1rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+/* The field has no box of its own, so the ring a bordered input gets would float around empty space. The row carries the focus mark instead. */
+.palette__field:focus-within {
+  box-shadow: inset 0 -2px 0 var(--color-ink);
+}
+
+.palette__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 3.5rem;
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 1.05rem;
+  text-overflow: ellipsis;
+}
+
+.palette__input::placeholder {
+  color: var(--color-mute);
+  opacity: 1;
+}
+
+.palette__input:focus-visible {
+  outline: none;
+}
+
+/* A touch target with a cross on a phone; the word "Esc" where there is a keyboard. */
+.palette__close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  margin-right: 0.25rem;
+  color: var(--color-mute);
+}
+
+.palette__close:hover {
+  color: var(--color-ink);
+}
+
+.palette__esc {
+  display: none;
+  font-size: 0.85rem;
+}
+
+.palette__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0.25rem 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.palette__hint {
+  display: none;
+  flex: none;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-mute);
+  font-size: 0.8rem;
+}
+
+@media (min-width: 640px) {
+  .palette {
+    padding: 10vh 1rem 0;
+  }
+  .palette__panel {
+    max-height: calc(var(--vv-h, 100dvh) - 10vh - 1.5rem);
+  }
+  .palette__list {
+    max-height: min(24rem, 55vh);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .palette__hint {
+    display: block;
+  }
+  .palette__close {
+    min-width: 0;
+    min-height: 0;
+    padding: 0.5rem;
+  }
+  .palette__esc {
+    display: inline;
+  }
+  .palette__x {
+    display: none;
+  }
+}
+
+/* Behind the open palette a phone's page stays where it is. */
+@media (max-width: 767px) {
+  html.palette-open {
+    overflow: hidden;
+  }
+}
+
+/* Words that name a key mean nothing on a touchscreen. */
+@media (hover: none), (pointer: coarse) {
+  .keyboard-only {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ back to top */
+
+.to-top {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(var(--bottom-nav-h) + 0.25rem);
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background-color: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--glass-shadow);
+  color: var(--color-ink);
+  transition: transform 160ms var(--ease-out), background-color 160ms ease;
+}
+
+.to-top:active {
+  transform: scale(0.94);
+}
+
+@media (min-width: 640px) {
+  .to-top {
+    right: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .to-top {
+    bottom: 1.5rem;
+  }
+}
+
+/* Declared after the button's own rule so they win: no blur available, or less transparency asked for, means a solid surface. */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .to-top {
+    background-color: var(--glass-solid);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .to-top {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: var(--glass-solid);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .to-top {
+    transition: none;
   }
 }
 

@@ -39,7 +39,7 @@ export function FirstVisit() {
         <a className="btn" href={href(raceHref(latest))} onClick={() => setDismissed(true)}>
           Start with {latest.name.replace(" Grand Prix", "")} {latest.year}
         </a>
-        <p className="text-[0.9rem] text-mute">
+        <p className="keyboard-only text-[0.9rem] text-mute">
           Press <kbd className="border border-line2 px-1.5 py-0.5 font-display text-[0.8rem]">/</kbd> at any time to search for a race, driver or circuit.
         </p>
       </div>

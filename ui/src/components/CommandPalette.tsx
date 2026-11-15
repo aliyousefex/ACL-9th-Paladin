@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
 import { navigate } from "../lib/router";
 import { prepare, search, type SearchItem, type SearchKind } from "../lib/search";
@@ -22,6 +23,7 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const trigger = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const pressedOnBackdrop = useRef(false);
   const prepared = useMemo(() => prepare(buildIndex()), []);
   const results = useMemo(() => search(prepared, text, 10, suggestions()), [prepared, text]);
 
@@ -41,6 +43,22 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (open) input.current?.focus();
+  }, [open]);
+
+  // While it is open the page behind does not scroll (on a phone; a desktop keeps its scrollbar), and the panel is sized to
+  // the part of the screen the on-screen keyboard leaves, so the list is never hidden behind the keys.
+  const [visibleHeight, setVisibleHeight] = useState<number | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    document.documentElement.classList.add("palette-open");
+    const viewport = window.visualViewport;
+    const measure = () => setVisibleHeight(viewport ? Math.round(viewport.height) : null);
+    measure();
+    viewport?.addEventListener("resize", measure);
+    return () => {
+      document.documentElement.classList.remove("palette-open");
+      viewport?.removeEventListener("resize", measure);
+    };
   }, [open]);
 
   const close = () => {
@@ -91,62 +109,82 @@ export function CommandPalette() {
         <Icon name="search" size={20} />
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/65 px-3 pt-[10vh] sm:px-4" onMouseDown={(event) => event.target === event.currentTarget && close()}>
-          <div role="dialog" aria-modal="true" aria-label="Search races, drivers and pages" className="w-full max-w-[40rem] border border-line2 bg-tower shadow-2xl">
-            <div className="flex items-center gap-3 border-b border-line px-4">
-              <Icon name="search" size={18} className="shrink-0 text-mute" />
-              <input
-                ref={input}
-                role="combobox"
-                aria-expanded="true"
-                aria-controls="palette-list"
-                aria-autocomplete="list"
-                aria-activedescendant={results.length ? `palette-option-${active}` : undefined}
-                aria-label="Search"
-                value={text}
-                placeholder="Search a Grand Prix, driver, circuit or page"
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(event) => {
-                  setText(event.target.value);
-                  setActive(0);
-                }}
-                onKeyDown={onInputKey}
-                className="min-h-14 w-full bg-transparent text-[1.05rem] text-ink placeholder:text-mute focus:outline-none"
-              />
-              <button type="button" onClick={close} className="shrink-0 px-2 py-2 text-[0.85rem] text-mute hover:text-ink" aria-label="Close search">
-                Esc
-              </button>
+      {/* A portal: the bar that holds the button is frosted glass, and a frosted ancestor becomes the containing block of its
+          position-fixed descendants, which would shrink the dimmed backdrop to the size of the bar. */}
+      {open &&
+        createPortal(
+          <div
+            className="palette"
+            style={visibleHeight ? ({ "--vv-h": `${visibleHeight}px` } as CSSProperties) : undefined}
+            // Closes on a whole click that began and ended on the dimmed page (not a drag that ends there after selecting text in
+            // the field), and on the click, not the press: pressing moves focus to the page after any handler has run, which
+            // would undo the focus returning to the search button.
+            onMouseDown={(event) => {
+              pressedOnBackdrop.current = event.target === event.currentTarget;
+            }}
+            onClick={(event) => {
+              if (pressedOnBackdrop.current && event.target === event.currentTarget) close();
+              pressedOnBackdrop.current = false;
+            }}
+          >
+            <div role="dialog" aria-modal="true" aria-label="Search races, drivers and pages" className="palette__panel">
+              <div className="palette__field">
+                <Icon name="search" size={18} className="shrink-0 text-mute" />
+                <input
+                  ref={input}
+                  role="combobox"
+                  aria-expanded="true"
+                  aria-controls="palette-list"
+                  aria-autocomplete="list"
+                  aria-activedescendant={results.length ? `palette-option-${active}` : undefined}
+                  aria-label="Search"
+                  value={text}
+                  placeholder="Search races, drivers, circuits"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  enterKeyHint="go"
+                  spellCheck={false}
+                  onChange={(event) => {
+                    setText(event.target.value);
+                    setActive(0);
+                  }}
+                  onKeyDown={onInputKey}
+                  className="palette__input"
+                />
+                <button type="button" onClick={close} className="palette__close" aria-label="Close search">
+                  <span className="palette__esc">Esc</span>
+                  <Icon name="cross" size={20} className="palette__x" />
+                </button>
+              </div>
+              {results.length === 0 ? (
+                <p className="px-4 py-6 text-steel">Nothing matches “{text}”. Try a Grand Prix, a driver's surname or a country.</p>
+              ) : (
+                <ul id="palette-list" role="listbox" aria-label={text ? "Results" : "Suggestions"} className="palette__list">
+                  {results.map((item, i) => (
+                    <li
+                      key={item.id}
+                      id={`palette-option-${i}`}
+                      role="option"
+                      aria-selected={i === active}
+                      onMouseMove={() => active !== i && setActive(i)}
+                      onClick={() => choose(item)}
+                      className={`flex cursor-pointer items-baseline gap-3 px-4 py-2.5 ${i === active ? "bg-panel2" : ""}`}
+                    >
+                      <span className="w-14 shrink-0 font-display text-[0.8rem] font-semibold tracking-wide text-mute uppercase sm:w-16">{KIND_LABEL[item.kind]}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-display text-[1.1rem] leading-tight font-semibold uppercase text-ink">{item.title}</span>
+                        <span className="block truncate text-[0.85rem] text-mute">{item.subtitle}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="sr-only" aria-live="polite">{results.length} {results.length === 1 ? "result" : "results"}</p>
+              <p className="palette__hint">Up and down to move · Enter to open · Esc to close</p>
             </div>
-            {results.length === 0 ? (
-              <p className="px-4 py-6 text-steel">Nothing matches “{text}”. Try a Grand Prix, a driver's surname or a country.</p>
-            ) : (
-              <ul id="palette-list" role="listbox" aria-label={text ? "Results" : "Suggestions"} className="max-h-[min(24rem,55vh)] overflow-y-auto py-1">
-                {results.map((item, i) => (
-                  <li
-                    key={item.id}
-                    id={`palette-option-${i}`}
-                    role="option"
-                    aria-selected={i === active}
-                    onMouseMove={() => active !== i && setActive(i)}
-                    onClick={() => choose(item)}
-                    className={`flex cursor-pointer items-baseline gap-3 px-4 py-2.5 ${i === active ? "bg-panel2" : ""}`}
-                  >
-                    <span className="w-16 shrink-0 font-display text-[0.8rem] font-semibold tracking-wide text-mute uppercase">{KIND_LABEL[item.kind]}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-display text-[1.1rem] leading-tight font-semibold uppercase text-ink">{item.title}</span>
-                      <span className="block truncate text-[0.85rem] text-mute">{item.subtitle}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="sr-only" aria-live="polite">{results.length} {results.length === 1 ? "result" : "results"}</p>
-            <p className="border-t border-line px-4 py-2 text-[0.8rem] text-mute">Up and down to move · Enter to open · Esc to close</p>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
