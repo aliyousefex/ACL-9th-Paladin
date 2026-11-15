@@ -258,7 +258,7 @@ def main():
     try:
         driver.verify_connectivity()          # fails here if the URI or password is wrong
         print("Connected to Neo4j")
-        with driver.session() as session:     # no database name: the default one is used
+        with driver.session(database=config.get("DATABASE")) as session:
             create_constraints(session)
             # Entity nodes first: fact nodes link to them.
             create_seasons(session)

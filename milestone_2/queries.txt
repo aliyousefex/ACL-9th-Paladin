@@ -22,12 +22,13 @@ RETURN c.constructor_name AS Constructor,
        count(*) AS Shared_Races,
        count(CASE WHEN h.positionOrder < b.positionOrder THEN 1 END) AS Hamilton_Ahead,
        count(CASE WHEN b.positionOrder < h.positionOrder THEN 1 END) AS Bottas_Ahead
+       
 //4. Query 4
 MATCH (:Circuit {circuitId: 6})<-[:AT_CIRCUIT]-(r:Race)<-[:FOR_RACE]-(res:Result)-[:BY_DRIVER]->(d:Driver),
       (res)-[:HAS_STATUS]->(st:Status)
 WHERE r.date < date('2020-01-01')
   AND NOT st.status IN ['Did not qualify', 'Did not prequalify', 'Withdrew']
-WITH d, count(DISTINCT r) AS Starts, avg(res.positionOrder) AS Avg_Finish,
+WITH d, count(DISTINCT r) AS Starts, toFloat(sum(res.positionOrder)) / count(res) AS Avg_Finish,
      count(CASE WHEN res.position = 1 THEN 1 END) AS Wins
 WHERE Starts >= 5
 RETURN d.forename + ' ' + d.surname AS Driver, Starts, Avg_Finish, Wins
