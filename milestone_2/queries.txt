@@ -22,3 +22,28 @@ RETURN c.constructor_name AS Constructor,
        count(*) AS Shared_Races,
        count(CASE WHEN h.positionOrder < b.positionOrder THEN 1 END) AS Hamilton_Ahead,
        count(CASE WHEN b.positionOrder < h.positionOrder THEN 1 END) AS Bottas_Ahead
+//4. Query 4
+MATCH (:Circuit {circuitId: 6})<-[:AT_CIRCUIT]-(r:Race)<-[:FOR_RACE]-(res:Result)-[:BY_DRIVER]->(d:Driver),
+      (res)-[:HAS_STATUS]->(st:Status)
+WHERE r.date < date('2020-01-01')
+  AND NOT st.status IN ['Did not qualify', 'Did not prequalify', 'Withdrew']
+WITH d, count(DISTINCT r) AS Starts, avg(res.positionOrder) AS Avg_Finish,
+     count(CASE WHEN res.position = 1 THEN 1 END) AS Wins
+WHERE Starts >= 5
+RETURN d.forename + ' ' + d.surname AS Driver, Starts, Avg_Finish, Wins
+ORDER BY Avg_Finish ASC, Wins DESC, Driver ASC
+
+//5. Query 5
+MATCH (d:Driver)<-[:BY_DRIVER]-(res:Result)-[:FOR_RACE]->(:Race)-[:IN_SEASON]->(s:Season),
+      (res)-[:FOR_CONSTRUCTOR]->(c:Constructor)
+WHERE s.year IN [2020, 2021]
+WITH d, s.year AS year, c, count(res) AS entries
+ORDER BY entries DESC, c.constructorId ASC
+WITH d, year, collect(c.constructorId)[0] AS primary
+WITH d,
+     head([x IN collect({year: year, primary: primary}) WHERE x.year = 2020]).primary AS c2020,
+     head([x IN collect({year: year, primary: primary}) WHERE x.year = 2021]).primary AS c2021
+WHERE c2020 IS NOT NULL AND c2021 IS NOT NULL AND c2020 <> c2021
+WITH d.forename + ' ' + d.surname AS name
+ORDER BY name
+RETURN count(name) AS Drivers_Changed, collect(name) AS Drivers
