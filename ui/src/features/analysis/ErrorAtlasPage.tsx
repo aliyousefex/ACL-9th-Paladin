@@ -48,12 +48,11 @@ export function ErrorAtlasPage() {
       <header className="border-b border-line pt-[calc(var(--nav-h)+2rem)] pb-10">
         <div className="mx-auto grid max-w-[1320px] gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:items-end lg:px-10">
           <div>
-            <p className="eyebrow">Error Atlas · {summary.races} held-out races, 2022–2024</p>
-            <h1 className="display mt-3 text-[2.8rem] sm:text-[4.4rem]">
+            <h1 className="display text-[2.8rem] sm:text-[4.4rem]">
               Paladin {verdict === "is level with the grid" ? "is level with the starting grid" : verdict} on podium names.
             </h1>
             <p className="mt-5 max-w-[64ch] text-[1.1rem] leading-relaxed text-steel">
-              Across these races Paladin's top three held {summary.modelHits} podium finishers and the first three grid slots held {summary.gridHits}. The average difference is{" "}
+              Across the {summary.races} held-out races of 2022 to 2024, Paladin's top three held {summary.modelHits} podium finishers and the first three grid slots held {summary.gridHits}. The average difference is{" "}
               {signedFixed(interval.mean)} names per race, with a 95% interval of {signedFixed(interval.lower)} to {signedFixed(interval.upper)}
               {verdict === "is level with the grid" ? ", so these seasons cannot separate them" : ""}. What does differ is <em className="not-italic text-ink">which</em> names each one gets right, and that is what this page lays out.
             </p>
@@ -369,7 +368,7 @@ function LedgerRow({ race, open, onToggle }: { race: RaceMeta; open: boolean; on
   const panelId = `brief-${race.id}`;
   return (
     <li className="border-b border-line">
-      <div className="grid gap-3 py-4 md:grid-cols-[minmax(11rem,1.1fr)_minmax(15rem,1.5fr)_auto_auto] md:items-center md:gap-6">
+      <div className="grid gap-3 py-4 md:grid-cols-2 md:gap-x-6 md:gap-y-4 lg:grid-cols-[minmax(11rem,1.1fr)_minmax(15rem,1.5fr)_auto_auto] lg:items-center lg:gap-6">
         <div className="min-w-0">
           <p className="label">{race.year} · Round {race.round}</p>
           <h3 className="mt-1 font-display text-[1.45rem] leading-none font-semibold uppercase">{race.name}</h3>

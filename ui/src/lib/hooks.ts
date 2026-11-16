@@ -142,3 +142,36 @@ export function useElementWidth<T extends HTMLElement>(fallback = 1000): [RefObj
   }, []);
   return [ref, width];
 }
+
+/**
+ * Whether a sticky strip has stuck to the top of the screen. `ref` goes on a marker element that sits directly above the
+ * strip (it is also the strip's spacing from what is above it, so its bottom edge is exactly where the strip would be in the
+ * page). Once that edge has risen above the line the strip sticks at, the strip is stuck. The strip then moves (with a
+ * transform, never by changing its `top`, which snaps and shifts layout) in step with the bar that hides and shows above it.
+ */
+export function useStuck(): { ref: RefObject<HTMLSpanElement | null>; stuck: boolean } {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const marker = ref.current;
+    const strip = marker?.nextElementSibling as HTMLElement | null;
+    if (!marker || !strip || typeof IntersectionObserver === "undefined") return;
+    let observer: IntersectionObserver | null = null;
+    const observe = () => {
+      observer?.disconnect();
+      const top = Math.max(0, parseFloat(getComputedStyle(strip).top) || 0);
+      observer = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting && entry.boundingClientRect.bottom < top + 1), {
+        rootMargin: `${-top}px 0px 0px 0px`,
+        threshold: 0,
+      });
+      observer.observe(marker);
+    };
+    observe();
+    window.addEventListener("resize", observe);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", observe);
+    };
+  }, []);
+  return { ref, stuck };
+}

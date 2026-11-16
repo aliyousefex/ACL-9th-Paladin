@@ -53,31 +53,40 @@ function items(): NavItem[] {
   ];
 }
 
+/** How far a reader scrolls in one go before the capsule answers: a little to put it away, a deliberate pull to bring it back. */
+export const HIDE_AFTER = 24;
+export const SHOW_AFTER = 56;
+
 /**
- * On a phone, slide the brand bar away while reading and bring it back on the way up. The rule: past 80px of scroll,
- * scrolling down by 10px hides it and scrolling up by 10px shows it; focusing anything in the header shows it, so a
- * keyboard or screen-reader user can never land on something that is off screen. Wider screens never hide it.
+ * On a phone, slide the brand bar away while reading and bring it back on a pull upward. The rule: past 80px of scroll,
+ * scrolling down by 24px in one go hides it and scrolling up by 56px in one go shows it. The distance is counted from the last
+ * change of direction, so the small slips of a thumb never add up to a toggle (at 10px each way it flickered in and out, and
+ * took the page's section strip with it every time). Focusing anything in the header shows it, so a keyboard or screen-reader
+ * user can never land on something that is off screen. Wider screens never hide it.
  */
 function useCompactChrome(): void {
   useEffect(() => {
     const root = document.documentElement;
     const phone = window.matchMedia("(max-width: 767px)");
     let last = window.scrollY;
+    let travel = 0; // signed distance scrolled since the direction last changed
     const set = (compact: boolean) => {
       if (compact) root.dataset.chrome = "compact";
       else delete root.dataset.chrome;
     };
     const onScroll = () => {
       const y = window.scrollY;
+      const delta = y - last;
+      last = y;
       if (!phone.matches || y < 80) {
         set(false);
-        last = y;
+        travel = 0;
         return;
       }
-      if (y - last > 10) set(true);
-      else if (last - y > 10) set(false);
-      else return;
-      last = y;
+      if (delta === 0) return;
+      travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
+      if (travel > HIDE_AFTER) set(true);
+      else if (travel < -SHOW_AFTER) set(false);
     };
     const onFocus = (event: FocusEvent) => {
       if ((event.target as HTMLElement | null)?.closest("header.chrome-bar")) set(false);
@@ -137,16 +146,32 @@ const ownedByMore = (section: string): boolean => MORE.some((entry) => entry.key
  * The "More" disclosure. It is a button that shows a short list of links, not an ARIA menu: the links stay in the page and
  * in the tab order while it is open, Escape closes it and returns focus to the button, and so does moving away from it or
  * pressing outside. The list is always in the markup (hidden when closed) so it is never a surprise to a crawler or a test.
+ *
+ * On a desktop (a mouse, in the top bar) it also opens by itself when the pointer rests on it, after a moment's intent so a
+ * pointer passing over it does not trigger it, and closes shortly after the pointer leaves it and its list. Clicking it while
+ * it is open that way keeps it open (the reader has said they want it); a second click closes it. A touch has no hover, so
+ * there it is a plain toggle, and the keyboard is unchanged.
  */
 function MoreMenu({ section, placement }: { section: string; placement: "down" | "up" }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const panelId = useId();
+  const pinned = useRef(false); // opened by a click or a key: it stays until it is dismissed
+  const timer = useRef<number | undefined>(undefined);
   const close = (restoreFocus = false) => {
+    window.clearTimeout(timer.current);
+    pinned.current = false;
     setOpen(false);
     if (restoreFocus) button.current?.focus();
   };
+  const hover = (event: React.PointerEvent, entering: boolean) => {
+    if (placement !== "down" || event.pointerType !== "mouse") return;
+    window.clearTimeout(timer.current);
+    if (entering) timer.current = window.setTimeout(() => setOpen(true), 70);
+    else if (!pinned.current) timer.current = window.setTimeout(() => setOpen(false), 220);
+  };
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
   useEffect(() => {
     if (!open) return;
@@ -174,7 +199,7 @@ function MoreMenu({ section, placement }: { section: string; placement: "down" |
 
   const owns = ownedByMore(section);
   return (
-    <div ref={root} className="more">
+    <div ref={root} className="more" onPointerEnter={(event) => hover(event, true)} onPointerLeave={(event) => hover(event, false)}>
       <button
         ref={button}
         type="button"
@@ -184,7 +209,13 @@ function MoreMenu({ section, placement }: { section: string; placement: "down" |
         data-owns={owns ? "true" : undefined}
         onClick={() => {
           haptic("select");
-          setOpen((value) => !value);
+          window.clearTimeout(timer.current);
+          if (open && !pinned.current) pinned.current = true; // opened by hovering: the click keeps it open
+          else if (open) close();
+          else {
+            pinned.current = true;
+            setOpen(true);
+          }
         }}
       >
         {placement === "down" ? (

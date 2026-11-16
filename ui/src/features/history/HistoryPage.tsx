@@ -40,8 +40,7 @@ export function HistoryPage({ query }: { query: URLSearchParams }) {
     <div className="page-in">
       <header className="border-b border-line pt-[calc(var(--nav-h)+2rem)] pb-8">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
-          <p className="eyebrow">History · the Milestone 2 knowledge graph</p>
-          <h1 className="display mt-3 text-[3rem] sm:text-[4.8rem]">Follow the teammate chain</h1>
+          <h1 className="display text-[3rem] sm:text-[4.8rem]">Follow the teammate chain</h1>
           <p className="mt-4 max-w-[66ch] text-[1.1rem] leading-relaxed text-steel">
             {index
               ? `The graph links ${index.drivers.size.toLocaleString("en-GB")} drivers across ${index.file.source.yearFirst}–${index.file.source.yearLast} through the cars they shared. Ask how two drivers are connected, read one driver's career as a path through constructors, or see who has stood on a circuit's podium for the same team.`

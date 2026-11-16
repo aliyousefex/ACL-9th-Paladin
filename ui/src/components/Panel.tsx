@@ -37,7 +37,7 @@ export function Panel({
             )}
             {eyebrow && <p className="panel-context mt-1">{eyebrow}</p>}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
             {tags.map((kind) => (
               <Tag key={kind} kind={kind} />
             ))}

@@ -3,6 +3,7 @@ import { Flag } from "../../components/Flag";
 import { Icon } from "../../components/Icon";
 import { ErrorNote, LightsLoader } from "../../components/Bits";
 import { Lazy } from "../../components/Lazy";
+import { SectionStrip } from "../../components/SectionStrip";
 import { rememberRace } from "../../components/Shell";
 import {
   RACES,
@@ -296,11 +297,11 @@ function RaceHeader({
     <header className="relative overflow-hidden border-b border-line pt-[calc(var(--nav-h)+1.5rem)] pb-6">
       <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="eyebrow">
-            <a className="inline-flex min-h-11 items-center no-underline hover:text-ink" href={href("/", { season: race.year })}>
-              {race.year} season
+          <p className="crumbs">
+            <a className="inline-flex min-h-11 items-center gap-1.5 no-underline hover:text-ink" href={href("/", { season: race.year })}>
+              <Icon name="arrowLeft" size={16} /> {race.year} season
             </a>
-            <span aria-hidden className="text-mute">/</span>
+            <span aria-hidden className="text-line2">/</span>
             Round {race.round}
           </p>
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
@@ -421,38 +422,18 @@ function SubNav({ active, mode }: { active: string; mode: ViewMode }) {
     node.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
   };
   return (
-    <nav
-      aria-label="On this race"
-      className="sticky z-40 border-b border-line bg-tower/95 backdrop-blur-sm"
-      style={{ top: "var(--sticky-top)" }}
-    >
-      <ul className="no-scrollbar mx-auto flex max-w-[1320px] items-center gap-1 overflow-x-auto px-4 sm:px-6 lg:px-10">
-        {items.map((item, i) => (
-          <li key={item.id} className="flex shrink-0 items-center">
-            {item.after && !items[i - 1]?.after && <span className="mx-2 h-5 w-[3px] -skew-x-12 bg-signal" aria-hidden title="Lights out" />}
-            <a
-              href={`#${item.id}`}
-              onClick={jump(item.id)}
-              aria-current={active === item.id ? "true" : undefined}
-              className={`relative flex min-h-11 items-center px-3 font-display text-[0.98rem] leading-none font-semibold tracking-[0.1em] uppercase no-underline transition-colors ${
-                active === item.id ? "text-ink" : "text-mute hover:text-ink"
-              }`}
-            >
-              {item.label}
-              <span aria-hidden className={`absolute inset-x-3 bottom-0 h-[2px] bg-signal transition-opacity ${active === item.id ? "opacity-100" : "opacity-0"}`} />
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <SectionStrip
+      label="On this race"
+      active={active}
+      items={items.map((item, i) => ({ id: item.id, label: item.label, href: `#${item.id}`, onClick: jump(item.id), divider: !!item.after && !items[i - 1]?.after }))}
+    />
   );
 }
 
 function NotFound({ year, slug }: { year: number; slug: string }) {
   return (
     <div className="mx-auto max-w-[760px] px-4 pt-32 pb-10">
-      <p className="eyebrow">Race not found</p>
-      <h1 className="display mt-3 text-[3rem]">No race “{slug}” in {year}</h1>
+      <h1 className="display text-[3rem]">No race “{slug}” in {year}</h1>
       <p className="mt-4 text-steel">Predictions cover the 68 held-out Grands Prix of 2022 to 2024.</p>
       <a className="btn mt-6" href={href("/")}>
         Back to the season

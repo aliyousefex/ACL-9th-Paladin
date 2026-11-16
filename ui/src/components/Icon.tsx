@@ -1,82 +1,66 @@
 import type { SVGProps } from "react";
 
+/**
+ * The icon set: outline icons from Tabler Icons (https://tabler.io/icons, MIT licence, (c) Paweł Kuna; the licence text is in ICONS-LICENSE.txt beside this file), drawn on one 24px grid
+ * with one stroke weight, round caps and joins, so every icon has the same weight, corner radius and optical size. They are
+ * copied in as path data (nothing is loaded at runtime). Our names are kept, so a few share a drawing (the trophy and the cup,
+ * the flag and the grid flag, the network and the graph): the name says what it is for, the drawing is the best one the set has.
+ * To change one, pick another Tabler icon of the same name's meaning; do not draw by hand, or the set stops being consistent.
+ */
 const PATHS = {
-  arrowRight: "M4 12h14M12 5l7 7-7 7",
-  sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8",
-  moon: "M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z",
-  auto: "M3 5h18v11H3zM8 20h8M12 16v4",
-  graph: "M6 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM7.7 16.6l8.6-6.2M8 18h8",
-  more: "M5 12h.01M12 12h.01M19 12h.01",
-  arrowLeft: "M20 12H6M12 5l-7 7 7 7",
-  arrowDown: "M12 4v14M5 12l7 7 7-7",
-  arrowUp: "M12 20V6M5 12l7-7 7 7",
-  chevronDown: "M6 9l6 6 6-6",
-  chevronRight: "M9 6l6 6-6 6",
-  play: "M7 4.5v15l12-7.5z",
-  pause: "M7 4h4v16H7zM13 4h4v16h-4z",
-  replay: "M4 12a8 8 0 1 0 3-6.2M4 4v5h5",
-  check: "M4 12.5l5 5 11-11",
-  cross: "M5 5l14 14M19 5L5 19",
-  info: "M12 11v6M12 7.5v.01M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
-  search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4",
-  compare: "M8 4v16M16 4v16M4 8h8M12 16h8",
-  external: "M14 4h6v6M20 4l-9 9M18 14v5H5V6h5",
-  trophy: "M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M12 14v4M8 20h8",
-  flag: "M5 21V4M5 5h13l-2 4 2 4H5",
-  grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
-  track: "M5 15c-2-3 0-8 5-8 4 0 4 3 7 3 3 0 4 3 2 6-2 3-6 3-9 2-3-1-4 0-5-3z",
-  user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20c1-4 4-6 8-6s7 2 8 6",
-  chart: "M4 20V10M10 20V4M16 20v-7M22 20H2",
-  book: "M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h10",
-  home: "M4 11l8-7 8 7v9h-5v-6H9v6H4z",
-  sliders: "M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6",
-  menu: "M4 7h16M4 12h16M4 17h16",
-  skip: "M6 5v14M10 5l9 7-9 7z",
-  plus: "M12 5v14M5 12h14",
-  minus: "M5 12h14",
-  lock: "M7.5 11V8a4.5 4.5 0 0 1 9 0v3M6 11h12a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V12a1 1 0 0 1 1-1zM12 15v2",
-  calendar: "M5 4.5h14A1.5 1.5 0 0 1 20.5 6v13a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V6A1.5 1.5 0 0 1 5 4.5zM3.5 9.5h17M8 2.5v4M16 2.5v4M8 13.5h.01M12 13.5h.01M16 13.5h.01M8 17h.01M12 17h.01",
-  flagGrid: "M5 21V3.5M5 4.5h14.5v10H5M9.83 4.5v10M14.67 4.5v10M5 9.5h14.5",
-  target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z",
-  flask: "M9.5 3h5M10.5 3v5.6L5.2 18.2A2 2 0 0 0 7 21h10a2 2 0 0 0 1.8-2.8L13.5 8.6V3M7.8 15.2h8.4",
-  bookOpen: "M12 7c-1.8-1.6-4.4-2.3-8-2.3v13c3.6 0 6.2.7 8 2.3 1.8-1.6 4.4-2.3 8-2.3v-13C16.4 4.7 13.8 5.4 12 7zM12 7v13.3",
-  database: "M4 6c0 1.66 3.58 3 8 3s8-1.34 8-3-3.58-3-8-3-8 1.34-8 3zM4 6v12c0 1.66 3.58 3 8 3s8-1.34 8-3V6M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3",
-  legend: "M10 6.5h10.5M10 12h10.5M10 17.5h10.5M5.5 8.1a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2zM3.9 10.4h3.2v3.2H3.9zM5.5 15.5l2 2-2 2-2-2z",
-  network: "M12 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM10.9 7.7 6.6 16.3M13.1 7.7l4.3 8.6M8 18.5h8",
-  cup: "M8 4h8v5.5a4 4 0 0 1-8 0zM8 6H5.2c-.4 0-.7.3-.7.7 0 2.4 1.6 4 3.5 4.3M16 6h2.8c.4 0 .7.3.7.7 0 2.4-1.6 4-3.5 4.3M12 13.5V17M9 20.5h6M10 17h4",
-  helmet: "M4 16C4 9.5 8 5 13 5c4 0 7 3 7 7.5V16a2 2 0 0 1-2 2H7a3 3 0 0 1-3-2zM20 10.5H13.5a1.5 1.5 0 0 0-1.5 1.5v1a1.5 1.5 0 0 0 1.5 1.5H20",
-  circuit: "M3.5 17.5V11q0-2.5 2.5-2.5h3L11 5.5h8q2 0 2 2V10q0 2-2 2h-4l-1.5 3q-.5 1 .5 2l1 1q.5 1.5-1 1.5H5.5q-2 0-2-2z",
+  arrowRight: "M5 12l14 0M13 18l6 -6M13 6l6 6",
+  arrowLeft: "M5 12l14 0M5 12l6 6M5 12l6 -6",
+  arrowDown: "M12 5l0 14M18 13l-6 6M6 13l6 6",
+  arrowUp: "M12 5l0 14M18 11l-6 -6M6 11l6 -6",
+  chevronDown: "M6 9l6 6l6 -6",
+  chevronRight: "M9 6l6 6l-6 6",
+  check: "M5 12l5 5l10 -10",
+  cross: "M18 6l-12 12M6 6l12 12",
+  plus: "M12 5l0 14M5 12l14 0",
+  minus: "M5 12l14 0",
+  search: "M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0M21 21l-6 -6",
+  info: "M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0M12 9h.01M11 12h1v4h1",
+  lock: "M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0M8 11v-4a4 4 0 1 1 8 0v4",
+  external: "M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6M11 13l9 -9M15 4h5v5",
+  compare: "M11 16h10M11 16l4 4M11 16l4 -4M13 8h-10M13 8l-4 4M13 8l-4 -4",
+  sliders: "M12 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M4 6l8 0M16 6l4 0M6 12a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M4 12l2 0M10 12l10 0M15 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M4 18l11 0M19 18l1 0",
+  more: "M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",
+  menu: "M4 6l16 0M4 12l16 0M4 18l16 0",
+  play: "M7 4v16l13 -8l-13 -8",
+  pause: "M6 6a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -12M14 6a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -12",
+  skip: "M4 5v14l12 -7l-12 -7M20 5l0 14",
+  replay: "M19.95 11a8 8 0 1 0 -.5 4m.5 5v-5h-5",
+  sun: "M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7",
+  moon: "M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008",
+  auto: "M3 5a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1v-10M7 20h10M9 16v4M15 16v4",
+  calendar: "M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12M16 3l0 4M8 3l0 4M4 11l16 0M8 15h2v2h-2l0 -2",
+  flag: "M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9M5 21v-7",
+  flagGrid: "M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9M5 21v-7",
+  target: "M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0M7 12a5 5 0 1 0 10 0a5 5 0 1 0 -10 0M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0",
+  flask: "M9 3l6 0M10 9l4 0M10 3v6l-4 11a.7 .7 0 0 0 .5 1h11a.7 .7 0 0 0 .5 -1l-4 -11v-6",
+  book: "M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0M3 6l0 13M12 6l0 13M21 6l0 13",
+  bookOpen: "M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0M3 6l0 13M12 6l0 13M21 6l0 13",
+  database: "M4 6a8 3 0 1 0 16 0a8 3 0 1 0 -16 0M4 6v6a8 3 0 0 0 16 0v-6M4 12v6a8 3 0 0 0 16 0v-6",
+  legend: "M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0M12 9h.01M11 12h1v4h1",
+  network: "M5.931 6.936l1.275 4.249m5.607 5.609l4.251 1.275M11.683 12.317l5.759 -5.759M4 5.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0M17 5.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0M17 18.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0M4 15.5a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0 -9 0",
+  graph: "M5.931 6.936l1.275 4.249m5.607 5.609l4.251 1.275M11.683 12.317l5.759 -5.759M4 5.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0M17 5.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0M17 18.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0M4 15.5a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0 -9 0",
+  trophy: "M8 21l8 0M12 17l0 4M7 4l10 0M17 4v8a5 5 0 0 1 -10 0v-8M3 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M17 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
+  cup: "M8 21l8 0M12 17l0 4M7 4l10 0M17 4v8a5 5 0 0 1 -10 0v-8M3 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M17 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
+  helmet: "M12 4a9 9 0 0 1 5.656 16h-11.312a9 9 0 0 1 5.656 -16M20 9h-8.8a1 1 0 0 0 -.968 1.246c.507 2 1.596 3.418 3.268 4.254c2 1 4.333 1.5 7 1.5",
+  circuit: "M3 19a2 2 0 1 0 4 0a2 2 0 0 0 -4 0M19 7a2 2 0 1 0 0 -4a2 2 0 0 0 0 4M11 19h5.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h4.5",
+  track: "M3 19a2 2 0 1 0 4 0a2 2 0 0 0 -4 0M19 7a2 2 0 1 0 0 -4a2 2 0 0 0 0 4M11 19h5.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h4.5",
+  user: "M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2",
+  chart: "M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -6M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -10M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -14M4 20h14",
+  home: "M5 12l-2 0l9 -9l9 9l-2 0M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6",
+  grid: "M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4M14 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4",
 } as const;
 
 export type IconName = keyof typeof PATHS;
 
-/**
- * A few icons carry a soft fill behind their line (a calendar's header band, a helmet's visor, a circuit's track), which makes
- * the set read as drawn rather than stock. `TONE` is that fill at low opacity; `SOLID` is a small accent at full strength.
- */
-const TONE: Partial<Record<IconName, string>> = {
-  calendar: "M3.5 6A1.5 1.5 0 0 1 5 4.5h14A1.5 1.5 0 0 1 20.5 6v3.5h-17z",
-  flagGrid: "M5 4.5h4.83v5H5zM14.67 4.5h4.83v5h-4.83zM9.83 9.5h4.84v5H9.83z",
-  target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z",
-  flask: "M6.86 15.2h10.28l1.66 3A2 2 0 0 1 17 21H7a2 2 0 0 1-1.8-2.8z",
-  bookOpen: "M12 7c-1.8-1.6-4.4-2.3-8-2.3v13c3.6 0 6.2.7 8 2.3z",
-  database: "M4 6c0 1.66 3.58 3 8 3s8-1.34 8-3-3.58-3-8-3-8 1.34-8 3z",
-  legend: "M5.5 8.1a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2zM3.9 10.4h3.2v3.2H3.9zM5.5 15.5l2 2-2 2-2-2z",
-  network: "M12 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
-  cup: "M8 4h8v5.5a4 4 0 0 1-8 0z",
-  helmet: "M20 10.5H13.5a1.5 1.5 0 0 0-1.5 1.5v1a1.5 1.5 0 0 0 1.5 1.5H20z",
-  circuit: "M3.5 17.5V11q0-2.5 2.5-2.5h3L11 5.5h8q2 0 2 2V10q0 2-2 2h-4l-1.5 3q-.5 1 .5 2l1 1q.5 1.5-1 1.5H5.5q-2 0-2-2z",
-};
-
-const SOLID: Partial<Record<IconName, string>> = {
-  target: "M12 13.6a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2z",
-  circuit: "M16.5 10.1a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6z",
-};
-
 export function Icon({
   name,
   size = 20,
-  strokeWidth = 1.8,
+  strokeWidth = 1.75,
   ...rest
 }: { name: IconName; size?: number; strokeWidth?: number } & Omit<SVGProps<SVGSVGElement>, "name">) {
   const filled = name === "play" || name === "pause";
@@ -94,9 +78,7 @@ export function Icon({
       focusable="false"
       {...rest}
     >
-      {TONE[name] && <path d={TONE[name]} fill="currentColor" fillOpacity={0.2} fillRule="evenodd" stroke="none" />}
       <path d={PATHS[name]} />
-      {SOLID[name] && <path d={SOLID[name]} fill="currentColor" stroke="none" />}
     </svg>
   );
 }

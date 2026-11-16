@@ -20,8 +20,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <main className="grid min-h-screen place-items-center px-5 py-16">
         <section className="w-full max-w-2xl border-y border-line py-10">
-          <p className="eyebrow">Safety car</p>
-          <h1 className="display mt-4 max-w-[14ch] text-[3.4rem]">The screen could not finish loading.</h1>
+          <h1 className="display max-w-[14ch] text-[3.4rem]">The screen could not finish loading.</h1>
           <p className="mt-5 max-w-[58ch] text-[1.05rem] leading-relaxed text-steel">
             Something went wrong while drawing this page. The data files and the saved results are unaffected. Reload to restart, or go back to the
             season overview.

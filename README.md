@@ -634,7 +634,7 @@ What is connected to the model, and how it is checked:
   saved metrics.
 
 Credits: results and laps from the Kaggle copy of the Ergast database; circuit maps via MultiViewer and OpenF1; driver portraits from Wikimedia Commons
-(per-photo credits are listed on the model page and in `ui/src/data/portraits.json`); flags from country-flag-icons (MIT); fonts Barlow, Barlow Condensed and Anton
+(per-photo credits are listed on the model page and in `ui/src/data/portraits.json`); flags from country-flag-icons (MIT); interface icons from Tabler Icons (MIT, copyright Paweł Kuna); fonts Barlow, Barlow Condensed and Anton
 (SIL Open Font Licence). Paladin is an independent hobby project developed from ACL-903 coursework. It is not affiliated with or endorsed by any university, Formula 1, the FIA or any team.
 
 ## Beyond Milestone 1: field ranking, uncertainty, error analysis and the graph
@@ -661,7 +661,7 @@ What the measurements say, including the parts that do not flatter the additions
 
 ## Light theme, accessibility and performance
 
-The interface has a light theme and a dark one (the default). A sliding light/dark switch in the header follows the device (live) until it is flipped, then remembers the choice. On a desktop the new theme grows from the switch as a circle; on a phone or tablet (where the page-wide animation costs a stall of most of a second) and under reduced motion it changes in one step, and the switch's knob always answers the press first. The design rules and the numbers are in `DESIGN.md`; what keeps them true is below.
+The interface has a light theme and a dark one (the default). A sliding light/dark switch in the header follows the device (live) until it is flipped, then remembers the choice. The switch is a short stretch of circuit (kerb, asphalt, a chequered finish and floodlights) with an F1 car for a knob: pale with a red stripe by day, and at night, having driven to the far end and turned round, carbon-black with its lights on. The page changes in one step on every device, two frames after the car starts to drive: a page-wide animation held the whole screen still for most of a second at a phone's speed, so there is none. The design rules and the numbers are in `DESIGN.md`; what keeps them true is below.
 
 | Concern | What was done | Checked by |
 | --- | --- | --- |
@@ -681,6 +681,8 @@ The end-to-end suite pins the dark theme by default (`colorScheme: "dark"` in `u
 
 | Concern | What was done | Checked by |
 | --- | --- | --- |
+| Every screen | `ui/e2e/devices.spec.ts` runs every page, in both themes, on 18 screens from a 320px phone to a 2560px monitor (phones and tablets upright and on their side), and checks that nothing sticks out sideways, no text is cut off, the bar or the dock fits with nothing overlapping, and the search, the More list and the theme switch stay wholly on screen. It also checks a notched phone on its side (safe-area insets), forced colours (Windows High Contrast) and text at 200%. | `npx playwright test devices` from `ui/` (the whole matrix runs under the `desktop-1440` project) |
+| Interface icons | One outline set (Tabler Icons, MIT), copied in as path data in `ui/src/components/Icon.tsx`, so every icon has the same weight, corners and optical size and nothing loads at runtime. An earlier hand-drawn set with soft tonal fills looked generated; to change an icon, choose another Tabler icon rather than drawing one. | `ui/tests/accessibility.test.ts` |
 | Logo, favicon and app icons | The logo is the supplied triangle mark, kept as `scripts/logo-mark.svg` (one path) and drawn from that path everywhere: inline in the bar and footer (`ui/src/components/Logo.tsx`, in the brand blue on the light page and a lighter tint of it on the dark one, where the original would be 1.5:1) and as white on the logo's blue in the favicon and app icons. The artwork is hairline, so each size thickens its lines to about 0.8 of a pixel. The SVG and every raster size (`favicon.ico` with a frame drawn for each of 16, 32 and 48px, `icon-192`, `icon-512`, a separate padded `icon-maskable-512`, and a full-bleed `apple-touch-icon`) come from one script: `.venv\Scripts\python.exe scripts\make_icons.py`. The share image `og-card.png` was patched in place to carry the mark | `tests/test_make_icons.py`, `ui/tests/seo.test.ts` |
 | Page head | One title, a 70 to 160 character description, language, robots, complete Open Graph and Twitter tags with alt text, and structured data (`WebSite` and `WebApplication`) that claims no ratings or offers. A `noscript` block gives crawlers and readers without scripts something to read. | `ui/tests/seo.test.ts` |
 | Per page | Every page sets its own tab title and, while it is open, its own description and share title (`useTitle`). The home page keeps the site-wide ones. | `ui/tests/seo.test.ts` |

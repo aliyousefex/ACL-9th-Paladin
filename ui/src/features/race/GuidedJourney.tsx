@@ -24,7 +24,6 @@ export function GuidedJourney({ race, rows, revealed }: { race: RaceMeta; rows: 
     <section className="journey" aria-labelledby="journey-title">
       <div className="journey-lead">
         <div>
-          <p className="eyebrow">Guided path · five steps</p>
           <h2 id="journey-title">Make the call. Then open the evidence.</h2>
           <p>One guided path keeps the pre-race cutoff intact: inspect the field, lock three names, compare with Paladin, then reveal and diagnose the result.</p>
         </div>

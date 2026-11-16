@@ -34,8 +34,7 @@ export function GuidePage() {
     <div className="page-in">
       <header className="border-b border-line pt-[calc(var(--nav-h)+2rem)] pb-10">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
-          <p className="eyebrow">Reading guide</p>
-          <h1 className="display mt-3 text-[3rem] sm:text-[4.8rem]">Know what every value represents</h1>
+          <h1 className="display text-[3rem] sm:text-[4.8rem]">Know what every value represents</h1>
           <p className="mt-4 max-w-[66ch] text-[1.1rem] leading-relaxed text-steel">
             Compact source markers separate a prediction from a recorded result, a synthetic simulation, explanatory motion, or a value you changed.
           </p>

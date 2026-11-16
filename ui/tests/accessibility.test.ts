@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { closeServer, loadModule, render } from "./helpers/ssr.ts";
 
@@ -83,10 +83,13 @@ test("the theme control is one named day/night switch, drawn in CSS, with no sec
   assert.equal(count(html, /role="switch"/g), 1);
   assert.equal(count(html, /<button/g), 1, "the switch is the whole control");
   assert.doesNotMatch(html, /theme-system|Match my device|role="radio"|theme-switch/);
-  // The sun, moon, stars and cloud are CSS shapes inside an aria-hidden track: nothing for a screen reader but the name and state.
-  assert.equal(count(html, /<svg/g), 0);
+  // The kerb, the lane, the floodlights and the car are inside an aria-hidden track: nothing for a screen reader but the name and state.
+  assert.equal(count(html, /<svg/g), 1, "one drawing: the car");
+  assert.match(html, /<svg class="theme-toggle__car"[^>]*aria-hidden="true"/);
   assert.match(html, /<span class="theme-toggle__track" aria-hidden="true">/);
-  assert.equal(count(html, /class="theme-toggle__face theme-toggle__face--(?:sun|moon)"/g), 2, "the knob is a sun and a moon, one face over the other");
+  assert.equal(count(html, /class="car__wheel"/g), 4, "the car has four wheels");
+  assert.equal(count(html, /<i><\/i>/g), 4, "four floodlights");
+  assert.match(html, /class="theme-toggle__finish"/, "and a finish line");
 });
 
 test("the bar carries the logo mark alone: no wordmark, no search circle, and the brand link is still named", async () => {
@@ -122,29 +125,46 @@ test("the bar's pills and the dock's stop moving when motion is reduced", () => 
   }
 });
 
-test("the glass stays legible: dense enough, the sheen is its own layer, and it turns solid where it cannot blur", () => {
+test("the glass is see-through but legible: its tint is on its own layer, the dropdown is denser glass, and it turns solid where it cannot blur", () => {
   const block = (selector: string) => css.match(new RegExp(`\\n${selector.replace(".", "\\.")}\\s*\\{([^}]*)\\}`))![1];
-  for (const selector of [".site-bar__inner", ".dock", ".to-top"]) {
-    assert.match(block(selector), /backdrop-filter:\s*blur\(/, `${selector} blurs what is behind it`);
-    assert.match(block(selector), /background-color:\s*var\(--glass-bg/, `${selector} is tinted glass`);
-    // A gradient on the container would make its labels unmeasurable for the contrast audit; the sheen is a pseudo-element.
-    assert.doesNotMatch(block(selector), /background-image|linear-gradient/, `${selector} keeps its sheen off the container`);
+  // The tint and the blur live on a layer behind the capsule and the dock, not on the capsule itself: a blurred surface inside
+  // another one only sees as far as the outer one, which is why the dropdown had to be solid.
+  assert.match(css, /\.site-bar__inner::before,\s*\.dock::before\s*\{[^}]*background:\s*linear-gradient\([^;]*\),\s*var\(--glass-bg\)[^}]*backdrop-filter:\s*blur\(/);
+  for (const selector of [".site-bar__inner", ".dock"]) {
+    assert.doesNotMatch(block(selector), /backdrop-filter|background-color|linear-gradient/, `${selector} is not itself a blurred surface`);
   }
-  // The More list opens from inside the frosted bar or dock, where a second blur has no page to blur: it is solid, so nothing
-  // behind it shows through as ghost text.
-  assert.match(block(".more-panel"), /background-color:\s*var\(--glass-solid\)/);
-  assert.doesNotMatch(block(".more-panel"), /backdrop-filter/);
-  assert.match(css, /\.site-bar__inner::before,\s*\.dock::before\s*\{[^}]*linear-gradient/);
-  // Opacity of the tint, dark and light: never so clear that a label can lose its background.
+  // The floating button and the section strip are single surfaces: tinted glass, blurred, with the sheen kept off the container
+  // so the contrast audit can still measure their labels.
+  assert.match(block(".to-top"), /backdrop-filter:\s*blur\(/);
+  assert.match(block(".to-top"), /background-color:\s*var\(--glass-bg\)/);
+  assert.doesNotMatch(block(".to-top"), /background-image|linear-gradient/);
+  // The dropdown blurs the page behind it too, and is denser than the bar because it holds text.
+  assert.match(block(".more-panel"), /background-color:\s*var\(--glass-bg-strong\)/);
+  assert.match(block(".more-panel"), /backdrop-filter:\s*blur\(/);
+  // How see-through the bar is, dark and light: clearly more transparent than the first 74% and 80%, and never so clear that a label can lose its background.
   const dark = css.slice(css.indexOf("/* frosted glass, dark */"), css.indexOf("/* frosted glass, light"));
   const light = css.slice(css.indexOf("/* frosted glass, light"), css.indexOf(".site-bar {"));
   for (const [theme, rules] of [["dark", dark], ["light", light]] as const) {
     const value = Number(rules.match(/--glass-bg:\s*color-mix\(in srgb, var\(--color-[a-z]+\) (\d+)%/)![1]);
-    assert.ok(value >= 74, `${theme} glass is ${value}% dense`);
+    const strong = Number(rules.match(/--glass-bg-strong:\s*color-mix\(in srgb, var\(--color-[a-z]+\) (\d+)%/)![1]);
+    assert.ok(value >= 58 && value <= 70, `${theme} glass is ${value}% dense`);
+    assert.ok(strong >= 82, `${theme} dropdown glass is ${strong}% dense`);
   }
-  // Where blur is unavailable, or less transparency is asked for, the surface is solid.
-  assert.match(css, /@supports not \(\(-webkit-backdrop-filter: blur\(1px\)\) or \(backdrop-filter: blur\(1px\)\)\)\s*\{[^}]*background-color:\s*var\(--glass-solid\)/s);
-  assert.match(css, /@media \(prefers-reduced-transparency: reduce\)\s*\{[^}]*backdrop-filter:\s*none[^}]*background-color:\s*var\(--glass-solid\)/s);
+  // On the dark theme the idle labels are the brighter of the greys, because they sit on thinner glass.
+  assert.match(dark, /--nav-idle:\s*var\(--color-steel\)/);
+  // Where blur is unavailable, or less transparency is asked for, the surfaces are solid.
+  assert.match(css, /@supports not \(\(-webkit-backdrop-filter: blur\(1px\)\) or \(backdrop-filter: blur\(1px\)\)\)\s*\{\s*\.site-bar__inner::before,\s*\.dock::before\s*\{\s*background:\s*var\(--glass-solid\)/);
+  assert.match(css, /@media \(prefers-reduced-transparency: reduce\)\s*\{\s*\.site-bar__inner::before,\s*\.dock::before\s*\{[^}]*backdrop-filter:\s*none[^}]*background:\s*var\(--glass-solid\)/);
+});
+
+test("the More list opens when a mouse rests on it, and a click keeps it open", () => {
+  const source = readFileSync(new URL("../src/components/Shell.tsx", import.meta.url), "utf8");
+  assert.match(source, /event\.pointerType !== "mouse"/, "only a mouse hovers; a touch is a plain toggle");
+  assert.match(source, /placement !== "down"/, "only the top bar's list opens by hover");
+  assert.match(source, /setTimeout\(\(\) => setOpen\(true\), \d+\)/, "after a moment's intent");
+  assert.match(source, /setTimeout\(\(\) => setOpen\(false\), \d+\)/, "and closes a moment after the pointer leaves");
+  // The transparent bridge keeps the pointer inside the menu while it crosses the gap between the button and the list.
+  assert.match(css, /\.more-panel--down::before\s*\{[^}]*content:\s*""[^}]*inset:\s*-1\.2rem/);
 });
 
 test("the search palette is mounted on the body, not inside the frosted bar, and is built for a touchscreen", () => {
@@ -230,22 +250,97 @@ test("the guided path says where the cutoff stands: step 5 is locked until the r
   assert.equal(count(after, /class="is-done"/g), 4);
 });
 
-test("changing the theme is a quick circle from the switch with a fade fallback, and neither plays under reduced motion", () => {
-  // The incoming theme is clipped to a circle that grows from the switch. With no animation there is no clip, so a skipped one hides nothing.
-  assert.match(css, /@keyframes theme-reveal\s*\{\s*from\s*\{\s*clip-path:\s*circle\(0px at var\(--vt-x[^)]*\) var\(--vt-y[^)]*\)\);\s*\}\s*to\s*\{\s*clip-path:\s*circle\(var\(--vt-r[^)]*\) at/s);
-  // A clip is cheap to animate; a mask changed every frame is not, and it was the slow part.
-  assert.doesNotMatch(css, /::view-transition-new\(root\)\s*\{[^}]*mask-image/s);
-  assert.doesNotMatch(css, /@property --reveal/);
-  // It must feel like an answer to the press: short, and starting fast (the first control point of the curve is above the diagonal).
-  const [, ms, x1, y1] = css.match(/::view-transition-new\(root\)\s*\{[^}]*animation:\s*theme-reveal (\d+)ms cubic-bezier\(([\d.]+), ([\d.]+), [\d.]+, [\d.]+\)/s)!.map(Number);
-  assert.ok(ms >= 300 && ms <= 600, `${ms}ms is quick without being a flash`);
-  assert.ok(y1 > x1 && x1 <= 0.3, `the curve (${x1}, ${y1}) starts fast; the old ease-in one hardly moved for the first 200ms`);
-  // There is no page-wide colour fade any more: animating every element's colours froze a phone for seconds. And the wipe itself is
-  // for a desktop (a precise pointer): a phone's processor stalls for most of a second on the two extra paints it costs.
-  assert.doesNotMatch(css, /theme-fade/);
+test("changing the theme is one step that the knob leads, with no page-wide animation, and the car shows which theme it is", () => {
+  // The page re-styles and repaints in one go; anything animated across that holds the screen still while the browser paints
+  // it twice more (a stall of most of a second at a phone's speed), and a colour fade on every element froze a phone for seconds.
   const theme = readFileSync(new URL("../src/lib/theme.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(theme, /theme-fade/);
-  assert.match(theme, /\(hover: hover\) and \(pointer: fine\)/);
-  assert.match(theme, /typeof doc\.startViewTransition === "function" && canAffordWipe\(\)/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*::view-transition-new\(\*\)[^}]*animation:\s*none/s);
+  for (const [name, text] of [["theme.ts", theme], ["index.css", css]] as const) {
+    assert.doesNotMatch(text, /startViewTransition|view-transition|theme-fade|theme-reveal/, `${name} has no page-wide transition`);
+  }
+  // The page changes after two frames, so the switch has started to move first; reduced motion changes at once; a hidden tab still changes.
+  assert.match(theme, /requestAnimationFrame\(\(\) => window\.requestAnimationFrame\(once\)\)/);
+  assert.match(theme, /prefers-reduced-motion: reduce\)"\)\.matches\) return update\(\)/);
+  assert.match(theme, /setTimeout\(once, \d+\)/);
+  // The control itself is quick, and moves by transform (which carries on while the page is busy repainting).
+  const knob = css.match(/\n\.theme-toggle__knob\s*\{[^}]*transition:\s*transform (\d+)ms/)!;
+  assert.ok(Number(knob[1]) <= 300, `the knob takes ${knob[1]}ms`);
+  assert.doesNotMatch(css.match(/\n\.theme-toggle__knob\s*\{([^}]*)\}/)![1], /transition:[^;]*(?:left|width|top)/);
+  // The car has a real stretch of lane to drive, and the car stays inside the lane at both ends.
+  // The switch is sized in pixels: it is a drawing and a tap target, and must not outgrow the bar when the reader enlarges their text.
+  const px = (name: string) => Number(css.match(new RegExp(`--${name}:\\s*(\\d+)px`))![1]);
+  const lane = px("track-w") - 2 * px("kerb");
+  const travel = lane - px("knob-w") - 2 * px("inset");
+  assert.ok(travel >= 24, `the car drives ${travel}px`);
+  assert.ok(px("knob-h") < lane / 4, "and it is a car, longer than it is wide");
+  assert.match(css, /--bar-h:\s*56px/);
+  assert.match(css, /--dock-h:\s*64px/);
+  // It turns round at the end of the drive, not the start (a delay), so it always goes forwards; and it is a light car by day and a dark one by night.
+  assert.match(css, /\.theme-toggle__car\s*\{[^}]*transition:\s*transform \d+ms ease 1\d\dms/s, "the turn is delayed");
+  assert.match(css, /\.theme-toggle\[aria-checked="true"\] \.theme-toggle__car\s*\{[^}]*transform:\s*scaleX\(-1\)/s, "it faces back down the lane at night");
+  const hex = (text: string, name: string) => text.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`))![1];
+  const day = css.match(/\.theme-toggle__car\s*\{([^}]*)\}/)![1];
+  const night = css.match(/\.theme-toggle\[aria-checked="true"\] \.theme-toggle__car\s*\{([^}]*)\}/)![1];
+  const lum = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+  const ratio = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  assert.ok(lum(hex(day, "--car-body")) > 0.7 && lum(hex(night, "--car-body")) < 0.05, "a pale car by day and a carbon one by night");
+  // It can be seen on its lane in both: the day car against the lightest asphalt, the night car's rim light against the darkest.
+  assert.ok(ratio(hex(day, "--car-body"), "#979da8") >= 2, "the day car on the asphalt");
+  assert.ok(ratio(hex(night, "--car-edge"), "#171a21") >= 3, "the night car's edge on the dark lane");
+  assert.match(css, /\.theme-toggle\[aria-checked="true"\] \.car__beam[\s\S]*?opacity:\s*1/, "its headlamp beams come on at night");
+});
+
+test("the capsule answers a deliberate gesture, and the section strip moves with it by transform, never by snapping", async () => {
+  const { HIDE_AFTER, SHOW_AFTER } = await loadModule<{ HIDE_AFTER: number; SHOW_AFTER: number }>("/src/components/Shell.tsx");
+  // At 10px each way it flickered in and out under a jittery thumb. A little down puts it away; a real pull up brings it back.
+  assert.ok(HIDE_AFTER >= 20 && HIDE_AFTER <= 40, `hide after ${HIDE_AFTER}px`);
+  assert.ok(SHOW_AFTER >= 48 && SHOW_AFTER > HIDE_AFTER, `show after ${SHOW_AFTER}px`);
+  const shell = readFileSync(new URL("../src/components/Shell.tsx", import.meta.url), "utf8");
+  assert.match(shell, /Math\.sign\(delta\) === Math\.sign\(travel\) \? travel \+ delta : delta/, "the distance restarts whenever the direction changes");
+  // The strip follows the capsule on the same curve over the same time, so they read as one piece.
+  const ms = (pattern: RegExp) => css.match(pattern)![1];
+  assert.equal(ms(/\.chrome-bar\s*\{\s*transition:\s*transform (\d+)ms var\(--ease-out\)/), ms(/\.subnav\[data-stuck="true"\]\s*\{[^}]*transition:\s*transform (\d+)ms var\(--ease-out\)/));
+  assert.match(css, /\.subnav\[data-stuck="true"\]\s*\{\s*transform:\s*translateY\(var\(--chrome-shift\)\)/);
+  assert.match(css, /:root\[data-chrome="compact"\]\s*\{\s*--chrome-shift:\s*0px/);
+  // Every page with a strip uses it, and none sets the strip's `top` by hand any more (that snapped it 56px at a time).
+  for (const page of ["race/RacePage", "method/MethodPage", "model/ModelPage"]) {
+    const source = readFileSync(new URL(`../src/features/${page}.tsx`, import.meta.url), "utf8");
+    assert.match(source, /<SectionStrip/, `${page} uses the shared strip`);
+    assert.doesNotMatch(source, /top: "var\(--sticky-top\)"/, `${page} does not move its strip with \`top\``);
+  }
+});
+
+test("the section strip is the top bar's own material, shape and width, docked just under it, so the two merge", () => {
+  const block = (selector: string) => css.match(new RegExp(`\\n${selector.replace(/[.[\]]/g, "\\$&")}\\s*\\{([^}]*)\\}`))![1];
+  const strip = block(".subnav");
+  // The same glass, the same pill, the same widest width as the capsule: nothing changes shape where they meet.
+  assert.match(strip, /border-radius:\s*999px/);
+  assert.match(strip, /backdrop-filter:\s*blur\(12px\)/);
+  assert.match(strip, /background-color:\s*var\(--glass-bg\)/);
+  assert.match(strip, /box-shadow:\s*var\(--glass-shadow\)/);
+  assert.match(strip, /width:\s*min\(1240px,/);
+  assert.match(block(".site-bar__inner"), /max-width:\s*1240px/);
+  // It docks 8px under the capsule (the capsule ends at bar-h + 0.5rem; the strip sticks at bar-h + 1rem), and a flat band is gone.
+  assert.match(css, /--sticky-top:\s*calc\(var\(--bar-h\) \+ 1rem \+ env\(safe-area-inset-top\)\)/);
+  assert.doesNotMatch(strip, /border-bottom|bg-tower/);
+  // The current tab is marked like the main navigation marks the current page: a tonal pill, not a red underline.
+  assert.match(css, /\.subnav__link\[aria-current="true"\]\s*\{[^}]*background-color:\s*var\(--glass-pill\)/);
+});
+
+test("nothing bounces: no easing curve in the stylesheet overshoots, and no page title carries a small label above it", () => {
+  // A cubic-bezier whose y values leave 0..1 overshoots its target and springs back: that is the "bounce".
+  const curves = [...css.matchAll(/cubic-bezier\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/g)];
+  assert.ok(curves.length >= 3);
+  for (const [text, , y1, , y2] of curves) assert.ok(Number(y1) >= 0 && Number(y1) <= 1 && Number(y2) >= 0 && Number(y2) <= 1, `${text} overshoots`);
+  assert.doesNotMatch(css, /@keyframes[^{]*(?:bounce|spring|wobble)/i);
+  // The small label above a page title repeated the page's own name and read as decoration; breadcrumbs are links with an arrow.
+  assert.doesNotMatch(css, /\.eyebrow\b/);
+  const walk = (dir: URL, found: string[] = []): string[] => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const next = new URL(entry.name + (entry.isDirectory() ? "/" : ""), dir);
+      if (entry.isDirectory()) walk(next, found);
+      else if (/\.tsx$/.test(entry.name) && /className=["{`]\s*[^"`}]*\beyebrow\b/.test(readFileSync(next, "utf8"))) found.push(entry.name);
+    }
+    return found;
+  };
+  assert.deepEqual(walk(new URL("../src/", import.meta.url)), [], "no component uses the eyebrow class");
 });

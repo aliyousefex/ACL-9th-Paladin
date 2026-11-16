@@ -51,13 +51,14 @@
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   /* The floating bar: its gap above, its own height, and the room it takes. The dock is the phone's version at the thumb. */
   --gutter: 1rem;
-  --bar-h: 3.5rem;
-  --nav-h: 4.75rem;
-  --dock-h: 4rem;
+  /* The floating chrome (bar, dock, strip, switch) is sized in pixels: with text at 200% a bar sized in rem would outgrow the screen. */
+  --bar-h: 56px;
+  --nav-h: calc(76px + env(safe-area-inset-top));
+  --dock-h: 64px;
   --bottom-nav-h: calc(var(--dock-h) + 1.25rem + env(safe-area-inset-bottom));
   --shadow-bar: 0 8px 24px rgb(0 0 0 / 0.28);
   /* Where a page's own sticky section nav sits: under the bar. On a phone it moves to the top when the bar hides. */
-  --sticky-top: calc(var(--bar-h) + 0.5rem);
+  --sticky-top: calc(var(--bar-h) + 1rem + env(safe-area-inset-top));
   /* Surfaces that are not a flat colour. The light theme redefines them. */
   --grain-a: rgb(255 255 255 / 0.022);
   --grain-b: rgb(255 255 255 / 0.012);
@@ -128,6 +129,12 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
+}
+
+/* A phone on its side has a notch on one edge: the page keeps clear of it. (The fixed bars do the same for themselves.) */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* The logo mark is vector, so it simply takes the brand colour of the theme (see --color-brand). Its thickened lines run a little past the box. */
@@ -365,25 +372,24 @@ a {
   overflow-wrap: break-word;
 }
 
-.eyebrow {
+/*
+  Where you are, as a breadcrumb: a back-link with an arrow, in plain muted text. It names a place you can go, so it is a link and
+  looks like one. (Page titles have no small label above them: it repeated the page's own name and read as decoration.)
+*/
+.crumbs {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  font-family: var(--font-display);
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  color: var(--color-mute);
   font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: none;
-  color: var(--color-steel);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 160ms ease;
 }
 
-/* Back-links styled as eyebrows still need a comfortable target. */
-a.eyebrow {
-  min-height: 2rem;
-}
-
-.eyebrow::before {
-  display: none;
+a.crumbs:hover {
+  color: var(--color-ink);
 }
 
 .figure {
@@ -1394,8 +1400,8 @@ nav.scroll-x::-webkit-scrollbar {
 
 @media (max-width: 767px) {
   :root {
-    --bar-h: 3rem;
-    --nav-h: 4rem;
+    --bar-h: 48px;
+    --nav-h: calc(64px + env(safe-area-inset-top));
   }
 }
 
@@ -1410,7 +1416,7 @@ nav.scroll-x::-webkit-scrollbar {
 
 /*
   The bar, the dock and the theme switch are the one place the system uses a pill, and the one place it uses glass: a floating
-  capsule of frosted, glossy material (a blurred, saturated view of the page behind it, a soft sheen across the top, a bright
+  capsule of frosted, glossy material (a blurred view of the page behind it, a soft sheen across the top, a bright
   upper edge and a lifting shadow). The current destination is marked quietly: a tonal pill (a tint of the ink, so it works in
   both themes) and ink text instead of muted text. The glass is kept dense enough (74% to 80%) that the labels stay legible
   over any content, and it falls back to a solid surface when the browser cannot blur or the reader asks for less transparency.
@@ -1421,25 +1427,31 @@ nav.scroll-x::-webkit-scrollbar {
   --pill-edge: color-mix(in srgb, var(--color-ink) 13%, transparent);
 
   /* frosted glass, dark */
-  --glass-bg: color-mix(in srgb, var(--color-tower) 74%, transparent);
+  --glass-bg: color-mix(in srgb, var(--color-tower) 62%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--color-tower) 86%, transparent);
   --glass-solid: var(--color-tower);
   --glass-sheen: rgb(255 255 255 / 0.1);
   --glass-edge: rgb(255 255 255 / 0.15);
-  --glass-shadow: 0 12px 34px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.18), inset 0 -1px 0 rgb(0 0 0 / 0.4);
+  --glass-drop: 0 12px 34px rgb(0 0 0 / 0.5);
+  --glass-inset: inset 0 1px 0 rgb(255 255 255 / 0.18), inset 0 -1px 0 rgb(0 0 0 / 0.4);
+  --glass-shadow: var(--glass-drop), var(--glass-inset);
   --glass-pill: color-mix(in srgb, var(--color-ink) 13%, transparent);
   --glass-pill-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 1px 3px rgb(0 0 0 / 0.4);
-  --nav-idle: var(--color-mute);
+  --nav-idle: var(--color-steel);
   --knob-bg: var(--color-ink);
   --knob-fg: var(--color-paper);
 }
 
 /* frosted glass, light: whiter than the page, with a defined edge and a deeper shadow so it stands off the paper */
 :root[data-theme="light"] {
-  --glass-bg: color-mix(in srgb, var(--color-panel) 80%, transparent);
+  --glass-bg: color-mix(in srgb, var(--color-panel) 64%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--color-panel) 90%, transparent);
   --glass-solid: var(--color-panel);
   --glass-sheen: rgb(255 255 255 / 0.7);
   --glass-edge: rgb(10 11 14 / 0.16);
-  --glass-shadow: 0 14px 34px rgb(30 34 44 / 0.22), 0 2px 6px rgb(30 34 44 / 0.12), inset 0 1px 0 rgb(255 255 255 / 1), inset 0 -1px 0 rgb(10 11 14 / 0.07);
+  --glass-drop: 0 14px 34px rgb(30 34 44 / 0.22), 0 2px 6px rgb(30 34 44 / 0.12);
+  --glass-inset: inset 0 1px 0 rgb(255 255 255 / 1), inset 0 -1px 0 rgb(10 11 14 / 0.07);
+  --glass-shadow: var(--glass-drop), var(--glass-inset);
   --glass-pill: color-mix(in srgb, var(--color-ink) 9%, transparent);
   --glass-pill-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 1px 2px rgb(10 11 14 / 0.12), 0 0 0 1px rgb(10 11 14 / 0.07);
   --nav-idle: var(--color-steel);
@@ -1452,7 +1464,7 @@ nav.scroll-x::-webkit-scrollbar {
   inset: 0 0 auto 0;
   z-index: 50;
   height: var(--nav-h);
-  padding: 0.5rem var(--gutter) 0;
+  padding: calc(0.5rem + env(safe-area-inset-top)) max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
   pointer-events: none;
 }
 
@@ -1470,13 +1482,16 @@ nav.scroll-x::-webkit-scrollbar {
   padding: 0 0.5rem;
   border: 1px solid var(--glass-edge);
   border-radius: 999px;
-  background-color: var(--glass-bg);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--glass-drop);
+  isolation: isolate;
 }
 
-/* The gloss: a soft sheen down from the top edge. It sits behind the content, above the glass. */
+/*
+  The glass itself, on a layer behind the content: a soft sheen down from the top edge over a tinted, blurred view of the page.
+  It is a pseudo-element and not the capsule, so the capsule is not a blurred surface and the dropdown that opens from it can
+  blur the page behind it too (a blurred surface inside another one only sees as far as the outer one). The inside highlights
+  are drawn on this layer, above its tint, so they are not dimmed by it.
+*/
 .site-bar__inner::before,
 .dock::before {
   content: "";
@@ -1484,7 +1499,10 @@ nav.scroll-x::-webkit-scrollbar {
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  background: linear-gradient(180deg, var(--glass-sheen), transparent 58%);
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 58%), var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--glass-inset);
   pointer-events: none;
 }
 
@@ -1506,8 +1524,8 @@ nav.scroll-x::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 40px;
+  height: 40px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -1599,23 +1617,25 @@ button.dock__item {
 
 .nav-brand {
   justify-content: center;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  padding-inline: 0.25rem 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 4px 8px;
 }
 
 /* Sized here, in the capsule's terms, by height; the width follows the mark's own proportions (a little wider than tall). */
 .nav-brand .logo-mark {
   width: auto;
-  height: 2.125rem;
+  height: 34px;
   aspect-ratio: 1.2611;
 }
 
 /*
   "More": the pages that belong to a destination without having a place in the bar.
-  It opens from inside the bar or the dock, which are themselves frosted, and a frosted element inside a frosted one has no page
-  to blur (the outer one is the limit of what it can see): the page behind showed through it sharp, as ghost text behind the
-  labels. So the list is a solid surface with the glass's edge, sheen-free shadow and shape.
+  It is the bar's glass, a little denser because it holds text (90% light, 86% dark against the bar's 64% and 62%), and it blurs
+  the page behind it. That works because the capsule and the dock are not blurred surfaces themselves (their glass is a
+  pseudo-element): a blurred surface inside another one cannot see the page, and the list used to show it through as ghost text.
+  On a desktop it opens when the pointer is over it; the transparent bridge above it keeps it open while the pointer crosses
+  the gap from the button.
 */
 .more-panel {
   position: absolute;
@@ -1624,9 +1644,15 @@ button.dock__item {
   padding: 0.4rem;
   border: 1px solid var(--glass-edge);
   border-radius: 1.25rem;
-  background-color: var(--glass-solid);
+  background-color: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   box-shadow: var(--glass-shadow);
   transform-origin: top right;
+  /* Never taller than the room it has: on a phone on its side the list would run off the screen. It scrolls instead. */
+  max-height: calc(100dvh - var(--nav-h) - 1.25rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .more-panel:not([hidden]) {
@@ -1638,10 +1664,27 @@ button.dock__item {
   right: 0;
 }
 
+.more-panel--down::before {
+  content: "";
+  position: absolute;
+  inset: -1.2rem 0 auto 0;
+  height: 1.2rem;
+}
+
 .more-panel--up {
   bottom: calc(100% + 0.75rem);
   right: 0;
   transform-origin: bottom right;
+  max-height: calc(100dvh - var(--bottom-nav-h) - 0.5rem - env(safe-area-inset-top));
+}
+
+/* On a short screen (a phone on its side) the six entries sit in two columns, so the list fits without scrolling. */
+@media (max-height: 520px) {
+  .more-panel:not([hidden]) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: min(32rem, calc(100vw - 2rem - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  }
 }
 
 @keyframes more-in {
@@ -1715,7 +1758,7 @@ button.dock__item {
   line-height: 1.25;
 }
 
-/* ---- the theme switch: one day/night control whose knob slides */
+/* ---- the theme switch: a stretch of circuit, with a car that drives from day to night */
 
 .theme-control {
   display: inline-flex;
@@ -1723,44 +1766,65 @@ button.dock__item {
 }
 
 /*
-  The switch is a small sky. The track is 60 x 32 and the knob 26, so the knob travels 28px; the button around it is 68 x 44, a
-  comfortable target. In the light the track is a pale daytime sky with a cloud and the knob is the sun; in the dark it is a
-  night sky with a few stars and the knob is the moon. Everything that is not the knob fades between the two while the knob
-  slides across with a touch of spring, stretching while it is pressed, the way a phone's switch does.
+  The switch is a short stretch of track. It has a red and white kerb along its edge, asphalt with a dashed centre line, and an
+  F1 car, seen from above, for a knob. By day the car is pale, with a red stripe and a dark cockpit, and sits at the start with a
+  chequered finish line ahead of it. Switching drives it to the far end, where it turns round to face back down the lane: by
+  night it is carbon-black with a bright rim light and a gold helmet, its red rear light and headlamps are on, and its beams
+  light the lane while four floodlights come on one after another, like the start lights.
+  The track is 72 x 34 and the button around it 80 x 44, a comfortable target. Everything but the page's own repaint runs on
+  transforms and opacity, so it keeps moving smoothly while the page changes behind it.
 */
 .theme-toggle {
-  --track-w: 3.75rem;
-  --track-h: 2rem;
-  --knob: 1.625rem;
-  --inset: 0.1875rem;
-  --travel: calc(var(--track-w) - 2px - var(--knob) - 2 * var(--inset));
+  --track-w: 72px;
+  --track-h: 34px;
+  --kerb: 3px;
+  --knob-w: 30px;
+  --knob-h: 12px;
+  --inset: 3px;
+  --travel: calc(var(--track-w) - 2 * var(--kerb) - var(--knob-w) - 2 * var(--inset));
+  --roll: cubic-bezier(0.22, 1, 0.36, 1); /* eases out and stops dead: nothing overshoots or bounces */
   display: grid;
   place-items: center;
-  width: 4.25rem;
-  height: 2.75rem;
+  width: 80px;
+  height: 44px;
   border-radius: 999px;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The kerb: red and white stripes round the edge. By night it is dimmed, so it is not the brightest thing on the bar. */
 .theme-toggle__track {
   position: relative;
   display: block;
-  overflow: hidden;
   width: var(--track-w);
   height: var(--track-h);
-  border: 1px solid var(--glass-edge);
+  padding: var(--kerb);
   border-radius: 999px;
-  background: linear-gradient(180deg, #0b0d13 0%, #1a1f2b 100%);
-  /* The night sky stops at the border, so the border is a soft edge on the bar, not a dark ring around the day. */
-  background-clip: padding-box;
-  box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.5), 0 1px 0 rgb(255 255 255 / 0.05);
-  transition: border-color 200ms ease;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
-.theme-toggle:hover .theme-toggle__track {
-  border-color: var(--color-control);
+.theme-toggle__track::before,
+.theme-toggle__track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.theme-toggle__track::before {
+  background: repeating-linear-gradient(90deg, #d40a00 0 6px, #f2f2f0 6px 12px);
+  transition: filter 160ms ease;
+}
+
+.theme-toggle__track::after {
+  background: rgb(0 0 0 / 0.36);
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.theme-toggle:hover .theme-toggle__track::before {
+  filter: brightness(1.08);
 }
 
 .theme-toggle:focus-visible {
@@ -1772,166 +1836,221 @@ button.dock__item {
   outline-offset: 3px;
 }
 
-/* Day: a soft sky over the night, faded in or out. */
-.theme-toggle__sky {
-  position: absolute;
-  inset: 0;
+/* The asphalt, with its dashed centre line. */
+.theme-toggle__lane {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   border-radius: inherit;
-  background: linear-gradient(180deg, #8fbcf0 0%, #d4e6fb 100%);
-  box-shadow: inset 0 2px 5px rgb(20 50 100 / 0.28);
-  opacity: 0;
-  transition: opacity 420ms ease;
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.5) 0 5px, transparent 5px 11px) center / 100% 2px no-repeat,
+    linear-gradient(180deg, #787e89 0%, #979da8 100%);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.38);
 }
 
-/* Night: a few stars on the side the moon has left. */
-.theme-toggle__stars {
+/* Night: the same lane, dark, faded in over the day one. */
+.theme-toggle__night {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 17% 30%, #fff 0 0.7px, transparent 1.3px),
-    radial-gradient(circle at 32% 66%, rgb(255 255 255 / 0.85) 0 0.55px, transparent 1.1px),
-    radial-gradient(circle at 42% 26%, rgb(255 255 255 / 0.7) 0 0.5px, transparent 1px),
-    radial-gradient(circle at 25% 52%, rgb(255 255 255 / 0.6) 0 0.45px, transparent 0.95px);
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.26) 0 5px, transparent 5px 11px) center / 100% 2px no-repeat,
+    linear-gradient(180deg, #07080b 0%, #171a21 100%);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.6);
   opacity: 0;
-  transition: opacity 360ms ease 60ms;
+  transition: opacity 240ms ease;
 }
 
-/* Day: one soft cloud on the side the sun has left: three puffs on a flat base. */
-.theme-toggle__clouds {
+/* Night: four floodlights in a gantry on the side the car has left. They come on one by one. */
+.theme-toggle__lights {
   position: absolute;
-  right: 0.4rem;
-  bottom: 0.4rem;
-  width: 1.4rem;
-  height: 0.75rem;
-  background:
-    radial-gradient(circle at 25% 68%, #fff 0 3.4px, transparent 3.9px),
-    radial-gradient(circle at 50% 40%, #fff 0 4.9px, transparent 5.4px),
-    radial-gradient(circle at 76% 66%, #fff 0 3.7px, transparent 4.2px),
-    linear-gradient(#fff, #fff) 12% 100% / 76% 36% no-repeat;
-  filter: drop-shadow(0 1px 1px rgb(50 90 150 / 0.3));
-  opacity: 0;
-  transition: opacity 360ms ease;
+  inset: 0;
 }
 
+.theme-toggle__lights i {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff7dc;
+  box-shadow: 0 0 4px 1px rgb(255 238 180 / 0.85), 0 0 9px 2px rgb(255 228 150 / 0.28);
+  opacity: 0;
+  transition: opacity 90ms ease;
+}
+
+.theme-toggle__lights i:nth-child(1) { left: 11%; top: 24%; }
+.theme-toggle__lights i:nth-child(2) { left: 24%; top: 24%; }
+.theme-toggle__lights i:nth-child(3) { left: 11%; top: 64%; }
+.theme-toggle__lights i:nth-child(4) { left: 24%; top: 64%; }
+
+/* Day: a chequered finish line at the far end. */
+.theme-toggle__finish {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  background: repeating-conic-gradient(#f4f4f2 0 25%, #15171b 0 50%) 0 0 / 8px 8px;
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+
+/* The car's box: it slides along the lane by transform. */
 .theme-toggle__knob {
   position: absolute;
-  top: var(--inset);
+  top: 50%;
   left: var(--inset);
-  width: var(--knob);
-  height: var(--knob);
-  border-radius: 999px;
-  box-shadow: 0 2px 5px rgb(0 0 0 / 0.38);
-  transition: transform 400ms cubic-bezier(0.3, 1.35, 0.5, 1), width 180ms ease, filter 160ms ease;
+  width: var(--knob-w);
+  height: var(--knob-h);
+  margin-top: calc(var(--knob-h) / -2);
+  transition: transform 280ms var(--roll);
 }
 
-.theme-toggle:hover .theme-toggle__knob {
-  filter: brightness(1.07);
+/*
+  The car, from above, nose to the right: wings, four wheels, a body with sidepods that narrows to the nose, a stripe, a cockpit
+  and a rear light, with a pair of headlamp beams ahead of the nose. By day it faces the finish; by night it has turned round
+  (the turn happens at the end of the drive, not the start, so it always goes forwards). Its colours are variables, so each
+  state is just a set of values.
+*/
+.theme-toggle__car {
+  --car-body: #f4f4f2;
+  --car-wing: #e6e6e3;
+  --car-wheel: #15171b;
+  --car-cockpit: #15171b;
+  --car-accent: #d40a00;
+  --car-edge: #4d535c;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transition: transform 130ms ease 150ms;
 }
 
-/* The sun and the moon are the knob itself, one face over the other. */
-.theme-toggle__face {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
+.theme-toggle__car .car__body,
+.theme-toggle__car .car__wing,
+.theme-toggle__car .car__wheel,
+.theme-toggle__car .car__cockpit {
+  stroke: var(--car-edge);
+  stroke-width: 0.45;
+  stroke-linejoin: round;
+  transition: fill 240ms ease, stroke 240ms ease;
+}
+
+.theme-toggle__car .car__body { fill: var(--car-body); }
+.theme-toggle__car .car__wing { fill: var(--car-wing); }
+.theme-toggle__car .car__wheel { fill: var(--car-wheel); }
+.theme-toggle__car .car__cockpit { fill: var(--car-cockpit); }
+
+.theme-toggle__car .car__stripe {
+  fill: none;
+  stroke: var(--car-accent);
+  stroke-width: 1.3;
+  stroke-linecap: butt;
+}
+
+.theme-toggle__car .car__tail {
+  fill: #ff2a1a;
+  opacity: 0.25;
+  transition: opacity 200ms ease 120ms;
+}
+
+.theme-toggle__car .car__lamp {
+  fill: #fff7dc;
   opacity: 0;
-  transition: opacity 280ms ease;
+  transition: opacity 200ms ease 120ms;
 }
 
-.theme-toggle__face--sun {
-  background: radial-gradient(circle at 34% 30%, #fff4bd 0%, #ffc93f 48%, #f59e0b 100%);
-  box-shadow: 0 0 0 3px rgb(255 196 60 / 0.3), inset 0 1px 1px rgb(255 255 255 / 0.85), inset 0 -2px 3px rgb(170 85 0 / 0.4);
+.theme-toggle__car .car__beam {
+  fill: url(#theme-beam);
+  opacity: 0;
+  transition: opacity 220ms ease 120ms;
 }
 
-.theme-toggle__face--moon {
-  background:
-    radial-gradient(circle at 63% 63%, rgb(120 132 160 / 0.5) 0 2.3px, transparent 2.8px),
-    radial-gradient(circle at 31% 60%, rgb(120 132 160 / 0.42) 0 1.7px, transparent 2.1px),
-    radial-gradient(circle at 60% 27%, rgb(120 132 160 / 0.36) 0 1.4px, transparent 1.8px),
-    radial-gradient(circle at 34% 30%, #ffffff 0%, #dde3ee 55%, #b3bccf 100%);
-  box-shadow: inset 0 1px 1px rgb(255 255 255 / 0.9), inset -3px -2px 4px rgb(70 82 115 / 0.35);
+.theme-toggle__car .beam-near {
+  stop-color: #fff4c4;
+  stop-opacity: 0.85;
 }
 
-/* Day: the sun, the sky and the cloud, the knob at the left. */
-.theme-toggle[aria-checked="false"] .theme-toggle__sky,
-.theme-toggle[aria-checked="false"] .theme-toggle__clouds,
-.theme-toggle[aria-checked="false"] .theme-toggle__face--sun {
+.theme-toggle__car .beam-far {
+  stop-color: #fff4c4;
+  stop-opacity: 0;
+}
+
+/* Night: the dark lane, the floodlights (one after another), the dimmed kerb, the dark car at the far end with its lights on. */
+.theme-toggle[aria-checked="true"] .theme-toggle__night {
   opacity: 1;
 }
 
-/* Night: the moon and the stars, the knob at the right. */
-.theme-toggle[aria-checked="true"] .theme-toggle__stars,
-.theme-toggle[aria-checked="true"] .theme-toggle__face--moon {
+.theme-toggle[aria-checked="true"] .theme-toggle__track::after {
   opacity: 1;
 }
+
+.theme-toggle[aria-checked="true"] .theme-toggle__finish {
+  opacity: 0;
+}
+
+.theme-toggle[aria-checked="true"] .theme-toggle__lights i {
+  opacity: 1;
+}
+
+.theme-toggle[aria-checked="true"] .theme-toggle__lights i:nth-child(1) { transition-delay: 120ms; }
+.theme-toggle[aria-checked="true"] .theme-toggle__lights i:nth-child(2) { transition-delay: 175ms; }
+.theme-toggle[aria-checked="true"] .theme-toggle__lights i:nth-child(3) { transition-delay: 230ms; }
+.theme-toggle[aria-checked="true"] .theme-toggle__lights i:nth-child(4) { transition-delay: 285ms; }
 
 .theme-toggle[aria-checked="true"] .theme-toggle__knob {
   transform: translateX(var(--travel));
 }
 
-.theme-toggle:active .theme-toggle__knob {
-  width: calc(var(--knob) + 0.3rem);
+.theme-toggle[aria-checked="true"] .theme-toggle__car {
+  --car-body: #1d2129;
+  --car-wing: #13161b;
+  --car-wheel: #0a0b0e;
+  --car-cockpit: #f2c14e;
+  --car-edge: #a9b1c0;
+  transform: scaleX(-1);
 }
 
-.theme-toggle[aria-checked="true"]:active .theme-toggle__knob {
-  transform: translateX(calc(var(--travel) - 0.3rem));
+.theme-toggle[aria-checked="true"] .car__tail {
+  opacity: 1;
+  filter: drop-shadow(0 0 1.5px rgb(255 42 26 / 0.95));
 }
 
-/* Before the first use nothing slides or fades: the control is simply drawn in the state the page is in. */
+.theme-toggle[aria-checked="true"] .car__lamp,
+.theme-toggle[aria-checked="true"] .car__beam {
+  opacity: 1;
+}
+
+/* Before the first use nothing drives or fades: the control is simply drawn in the state the page is in. */
 .theme-control:not([data-touched="true"]) .theme-toggle__knob,
-.theme-control:not([data-touched="true"]) .theme-toggle__face,
-.theme-control:not([data-touched="true"]) .theme-toggle__sky,
-.theme-control:not([data-touched="true"]) .theme-toggle__stars,
-.theme-control:not([data-touched="true"]) .theme-toggle__clouds,
-.theme-control:not([data-touched="true"]) .theme-toggle__track {
+.theme-control:not([data-touched="true"]) .theme-toggle__car,
+.theme-control:not([data-touched="true"]) .theme-toggle__car *,
+.theme-control:not([data-touched="true"]) .theme-toggle__night,
+.theme-control:not([data-touched="true"]) .theme-toggle__finish,
+.theme-control:not([data-touched="true"]) .theme-toggle__lights i,
+.theme-control:not([data-touched="true"]) .theme-toggle__track::before,
+.theme-control:not([data-touched="true"]) .theme-toggle__track::after {
   transition: none;
-}
-
-/* ---- changing the theme: on a desktop the new one grows as a circle from the switch; elsewhere it simply changes (see setThemePref) */
-
-/*
-  The new theme is clipped to a circle that grows from the knob. A clip-path is cheap for the browser to animate (a mask
-  that changes every frame is not), the curve starts fast and settles gently so the page answers the press at once, and
-  half a second is long enough to read as a motion and short enough never to feel like a wait. With no animation the clip
-  is simply absent and nothing is hidden.
-*/
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-::view-transition-old(root) {
-  z-index: 1;
-}
-
-::view-transition-new(root) {
-  z-index: 2;
-  animation: theme-reveal 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes theme-reveal {
-  from { clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 0px)); }
-  to { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 0px)); }
 }
 
 /* ---- the phone dock: destinations as a floating capsule at the thumb */
 
 .dock {
   position: fixed;
-  left: 50%;
+  left: calc(50% + (env(safe-area-inset-left) - env(safe-area-inset-right)) / 2);
   bottom: calc(0.75rem + env(safe-area-inset-bottom));
   z-index: 50;
   display: grid;
   grid-template-columns: repeat(var(--n), 1fr);
-  width: min(calc(100% - 1.5rem), 28rem);
+  width: min(calc(100% - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right)), 28rem);
   height: var(--dock-h);
   padding: 0.375rem;
   border: 1px solid var(--glass-edge);
   border-radius: 999px;
-  background-color: var(--glass-bg);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--glass-drop);
+  isolation: isolate;
   transform: translateX(-50%);
 }
 
@@ -1972,6 +2091,129 @@ button.dock__item {
   color: var(--color-ink);
 }
 
+/*
+  Behind the floating bars (below them, above the page's content) the page fades to its own colour over the top edge of the screen,
+  so what scrolls up under the bar and the strip dissolves into them, and does not show as crisp text in the gap between the two.
+  It goes with the bar when the bar hides.
+*/
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 35;
+  height: calc(var(--nav-h) + 1.25rem);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-paper) 97%, transparent) 0%,
+    color-mix(in srgb, var(--color-paper) 92%, transparent) 62%,
+    transparent 100%
+  );
+  pointer-events: none;
+  transition: opacity 220ms var(--ease-out);
+}
+
+@media (max-width: 767px) {
+  :root[data-chrome="compact"] body::after {
+    opacity: 0;
+  }
+}
+
+/*
+  A page's own section strip (Circuit, Grid, Your call... on a race; the sections of the method and model pages) is a floating glass
+  pill of the same material, shape and width as the top bar, and it docks 8px under it as the page scrolls. It is the same pill
+  in the page as on the screen, so nothing changes shape where the two meet: the page's content passes behind both, the same way.
+  The marker is a spacer just above it (its bottom edge is where the strip sits in the page), which is how the page can tell
+  when the strip has stuck (see useStuck).
+*/
+.subnav {
+  position: sticky;
+  top: var(--sticky-top);
+  z-index: 40;
+  width: min(1240px, calc(100% - 2 * max(0px, var(--gutter) - env(safe-area-inset-left))));
+  height: 48px;
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background-color: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--glass-shadow);
+}
+
+.subnav-marker {
+  display: block;
+  height: 1rem;
+  pointer-events: none;
+}
+
+/* The tabs scroll sideways inside the pill when there are too many for it, and fade out at its rounded ends. */
+.subnav__list {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  height: 100%;
+  margin: 0;
+  padding: 0 0.375rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  list-style: none;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 0.75rem, #000 calc(100% - 0.75rem), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 0.75rem, #000 calc(100% - 0.75rem), transparent 100%);
+}
+
+.subnav__list::-webkit-scrollbar {
+  display: none;
+}
+
+.subnav__item {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+/* The current tab is marked the way the main navigation marks the current page: a tonal pill and ink text, not an underline. */
+.subnav__link {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  color: var(--nav-idle);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 200ms ease, background-color 200ms ease;
+}
+
+.subnav__link:hover,
+.subnav__link[aria-current="true"] {
+  color: var(--color-ink);
+}
+
+.subnav__link[aria-current="true"] {
+  background-color: var(--glass-pill);
+  box-shadow: var(--glass-pill-shadow);
+}
+
+/* The red tick that splits what was known before the race from what happened in it. */
+.subnav__flag {
+  width: 3px;
+  height: 1.2rem;
+  margin: 0 0.5rem;
+  background: var(--color-signal);
+  transform: skewX(-12deg);
+}
+
+@media (pointer: coarse) {
+  .subnav__link {
+    height: 44px;
+  }
+}
+
 /* The state each bar is in: on a phone, reading hides the top capsule and the dock stays. */
 @media (max-width: 767px) {
   /* Past its own height by the reach of its shadow, so the capsule's drop shadow does not hang over the top of the page as a grey haze. */
@@ -1981,17 +2223,33 @@ button.dock__item {
   .chrome-bar {
     transition: transform 220ms var(--ease-out);
   }
+  /*
+    On a phone the strip is pinned 8px from the top and, while the capsule is showing, sits 8px under it, like a second pill of the same bar. It gets there with a
+    transform, on the same curve and over the same time as the capsule's own slide, so the two move as one piece. It used to
+    follow the capsule by changing its `top`, which cannot animate without shifting layout: the strip snapped 56px every time the
+    capsule came or went.
+  */
+  :root {
+    --chrome-shift: calc(var(--bar-h) + 0.5rem);
+  }
   :root[data-chrome="compact"] {
-    --sticky-top: 0px;
+    --chrome-shift: 0px;
+  }
+  .subnav {
+    top: calc(0.5rem + env(safe-area-inset-top));
+  }
+  .subnav[data-stuck="true"] {
+    transform: translateY(var(--chrome-shift));
+    transition: transform 220ms var(--ease-out);
   }
   .nav-brand .logo-mark {
-    height: 1.875rem;
+    height: 30px;
   }
 }
 
 @media (max-width: 359px) {
   .dock {
-    width: calc(100% - 1rem);
+    width: calc(100% - 1rem - env(safe-area-inset-left) - env(safe-area-inset-right));
   }
 }
 
@@ -2025,15 +2283,23 @@ button.dock__item {
 
 /* No blur available, or the reader asked for less transparency: a solid surface, same shape and shadow. */
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .site-bar__inner,
-  .dock {
+  .site-bar__inner::before,
+  .dock::before {
+    background: var(--glass-solid);
+  }
+  .more-panel {
     background-color: var(--glass-solid);
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .site-bar__inner,
-  .dock {
+  .site-bar__inner::before,
+  .dock::before {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--glass-solid);
+  }
+  .more-panel {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background-color: var(--glass-solid);
@@ -2041,22 +2307,19 @@ button.dock__item {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
   .site-nav__pill,
   .dock__pill,
   .theme-toggle__track,
+  .theme-toggle__track::before,
+  .theme-toggle__track::after,
   .theme-toggle__knob,
-  .theme-toggle__face,
-  .theme-toggle__sky,
-  .theme-toggle__stars,
-  .theme-toggle__clouds,
+  .theme-toggle__car,
+  .theme-toggle__car *,
+  .theme-toggle__night,
+  .theme-toggle__finish,
+  .theme-toggle__lights i,
+  .subnav,
+  body::after,
   .chrome-bar {
     transition: none !important;
   }
@@ -2079,7 +2342,7 @@ button.dock__item {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem 0;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) 0 max(0.75rem, env(safe-area-inset-left));
   background: rgb(0 0 0 / 0.65);
   overscroll-behavior: contain;
 }
@@ -2169,7 +2432,7 @@ button.dock__item {
 
 @media (min-width: 640px) {
   .palette {
-    padding: 10vh 1rem 0;
+    padding: 10vh max(1rem, env(safe-area-inset-right)) 0 max(1rem, env(safe-area-inset-left));
   }
   .palette__panel {
     max-height: calc(var(--vv-h, 100dvh) - 10vh - 1.5rem);
@@ -2214,7 +2477,7 @@ button.dock__item {
 
 .to-top {
   position: fixed;
-  right: 1rem;
+  right: max(1rem, env(safe-area-inset-right));
   bottom: calc(var(--bottom-nav-h) + 0.25rem);
   z-index: 30;
   display: grid;
@@ -2224,8 +2487,8 @@ button.dock__item {
   border: 1px solid var(--glass-edge);
   border-radius: 999px;
   background-color: var(--glass-bg);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   box-shadow: var(--glass-shadow);
   color: var(--color-ink);
   transition: transform 160ms var(--ease-out), background-color 160ms ease;
@@ -2237,7 +2500,7 @@ button.dock__item {
 
 @media (min-width: 640px) {
   .to-top {
-    right: 1.5rem;
+    right: max(1.5rem, env(safe-area-inset-right));
   }
 }
 
@@ -2265,6 +2528,44 @@ button.dock__item {
 @media (prefers-reduced-motion: reduce) {
   .to-top {
     transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ forced colours */
+
+/*
+  Windows High Contrast and similar modes replace every colour with the reader's own. Glass, tints and drawn shapes then vanish
+  or turn to mush, so the floating surfaces become plain boxes with an edge in the system's text colour, and the theme switch,
+  which is a small drawing whose state is told by its colours, keeps its own (it still has its name and state for assistive
+  technology, and a focus ring).
+*/
+@media (forced-colors: active) {
+  .site-bar__inner,
+  .dock,
+  .more-panel,
+  .to-top,
+  .palette__panel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: Canvas;
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+  .site-bar__inner::before,
+  .dock::before,
+  body::after {
+    display: none;
+  }
+  .theme-toggle {
+    forced-color-adjust: none;
+  }
+  .theme-toggle:focus-visible .theme-toggle__track {
+    outline-color: Highlight;
+  }
+  .site-nav__pill,
+  .dock__pill {
+    background: Highlight;
+    opacity: 0.35;
   }
 }
 

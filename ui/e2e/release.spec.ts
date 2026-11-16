@@ -321,7 +321,7 @@ test("theme: a sliding light/dark switch that follows the device until it is fli
   test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  // Count how often the page-wide view transition is asked for.
+  // Count how often a page-wide view transition is asked for: it holds the whole screen still, knob included, while the browser paints the page twice more.
   await page.addInitScript(() => {
     (window as unknown as { __wipes: number }).__wipes = 0;
     const original = (document as Document & { startViewTransition?: (cb: () => void) => unknown }).startViewTransition?.bind(document);
@@ -354,8 +354,8 @@ test("theme: a sliding light/dark switch that follows the device until it is fli
   await expect.poll(theme).toBe("dark");
   expect(await pref()).toBe("system");
 
-  // Flipping it saves an explicit choice. The knob answers the press at once; the page lands a frame later, because the browser
-  // first takes a picture of it to grow the new theme from the knob. A switch that waited for that would feel like it lagged.
+  // Flipping it saves an explicit choice. The tyre answers the press at once; the page follows two frames later, so the control has
+  // started to roll before the page stops to repaint. A switch that waited for the page would feel like it lagged.
   const atOnce = await toggle.evaluate(async (button: HTMLButtonElement) => {
     button.click();
     await Promise.resolve(); // let React's own update land
@@ -364,11 +364,8 @@ test("theme: a sliding light/dark switch that follows the device until it is fli
   });
   expect(atOnce, "the knob has moved before the page has changed").toEqual(["false", "dark"]);
   await expect.poll(state).toEqual(["light", "light"]);
-  // The circle wipe is for a desktop. A phone's processor stalls for most of a second on the two extra paints it costs, so
-  // there the page changes in one step.
-  const wipes = await page.evaluate(() => (window as unknown as { __wipes: number }).__wipes);
-  expect(wipes, testInfo.project.name === "desktop-1440" ? "a desktop gets the wipe" : "a touch device does not").toBe(testInfo.project.name === "desktop-1440" ? 1 : 0);
-  await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue("--vt-r")), "the wipe cleans up after itself").toBe("");
+  // The page changes in one step on every device: no view transition was asked for.
+  expect(await page.evaluate(() => (window as unknown as { __wipes: number }).__wipes), "no page-wide transition").toBe(0);
   await expect(toggle).not.toBeChecked();
   await expect.poll(knobSide).toBe("left");
   await expect(page.locator("body")).toHaveCSS("background-color", "rgb(243, 242, 238)");
@@ -393,7 +390,7 @@ test("theme: a sliding light/dark switch that follows the device until it is fli
   await page.waitForTimeout(300);
   expect(await theme()).toBe("dark");
 
-  // With reduced motion there is no wipe at all: the theme changes in place, in the same task as the click.
+  // With reduced motion there is nothing to wait for: the theme changes in place, in the same task as the click.
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await toggle.click();
   expect(await state()).toEqual(["light", "light"]);
@@ -463,9 +460,9 @@ test("phone header: scrolling down gives the screen back without losing navigati
   await expect.poll(() => bottom(brand)).toBeLessThanOrEqual(0);
   // and its drop shadow (14px down, 34px of blur) is off screen with it, not hanging over the top of the page as a haze
   await expect.poll(() => bottom(capsule)).toBeLessThanOrEqual(-48);
-  // reading hides only the brand capsule: the destinations stay at the thumb, and the race's own section navigation takes the top
+  // reading hides only the brand capsule: the destinations stay at the thumb, and the race's own section strip (a pill 8px from the top) takes its place
   expect(await top(dock)).toBe(dockTop);
-  await expect.poll(() => top(section)).toBeLessThanOrEqual(1);
+  await expect.poll(() => top(section)).toBeLessThanOrEqual(9);
   await expect(section).toBeVisible();
 
   await page.evaluate(() => window.scrollBy(0, -260));
@@ -481,6 +478,55 @@ test("phone header: scrolling down gives the screen back without losing navigati
   await page.getByRole("button", { name: "Search races, drivers and pages" }).focus();
   await expect(page.locator("html")).not.toHaveAttribute("data-chrome", "compact");
   await expect.poll(() => top(brand)).toBe(0);
+});
+
+test("phone: a jittery thumb does not make the capsule and the section strip flicker, and the strip glides with the capsule", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-375");
+  await page.goto(RACE);
+  await expect(page.locator("#prediction")).toBeAttached();
+  const strip = page.getByRole("navigation", { name: "On this race" });
+  const capsule = page.locator("header.chrome-bar .site-bar__inner");
+  const top = async (locator: typeof strip) => Math.round((await locator.boundingBox())!.y);
+  const bottom = async (locator: typeof strip) => {
+    const box = (await locator.boundingBox())!;
+    return Math.round(box.y + box.height);
+  };
+  const chrome = () => page.evaluate(() => document.documentElement.dataset.chrome ?? "shown");
+
+  await page.evaluate(() => window.scrollTo(0, 1700));
+  await expect.poll(chrome).toBe("compact");
+  await expect.poll(() => top(strip)).toBeLessThanOrEqual(9);
+
+  // A thumb slips back a few pixels at a time, again and again, without ever really pulling the page down.
+  for (const slip of [-6, -9, 5, -12, 4, -14, 6, -11]) {
+    await page.evaluate((d) => window.scrollBy(0, d), slip);
+    await page.waitForTimeout(60);
+  }
+  expect(await chrome(), "slips and small reversals do not bring the capsule back").toBe("compact");
+  expect(await top(strip), "and the strip has not moved").toBeLessThanOrEqual(9);
+
+  // A real pull upward brings the capsule back, and the strip goes down with it as a glide (never a 56px snap), to sit right under it.
+  const positions = await page.evaluate(async () => {
+    const nav = document.querySelector('nav[aria-label="On this race"]')!;
+    const seen: number[] = [];
+    window.scrollBy(0, -90);
+    const end = performance.now() + 700;
+    while (performance.now() < end) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      seen.push(Math.round(nav.getBoundingClientRect().top));
+    }
+    return seen;
+  });
+  expect(await chrome()).toBe("shown");
+  const settled = positions[positions.length - 1];
+  expect(settled).toBeGreaterThanOrEqual((await bottom(capsule)) - 1);
+  const between = new Set(positions.filter((y) => y > 1 && y < settled - 1));
+  expect(between.size, `the strip glided through ${[...between].join(", ")} on its way to ${settled}`).toBeGreaterThanOrEqual(3);
+
+  // Reading on puts both away together, and the strip is back at the very top.
+  await page.evaluate(() => window.scrollBy(0, 160));
+  await expect.poll(chrome).toBe("compact");
+  await expect.poll(() => top(strip)).toBeLessThanOrEqual(9);
 });
 
 test("search: the palette dims the whole screen, fits above the keyboard, and names no keys on a touchscreen", async ({ page }, testInfo) => {
@@ -557,7 +603,7 @@ test("search: the palette dims the whole screen, fits above the keyboard, and na
   expect(errors).toEqual([]);
 });
 
-test("phone: the footer runs to the bottom edge under the dock, and the More list is solid", async ({ page }, testInfo) => {
+test("phone: the footer runs to the bottom edge under the dock, and the More list is dense glass", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-375");
   await page.goto("/#/");
   await expect(page.getByRole("heading", { name: /predict the podium/i })).toBeVisible();
@@ -580,9 +626,72 @@ test("phone: the footer runs to the bottom edge under the dock, and the More lis
     )
     .toBeGreaterThanOrEqual(0);
 
-  // The list that opens from the dock is opaque: nothing behind it shows through the labels.
+  // The list that opens from the dock is the bar's glass, denser because it holds text: translucent, and blurring the page behind it
+  // (it can, because the dock's own glass is a layer behind it and not a blurred surface the list sits inside).
   await page.locator("nav.dock").getByRole("button", { name: /more/i }).click();
-  await expect(page.locator(".more-panel:not([hidden])")).toHaveCSS("background-color", /^rgb\(\d+, \d+, \d+\)$/);
+  const panel = page.locator(".more-panel:not([hidden])");
+  await expect(panel).toBeVisible();
+  const style = await panel.evaluate((el) => ({ background: getComputedStyle(el).backgroundColor, blur: getComputedStyle(el).backdropFilter }));
+  const alpha = Number(style.background.match(/\/\s*([\d.]+)\s*\)/)?.[1] ?? 1);
+  expect(alpha, `the list's tint is ${alpha}`).toBeGreaterThanOrEqual(0.8);
+  expect(alpha, "but it is not opaque").toBeLessThan(1);
+  expect(style.blur).toMatch(/blur/);
+});
+
+test("the top bar: its glass is see-through, and the More list opens when the pointer rests on it", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440");
+  await page.goto("/#/");
+  await expect(page.getByRole("heading", { name: /predict the podium/i })).toBeVisible();
+  // The bar's glass is a see-through tint (about 60%), on a layer behind the bar.
+  const tint = await page.locator("header .site-bar__inner").evaluate((el) => getComputedStyle(el, "::before").backgroundColor);
+  const tintAlpha = Number(tint.match(/\/\s*([\d.]+)\s*\)/)?.[1] ?? 1);
+  expect(tintAlpha, `the bar's tint is ${tintAlpha}`).toBeLessThanOrEqual(0.7);
+  expect(tintAlpha).toBeGreaterThanOrEqual(0.5);
+
+  const more = page.locator("header").getByRole("button", { name: /more/i });
+  const panel = page.locator("header .more-panel");
+  await expect(panel).toBeHidden();
+
+  // It opens by itself when the pointer rests on it, and says so to assistive technology.
+  await more.hover();
+  await expect(panel).toBeVisible();
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+
+  // Crossing the gap down to the list does not close it, and it can be used.
+  const box = (await panel.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + 40, { steps: 10 });
+  await page.waitForTimeout(450);
+  await expect(panel).toBeVisible();
+
+  // Leaving it and its list closes it.
+  await page.mouse.move(260, 600, { steps: 6 });
+  await expect(panel).toBeHidden();
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+
+  // A click on the button while it is open by hover keeps it open (it has been asked for); leaving then does not close it.
+  await more.hover();
+  await expect(panel).toBeVisible();
+  await more.click();
+  await page.mouse.move(260, 600, { steps: 6 });
+  await page.waitForTimeout(500);
+  await expect(panel).toBeVisible();
+  // Escape closes it and gives focus back to the button; a second click opens it from closed.
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(more).toBeFocused();
+  await more.click();
+  await expect(panel).toBeVisible();
+  await more.click();
+  await expect(panel).toBeHidden();
+
+  // Using it: a link in the list goes to its page and the list closes. (After a click closed it with the pointer still over the
+  // button, it correctly does not spring open again under a pointer that has not moved; leave and come back.)
+  await page.mouse.move(260, 600, { steps: 4 });
+  await more.hover();
+  await expect(panel).toBeVisible();
+  await panel.getByRole("link", { name: /history graph/i }).click();
+  await expect(page).toHaveURL(/#\/history/);
+  await expect(panel).toBeHidden();
 });
 
 test("Error Atlas: the ledger shows 15 races at a time, filters start again, and back-to-top returns you", async ({ page }, testInfo) => {

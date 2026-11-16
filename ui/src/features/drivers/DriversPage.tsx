@@ -73,8 +73,7 @@ function DriverList({ query }: { query: URLSearchParams }) {
     <div className="page-in">
       <header className="border-b border-line pt-[calc(var(--nav-h)+2rem)] pb-8">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
-          <p className="eyebrow">Drivers</p>
-          <h1 className="display mt-3 text-[3rem] sm:text-[4.8rem]">The grid, scored</h1>
+          <h1 className="display text-[3rem] sm:text-[4.8rem]">The grid, scored</h1>
           <p className="mt-4 max-w-[66ch] text-[1.1rem] leading-relaxed text-steel">
             Every driver who raced in the held-out seasons, with what the model thought of them and what they actually did. Select up to
             four to compare their season side by side.
@@ -409,8 +408,8 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
     <div className="page-in">
       <header className="relative overflow-hidden border-b border-line pt-[calc(var(--nav-h)+1.5rem)] pb-8">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
-          <a href={href("/drivers", { season })} className="eyebrow no-underline hover:text-ink">
-            <span className="sr-only">Back to </span>Drivers
+          <a href={href("/drivers", { season })} className="crumbs">
+            <Icon name="arrowLeft" size={16} /> <span className="sr-only">Back to </span>Drivers
           </a>
           <div className="mt-5 grid items-end gap-6 sm:grid-cols-[14rem_1fr]">
             <Portrait driver={driver} colour={colour} number={line.number} className="aspect-[4/5] w-44 border-t-4 sm:w-full" label={driver.name} eager />

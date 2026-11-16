@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { test } from "node:test";
-import { THEME_CHROME, applyTheme, parsePref, resolveTheme, revealRadius } from "../src/lib/theme.ts";
+import { THEME_CHROME, applyTheme, parsePref, resolveTheme } from "../src/lib/theme.ts";
 
 const css = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
@@ -140,18 +140,4 @@ test("neutral greys that are design tokens are written as tokens in the code, so
   walk(new URL("../src", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
   assert.ok(visited > 60, `the scan really read the source (${visited} files)`);
   assert.deepEqual(offenders, [], "use var(--color-…) so the light theme can recolour it");
-});
-
-test("the reveal circle is just big enough to cover the screen from wherever the switch is", () => {
-  const [w, h] = [1440, 900];
-  // From the top-right (where the switch is) the farthest corner is the bottom-left.
-  assert.equal(revealRadius(w - 60, 36, w, h), Math.hypot(w - 60, h - 36));
-  // From the middle it is a corner's distance; from a corner it is the whole diagonal.
-  assert.equal(revealRadius(w / 2, h / 2, w, h), Math.hypot(w / 2, h / 2));
-  assert.equal(revealRadius(0, 0, w, h), Math.hypot(w, h));
-  // Whatever the origin, every corner of the screen is inside the circle.
-  for (const [x, y] of [[0, 0], [w, 0], [0, h], [w, h], [300, 200]]) {
-    const r = revealRadius(x, y, w, h);
-    for (const [cx, cy] of [[0, 0], [w, 0], [0, h], [w, h]]) assert.ok(Math.hypot(cx - x, cy - y) <= r + 1e-9);
-  }
 });

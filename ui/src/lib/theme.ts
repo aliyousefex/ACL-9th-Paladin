@@ -62,43 +62,18 @@ function commit(pref: ThemePref): void {
   listeners.forEach((listener) => listener());
 }
 
-/** Radius of the circle, centred on (x, y), that just covers a width by height viewport. */
-export const revealRadius = (x: number, y: number, width: number, height: number): number => Math.hypot(Math.max(x, width - x), Math.max(y, height - y));
-
-type TransitionDocument = Document & { startViewTransition?: (update: () => void) => { finished: Promise<unknown> } };
-
 /**
- * Whether a page-wide animated change is worth what it costs here. Changing the theme re-styles and re-paints the whole page
- * (about 50 to 150ms of work, which a phone's processor takes several times over), and a view transition then paints it
- * twice more and holds the screen still while it does. Measured at a phone's speed that was a stall of most of a second
- * between the press and the first change. A precise pointer means a desktop or laptop, which does it in about a tenth of a
- * second; everything else changes in one step.
+ * Change the theme. Changing it re-styles and repaints the whole page, which takes a moment (about 50 to 150ms on a desktop, and
+ * several times that on a phone), and nothing the browser can animate across it is free: a view transition paints the page twice
+ * more and holds the whole screen still, knob and all, while it does (measured at a phone's speed that was a stall of most of a
+ * second between the press and the first change; a colour fade on every element was worse). So the page changes in one step,
+ * and it changes in the frame after the next one, so the switch has already started to move before the page stops to repaint: a
+ * transform animation carries on while the page is busy, and the control never feels held up by it. Under reduced motion there
+ * is nothing to wait for. `update` is what actually changes the theme, and it always runs exactly once.
  */
-const canAffordWipe = (): boolean => window.matchMedia?.("(hover: hover) and (pointer: fine)").matches ?? false;
-
-/**
- * Change the theme. On a desktop with view transitions the new theme grows as a circle from `origin` (the switch) over the
- * old one. Everywhere else, and always under reduced motion, it simply changes: reduced motion at once, the rest in the frame
- * after the next one, so the switch's knob has already started to move before the page stops to repaint (a transform
- * animation carries on while the page is busy, so the control never feels held up by it). There is no page-wide colour
- * fade: animating every element's colours took seconds on a phone. `update` is what actually changes the theme, and it
- * always runs exactly once.
- */
-function withThemeTransition(update: () => void, origin?: { x: number; y: number }): void {
-  if (typeof document === "undefined" || typeof window === "undefined") return update();
-  const doc = document as TransitionDocument;
-  const root = doc.documentElement;
+function whenTheKnobHasMoved(update: () => void): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return update();
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return update();
-  if (typeof doc.startViewTransition === "function" && canAffordWipe()) {
-    const x = origin?.x ?? window.innerWidth / 2;
-    const y = origin?.y ?? 0;
-    root.style.setProperty("--vt-x", `${x}px`);
-    root.style.setProperty("--vt-y", `${y}px`);
-    root.style.setProperty("--vt-r", `${revealRadius(x, y, window.innerWidth, window.innerHeight)}px`);
-    const transition = doc.startViewTransition(update);
-    void transition.finished.finally(() => ["--vt-x", "--vt-y", "--vt-r"].forEach((name) => root.style.removeProperty(name)));
-    return;
-  }
   let done = false;
   const once = () => {
     if (done) return;
@@ -109,8 +84,8 @@ function withThemeTransition(update: () => void, origin?: { x: number; y: number
   window.setTimeout(once, 250); // a frame that never comes (a hidden tab) must not leave the choice unmade
 }
 
-export function setThemePref(pref: ThemePref, origin?: { x: number; y: number }): void {
-  withThemeTransition(() => {
+export function setThemePref(pref: ThemePref): void {
+  whenTheKnobHasMoved(() => {
     try {
       if (pref === "system") localStorage.removeItem(THEME_KEY);
       else localStorage.setItem(THEME_KEY, pref);
@@ -118,7 +93,7 @@ export function setThemePref(pref: ThemePref, origin?: { x: number; y: number })
       /* the choice then lasts until the page is closed */
     }
     commit(pref);
-  }, origin);
+  });
 }
 
 function subscribe(listener: () => void): () => void {
@@ -141,7 +116,7 @@ function subscribe(listener: () => void): () => void {
 
 const SERVER: State = { pref: "system", theme: "dark" };
 
-export function useTheme(): State & { setPref: (pref: ThemePref, origin?: { x: number; y: number }) => void } {
+export function useTheme(): State & { setPref: (pref: ThemePref) => void } {
   const state = useSyncExternalStore(subscribe, read, () => SERVER);
   return { ...state, setPref: setThemePref };
 }

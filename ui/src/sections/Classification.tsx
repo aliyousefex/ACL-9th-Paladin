@@ -228,7 +228,7 @@ function WeightList() {
   return (
     <ul className="max-w-[44rem] space-y-1">
       {rows.map((row) => (
-        <li key={row.feature} className="grid grid-cols-[11rem_1fr_3.6rem] items-center gap-3 sm:grid-cols-[16rem_1fr_3.6rem]">
+        <li key={row.feature} className="grid grid-cols-[minmax(0,11rem)_minmax(2rem,1fr)_3.6rem] items-center gap-3 sm:grid-cols-[minmax(0,16rem)_minmax(2rem,1fr)_3.6rem]">
           <span className="truncate text-[0.98rem]">{featureLabel(row.feature)}</span>
           <span className="relative block h-3 bg-line">
             <span className="absolute inset-y-0 left-1/2 w-px bg-steel" />

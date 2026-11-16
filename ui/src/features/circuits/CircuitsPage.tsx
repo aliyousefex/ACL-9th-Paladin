@@ -69,8 +69,7 @@ function CircuitList({ query }: { query: URLSearchParams }) {
     <div className="page-in">
       <header className="border-b border-line pt-[calc(var(--nav-h)+2rem)] pb-8">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
-          <p className="eyebrow">Circuits</p>
-          <h1 className="display mt-3 text-[3rem] sm:text-[4.8rem]">The atlas</h1>
+          <h1 className="display text-[3rem] sm:text-[4.8rem]">The atlas</h1>
           <p className="mt-4 max-w-[68ch] text-[1.1rem] leading-relaxed text-steel">
             Every circuit of the held-out seasons, drawn from the F1 timing track map rather than traced by hand. Open one for numbered
             corners, sectors, DRS usage and how often the model called its podium right there. Select up to three to compare them at the same scale.
@@ -293,7 +292,9 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
     <div className="page-in">
       <header className="border-b border-line pt-[calc(var(--nav-h)+1.5rem)] pb-8">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
-          <a href={href("/circuits")} className="eyebrow no-underline hover:text-ink">Circuits</a>
+          <a href={href("/circuits")} className="crumbs">
+            <Icon name="arrowLeft" size={16} /> Circuits
+          </a>
           <h1 className="display mt-4 text-[2.8rem] sm:text-[4.8rem]">{circuit.name}</h1>
           <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[1.05rem] text-steel">
             <span className="flex items-center gap-2">

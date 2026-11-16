@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Panel } from "../../components/Panel";
+import { SectionStrip } from "../../components/SectionStrip";
 import { Note, Tabs } from "../../components/Bits";
 import { ProvenanceLegend, Tag } from "../../components/Provenance";
 import { PORTRAITS, DRIVERS } from "../../lib/data";
@@ -27,8 +28,7 @@ export function ModelPage() {
     <div className="page-in">
       <header className="border-b border-line pt-[calc(var(--nav-h)+2rem)] pb-10">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
-          <p className="eyebrow">The model</p>
-          <h1 className="display mt-3 max-w-[16ch] text-[3rem] sm:text-[5rem]">What it knows, how it did, and where it fails</h1>
+          <h1 className="display max-w-[16ch] text-[3rem] sm:text-[5rem]">What it knows, how it did, and where it fails</h1>
           <p className="mt-5 max-w-[70ch] text-[1.1rem] leading-relaxed text-steel">
             Paladin is an academic machine-learning project. Its claim is narrow: using only information available after qualifying, a model can
             rank who is likely to finish in the top three. This page holds every number behind that claim, including the ones that
@@ -40,9 +40,11 @@ export function ModelPage() {
         </div>
       </header>
 
-      <nav aria-label="On this page" className="sticky z-40 border-b border-line bg-tower/95 backdrop-blur-sm" style={{ top: "var(--sticky-top)" }}>
-        <ul className="no-scrollbar mx-auto flex max-w-[1320px] items-center gap-1 overflow-x-auto px-4 sm:px-6 lg:px-10">
-          {[
+      <SectionStrip
+        label="On this page"
+        active={active}
+        items={(
+          [
             ["glance", "At a glance"],
             ["systems", "Which is which"],
             ["inputs", "Inputs"],
@@ -51,24 +53,17 @@ export function ModelPage() {
             ["score", "Reading a score"],
             ["limits", "Limits"],
             ["sources", "Sources"],
-          ].map(([id, label]) => (
-            <li key={id} className="shrink-0">
-              <a
-                href={`#${id}`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  document.getElementById(id)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-                }}
-                aria-current={active === id ? "true" : undefined}
-                className={`relative flex min-h-11 items-center px-3 font-display text-[0.98rem] leading-none font-semibold tracking-[0.1em] uppercase no-underline transition-colors ${active === id ? "text-ink" : "text-mute hover:text-ink"}`}
-              >
-                {label}
-                <span aria-hidden className={`absolute inset-x-3 bottom-0 h-[2px] bg-signal ${active === id ? "opacity-100" : "opacity-0"}`} />
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
+          ] as const
+        ).map(([id, label]) => ({
+          id,
+          label,
+          href: `#${id}`,
+          onClick: (event) => {
+            event.preventDefault();
+            document.getElementById(id)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+          },
+        }))}
+      />
 
       <div className="mx-auto max-w-[1320px] space-y-6 px-4 pt-8 sm:px-6 lg:px-10">
         <Panel id="glance" eyebrow="At a glance" title="One question, one model" tag="model">

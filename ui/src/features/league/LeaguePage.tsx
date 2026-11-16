@@ -75,8 +75,7 @@ export function LeaguePage({ query }: { query: URLSearchParams }) {
     <div className="page-in">
       <header className="border-b border-line pt-[calc(var(--nav-h)+2rem)] pb-8">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-10">
-          <p className="eyebrow">Season league · you against Paladin</p>
-          <h1 className="display mt-3 text-[3rem] sm:text-[4.8rem]">Can you out-call the model?</h1>
+          <h1 className="display text-[3rem] sm:text-[4.8rem]">Can you out-call the model?</h1>
           <p className="mt-4 max-w-[66ch] text-[1.1rem] leading-relaxed text-steel">
             Call the podium before the reveal, race after race. Your names are counted the way Paladin's are, on the same races, and a verdict appears only when there are enough races to support one. Everything stays in your browser; a short code lets you compare with a friend.
           </p>

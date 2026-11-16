@@ -86,7 +86,8 @@ export function RaceLabPage({ query }: { query: URLSearchParams }) {
     const frame = requestAnimationFrame(() => {
       const target = phase === "finished" ? document.getElementById("lab-results")?.closest<HTMLElement>("section") : document.getElementById("lab-live");
       if (target) {
-        const navHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-h")) * 16 || 56;
+        // The bar's real height (the variable is a calc() that includes the device's top inset, so it cannot be parsed as a number).
+        const navHeight = document.querySelector<HTMLElement>("header.chrome-bar")?.offsetHeight || 76;
         const previousScrollBehavior = document.documentElement.style.scrollBehavior;
         document.documentElement.style.scrollBehavior = "auto";
         window.scrollTo(0, Math.max(0, target.getBoundingClientRect().top + window.scrollY - navHeight));
