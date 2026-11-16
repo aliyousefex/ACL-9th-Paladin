@@ -69,6 +69,9 @@ test("primary routes render without runtime or broken-resource errors", async ({
   const routes = [
     ["home", "/"],
     ["drivers", "/#/drivers"],
+    ["driver", "/#/drivers/norris?season=2024"],
+    ["teams", "/#/teams"],
+    ["team", "/#/teams/alpine?season=2024"],
     ["circuits", "/#/circuits"],
     ["model", "/#/model"],
     ["method", "/#/method"],
@@ -290,7 +293,7 @@ test("season league: with 'always show results' on, a pick is practice and the p
   await expect(page.getByText(/does not count in your league/i)).toBeVisible();
 });
 
-/* ------------------------------------------------------------------ theme, targets, header, paging */
+/* ------------------------------------------------------------------ dark page, targets, header, paging */
 
 const SURVEY: [string, string][] = [
   ["home", "/"],
@@ -301,6 +304,9 @@ const SURVEY: [string, string][] = [
   ["guide", "/#/guide"],
   ["research", "/#/model"],
   ["drivers", "/#/drivers"],
+  ["driver", "/#/drivers/norris?season=2024"],
+  ["teams", "/#/teams"],
+  ["team", "/#/teams/alpine?season=2024"],
   ["circuits", "/#/circuits/monaco"],
   ["race lab", "/#/race-lab"],
 ];
@@ -317,110 +323,44 @@ async function settle(page: Page) {
   await page.waitForTimeout(300);
 }
 
-test("theme: a sliding light/dark switch that follows the device until it is flipped, then remembers the choice", async ({ page }, testInfo) => {
+test("the site is dark whatever the device prefers, and there is nothing to switch it", async ({ page }, testInfo) => {
   test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  // Count how often a page-wide view transition is asked for: it holds the whole screen still, knob included, while the browser paints the page twice more.
-  await page.addInitScript(() => {
-    (window as unknown as { __wipes: number }).__wipes = 0;
-    const original = (document as Document & { startViewTransition?: (cb: () => void) => unknown }).startViewTransition?.bind(document);
-    if (original) (document as unknown as { startViewTransition: (cb: () => void) => unknown }).startViewTransition = (cb) => ((window as unknown as { __wipes: number }).__wipes++, original(cb));
-  });
-  await page.emulateMedia({ colorScheme: "dark" });
+  // A device set to light, and a choice saved by an older version of the site, change nothing.
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.addInitScript(() => window.localStorage.setItem("paladin:theme", "light"));
   await page.goto("/");
-  const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
-  const pref = () => page.evaluate(() => document.documentElement.dataset.themePref);
-  expect([await theme(), await pref()]).toEqual(["dark", "system"]);
+  await expect(page.getByRole("heading", { name: /predict the podium/i })).toBeVisible();
   await expect(page.locator("body")).toHaveCSS("background-color", "rgb(10, 11, 14)");
-
-  const toggle = page.getByRole("switch", { name: "Dark mode" });
-  // Which end of the track the knob is at, so the test sees the slide and not only the attribute.
-  const knobSide = async () => {
-    const [track, knob] = await Promise.all([page.locator(".theme-toggle__track").boundingBox(), page.locator(".theme-toggle__knob").boundingBox()]);
-    return knob!.x + knob!.width / 2 < track!.x + track!.width / 2 ? "left" : "right";
-  };
-  const state = async () => [await theme(), await pref()];
-  await expect(page.getByRole("button", { name: "Match my device" }), "there is no second control").toHaveCount(0);
-
-  // Until it is flipped the switch follows the device, live, in both directions.
-  await expect(toggle).toBeChecked();
-  expect(await knobSide()).toBe("right");
-  await page.emulateMedia({ colorScheme: "light" });
-  await expect.poll(theme).toBe("light");
-  await expect(toggle).not.toBeChecked();
-  await expect.poll(knobSide).toBe("left");
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect.poll(theme).toBe("dark");
-  expect(await pref()).toBe("system");
-
-  // Flipping it saves an explicit choice. The tyre answers the press at once; the page follows two frames later, so the control has
-  // started to roll before the page stops to repaint. A switch that waited for the page would feel like it lagged.
-  const atOnce = await toggle.evaluate(async (button: HTMLButtonElement) => {
-    button.click();
-    await Promise.resolve(); // let React's own update land
-    await Promise.resolve();
-    return [button.getAttribute("aria-checked"), document.documentElement.dataset.theme];
-  });
-  expect(atOnce, "the knob has moved before the page has changed").toEqual(["false", "dark"]);
-  await expect.poll(state).toEqual(["light", "light"]);
-  // The page changes in one step on every device: no view transition was asked for.
-  expect(await page.evaluate(() => (window as unknown as { __wipes: number }).__wipes), "no page-wide transition").toBe(0);
-  await expect(toggle).not.toBeChecked();
-  await expect.poll(knobSide).toBe("left");
-  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(243, 242, 238)");
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#f3f2ee");
-
-  // remembered, and applied before the app starts (the first paint is already the right theme)
-  await page.reload();
-  expect(await theme()).toBe("light");
-  await expect(toggle).not.toBeChecked();
-  expect(await knobSide()).toBe("left");
-
-  // It is a switch: focus it and Space flips it, and focus stays put.
-  await toggle.focus();
-  await page.keyboard.press("Space");
-  await expect.poll(state).toEqual(["dark", "dark"]);
-  await expect(toggle).toBeChecked();
-  await expect(toggle).toBeFocused();
-  await expect.poll(knobSide).toBe("right");
-
-  // An explicit choice is not overridden by the device.
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.waitForTimeout(300);
-  expect(await theme()).toBe("dark");
-
-  // With reduced motion there is nothing to wait for: the theme changes in place, in the same task as the click.
-  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
-  await toggle.click();
-  expect(await state()).toEqual(["light", "light"]);
+  await expect(page.locator("html")).toHaveCSS("color-scheme", "dark");
+  expect(await page.evaluate(() => document.documentElement.dataset.theme), "no theme attribute is set").toBeUndefined();
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0a0b0e");
+  await expect(page.getByRole("switch")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /dark mode|light mode|match my device/i })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
-for (const scheme of ["dark", "light"] as const) {
-  test(`theme: ${scheme} text is readable on every page (WCAG AA, measured on the rendered page)`, async ({ page }, testInfo) => {
-    test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
-    test.setTimeout(150_000);
-    await page.emulateMedia({ colorScheme: scheme });
-    await page.addInitScript(() => {
-      window.localStorage.setItem("paladin:mode", "expert");
-      window.localStorage.setItem("paladin:show-results", "1");
-    });
-    const report: Record<string, unknown[]> = {};
-    for (const [name, url] of SURVEY) {
-      await page.goto(url);
-      await settle(page);
-      expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe(scheme);
-      const bad = await lowContrast(page);
-      if (bad.length) report[name] = bad.slice(0, 5);
-    }
-    expect(report, "text below AA contrast").toEqual({});
+test("text is readable on every page (WCAG AA, measured on the rendered page)", async ({ page }, testInfo) => {
+  test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
+  test.setTimeout(150_000);
+  await page.addInitScript(() => {
+    window.localStorage.setItem("paladin:mode", "expert");
+    window.localStorage.setItem("paladin:show-results", "1");
   });
-}
+  const report: Record<string, unknown[]> = {};
+  for (const [name, url] of SURVEY) {
+    await page.goto(url);
+    await settle(page);
+    const bad = await lowContrast(page);
+    if (bad.length) report[name] = bad.slice(0, 5);
+  }
+  expect(report, "text below AA contrast").toEqual({});
+});
 
 test("touch targets: on a phone nothing you can press is smaller than 24px, and most things are 44px", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-375");
-  test.setTimeout(120_000);
+  test.setTimeout(240_000); // 13 pages, each scrolled through; about a minute alone, and slower when other tests share the machine
   const under24: Record<string, string[]> = {};
   let under44 = 0;
   let total = 0;
@@ -444,6 +384,7 @@ test("phone header: scrolling down gives the screen back without losing navigati
   const capsule = brand.locator(".site-bar__inner");
   const dock = page.locator("nav.dock");
   const section = page.getByRole("navigation", { name: "On this race" });
+  const chip = brand.getByRole("button", { name: /On this race: .*Choose a section/ });
   const top = async (locator: typeof brand) => Math.round((await locator.boundingBox())!.y);
   const bottom = async (locator: typeof brand) => {
     const box = (await locator.boundingBox())!;
@@ -460,16 +401,17 @@ test("phone header: scrolling down gives the screen back without losing navigati
   await expect.poll(() => bottom(brand)).toBeLessThanOrEqual(0);
   // and its drop shadow (14px down, 34px of blur) is off screen with it, not hanging over the top of the page as a haze
   await expect.poll(() => bottom(capsule)).toBeLessThanOrEqual(-48);
-  // reading hides only the brand capsule: the destinations stay at the thumb, and the race's own section strip (a pill 8px from the top) takes its place
+  // reading hides only the brand capsule: the destinations stay at the thumb, and the race's own section strip (a pill 8px from the top) is the way around
   expect(await top(dock)).toBe(dockTop);
   await expect.poll(() => top(section)).toBeLessThanOrEqual(9);
   await expect(section).toBeVisible();
 
+  // Pulling back up: the capsule returns and the strip melts into it, so there is one bar, with the section as a chip in it.
   await page.evaluate(() => window.scrollBy(0, -260));
   await expect(page.locator("html")).not.toHaveAttribute("data-chrome", "compact");
   await expect.poll(() => top(brand)).toBe(0);
-  // the section navigation starts where the capsule ends, never under it
-  await expect.poll(async () => (await top(section)) >= (await bottom(capsule)) - 1).toBe(true);
+  await expect(section).toBeHidden();
+  await expect(chip).toBeVisible();
   expect(await top(dock)).toBe(dockTop);
 
   // keyboard or screen-reader focus can never land on something that is off screen
@@ -480,17 +422,13 @@ test("phone header: scrolling down gives the screen back without losing navigati
   await expect.poll(() => top(brand)).toBe(0);
 });
 
-test("phone: a jittery thumb does not make the capsule and the section strip flicker, and the strip glides with the capsule", async ({ page }, testInfo) => {
+test("phone: a jittery thumb does not make the bar flicker, and the strip melts into the bar's chip instead of showing as a second bar", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-375");
   await page.goto(RACE);
   await expect(page.locator("#prediction")).toBeAttached();
   const strip = page.getByRole("navigation", { name: "On this race" });
-  const capsule = page.locator("header.chrome-bar .site-bar__inner");
+  const chip = page.locator("header.chrome-bar").getByRole("button", { name: /On this race: .*Choose a section/ });
   const top = async (locator: typeof strip) => Math.round((await locator.boundingBox())!.y);
-  const bottom = async (locator: typeof strip) => {
-    const box = (await locator.boundingBox())!;
-    return Math.round(box.y + box.height);
-  };
   const chrome = () => page.evaluate(() => document.documentElement.dataset.chrome ?? "shown");
 
   await page.evaluate(() => window.scrollTo(0, 1700));
@@ -502,31 +440,94 @@ test("phone: a jittery thumb does not make the capsule and the section strip fli
     await page.evaluate((d) => window.scrollBy(0, d), slip);
     await page.waitForTimeout(60);
   }
-  expect(await chrome(), "slips and small reversals do not bring the capsule back").toBe("compact");
-  expect(await top(strip), "and the strip has not moved").toBeLessThanOrEqual(9);
+  expect(await chrome(), "slips and small reversals do not bring the bar back").toBe("compact");
+  await expect(strip, "and the strip stays where it was").toBeVisible();
+  expect(await top(strip)).toBeLessThanOrEqual(9);
 
-  // A real pull upward brings the capsule back, and the strip goes down with it as a glide (never a 56px snap), to sit right under it.
-  const positions = await page.evaluate(async () => {
-    const nav = document.querySelector('nav[aria-label="On this race"]')!;
-    const seen: number[] = [];
+  // A real pull upward brings the bar back, and the strip melts into it: it fades while the bar slides in (a transition, not a swap).
+  // The chip grew when the strip first reached the bar, so the bar arrives already carrying the section the strip was showing.
+  const seen = await page.evaluate(async () => {
+    const nav = document.querySelector("nav.subnav")!; // the strip in the page (the bar's own list is a nav with the same label)
+    const bar = document.querySelector("header.chrome-bar")!;
+    const button = document.querySelector<HTMLElement>("header .section-chip")!;
+    const opacity = new Set<string>();
+    const travel = new Set<number>();
+    const chipWidth = button.getBoundingClientRect().width;
     window.scrollBy(0, -90);
-    const end = performance.now() + 700;
+    const end = performance.now() + 800;
     while (performance.now() < end) {
       await new Promise((resolve) => requestAnimationFrame(resolve));
-      seen.push(Math.round(nav.getBoundingClientRect().top));
+      opacity.add(Number(getComputedStyle(nav).opacity).toFixed(1));
+      travel.add(Math.round(bar.getBoundingClientRect().top / 8));
     }
-    return seen;
+    return { opacity: [...opacity], travel: [...travel], chipWidth };
   });
   expect(await chrome()).toBe("shown");
-  const settled = positions[positions.length - 1];
-  expect(settled).toBeGreaterThanOrEqual((await bottom(capsule)) - 1);
-  const between = new Set(positions.filter((y) => y > 1 && y < settled - 1));
-  expect(between.size, `the strip glided through ${[...between].join(", ")} on its way to ${settled}`).toBeGreaterThanOrEqual(3);
+  expect(seen.opacity.length, `the strip faded through ${seen.opacity.join(", ")}`).toBeGreaterThanOrEqual(3);
+  expect(seen.travel.length, `the bar slid in through ${seen.travel.join(", ")} (in 8px steps)`).toBeGreaterThanOrEqual(3);
+  expect(seen.chipWidth, "the chip is already in the bar when it returns").toBeGreaterThan(60);
+  await expect(strip, "never two bars at once").toBeHidden();
+  await expect(chip).toBeVisible();
 
-  // Reading on puts both away together, and the strip is back at the very top.
+  // Reading on puts the bar away, the chip with it, and the strip returns alone at the very top.
   await page.evaluate(() => window.scrollBy(0, 160));
   await expect.poll(chrome).toBe("compact");
+  await expect(strip).toBeVisible();
   await expect.poll(() => top(strip)).toBeLessThanOrEqual(9);
+});
+
+test("the section strip melts into the bar as a dropdown, and is never a second bar", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440");
+  await page.goto("/#/method");
+  await expect(page.getByRole("heading", { name: /from raw tables to one model/i })).toBeVisible();
+  const strip = page.getByRole("navigation", { name: "Walkthrough sections" });
+  const chip = page.locator("header").getByRole("button", { name: /Walkthrough sections: .*Choose a section/ });
+  const panel = page.locator("header .section-panel");
+  const capsule = page.locator("header .site-bar__inner");
+
+  // At rest the strip is in the page and the bar has no chip.
+  await expect(strip).toBeVisible();
+  await expect(chip).toBeHidden();
+
+  // When the strip reaches the bar it fades away and the chip is in the bar, by the logo and clear of the links and the tools.
+  await page.evaluate(() => window.scrollTo(0, 1500));
+  await expect(strip).toBeHidden();
+  await expect(chip).toBeVisible();
+  const [bar, button, brand, firstLink, search] = await Promise.all([
+    capsule.boundingBox(),
+    chip.boundingBox(),
+    page.locator("header .nav-brand").boundingBox(),
+    page.locator("header .site-nav__link").first().boundingBox(),
+    page.locator("header .site-tool").boundingBox(),
+  ]);
+  expect(button!.x).toBeGreaterThanOrEqual(brand!.x + brand!.width - 1);
+  expect(button!.x + button!.width).toBeLessThanOrEqual(firstLink!.x + 1);
+  expect(button!.x + button!.width).toBeLessThanOrEqual(search!.x);
+  expect(button!.y).toBeGreaterThanOrEqual(bar!.y);
+  expect(button!.y + button!.height).toBeLessThanOrEqual(bar!.y + bar!.height);
+
+  // It names the section the reader is in, and follows the page.
+  const before = (await chip.textContent())!.trim();
+  await page.evaluate(() => window.scrollTo(0, 5200));
+  await expect.poll(async () => (await chip.textContent())!.trim()).not.toBe(before);
+
+  // It opens by itself on hover, lists every section, and choosing one goes there and closes it.
+  await chip.hover();
+  await expect(panel).toBeVisible();
+  await expect(chip).toHaveAttribute("aria-expanded", "true");
+  const links = panel.getByRole("link");
+  expect(await links.count(), "every section is in the list").toBeGreaterThanOrEqual(8);
+  const box = (await panel.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  await links.nth(2).click();
+  await expect(page).toHaveURL(/#\/method\/.+/);
+  await expect(panel).toBeHidden();
+
+  // Back at the top the strip returns and the chip goes.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(strip).toBeVisible();
+  await expect(chip).toBeHidden();
 });
 
 test("search: the palette dims the whole screen, fits above the keyboard, and names no keys on a touchscreen", async ({ page }, testInfo) => {
@@ -546,6 +547,8 @@ test("search: the palette dims the whole screen, fits above the keyboard, and na
   const size = page.viewportSize()!;
   const scrim = page.locator("body > .palette");
   await expect(scrim).toHaveCount(1);
+  // It fades and settles in over a fraction of a second, so it is measured once it has settled.
+  await page.evaluate(() => Promise.all(document.querySelector("body > .palette")!.getAnimations({ subtree: true }).map((animation) => animation.finished)));
   const scrimBox = (await scrim.boundingBox())!;
   expect([scrimBox.x, scrimBox.y, Math.round(scrimBox.width), Math.round(scrimBox.height)]).toEqual([0, 0, size.width, size.height]);
   const dialog = page.getByRole("dialog", { name: "Search races, drivers and pages" });
@@ -736,6 +739,210 @@ test("keyboard focus reaches primary navigation and race controls", async ({ pag
   const focused = await page.evaluate(() => document.activeElement?.tagName);
   expect(["A", "BUTTON", "SELECT", "INPUT"]).toContain(focused);
 });
+
+/** The home car: one layer, moved by two animations of its transform (the launch, then the lap). */
+const LAPPING_CAR = "[data-lapping-car]";
+
+test("the home car is moved by the animation engine: it waits off screen, pulls away from the first grid slot, and laps at an even pace without snapping its heading", async ({ page }, testInfo) => {
+  test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
+  await page.goto("/");
+  const map = page.locator('svg[aria-label^="Suzuka circuit"]');
+  await map.scrollIntoViewIfNeeded();
+  await expect(page.locator(LAPPING_CAR)).toHaveCount(1);
+
+  // two animations of the transform and of nothing else: that is what lets the browser run them off the main thread
+  const animations = await page.evaluate((selector) => {
+    const keys = ["offset", "computedOffset", "easing", "composite"];
+    return document.querySelector(selector)!.getAnimations().map((a) => ({
+      frames: a.effect!.getKeyframes().length,
+      properties: [...new Set(a.effect!.getKeyframes().flatMap((k) => Object.keys(k)).filter((p) => !keys.includes(p)))],
+    }));
+  }, LAPPING_CAR);
+  expect(animations.map((a) => a.properties)).toEqual([["transform"], ["transform"]]);
+  expect(animations[0].frames, "the launch").toBeGreaterThan(20);
+  expect(animations[1].frames, "the lap").toBeGreaterThan(300);
+
+  // off screen it waits where it is, and on screen it goes on from there
+  const where = () => page.evaluate((selector) => getComputedStyle(document.querySelector(selector)!).transform, LAPPING_CAR);
+  const states = () => page.evaluate((selector) => document.querySelector(selector)!.getAnimations().map((a) => a.playState), LAPPING_CAR);
+  expect(await states()).toContain("running");
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect.poll(states, { message: "the car is still being animated with its map scrolled away" }).not.toContain("running");
+  const waiting = await where();
+  await page.waitForTimeout(600);
+  expect(await where(), "the car moved while its map was off screen").toBe(waiting);
+  await map.scrollIntoViewIfNeeded();
+  await expect.poll(states, { message: "the car did not start again" }).toContain("running");
+
+  // scrub both animations through the whole lap, which needs no waiting and no luck with timing
+  const lap = await page.evaluate((selector) => {
+    const car = document.querySelector(selector)!;
+    const [launch, cruise] = car.getAnimations();
+    launch.pause();
+    cruise.pause();
+    const at = (animation: Animation, local: number) => {
+      animation.currentTime = (animation.effect!.getTiming().delay as number) + local;
+      const m = new DOMMatrix(getComputedStyle(car).transform);
+      return { x: m.m41, y: m.m42, angle: (Math.atan2(m.m12, m.m11) * 180) / Math.PI };
+    };
+    const turn = (from: number, to: number) => ((((to - from) % 360) + 540) % 360) - 180;
+    const between = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(b.x - a.x, b.y - a.y);
+    const lapMs = 24000;
+    const n = 480;
+    const track = Array.from({ length: n + 1 }, (_, i) => at(cruise, (i / n) * lapMs));
+    const steps = track.slice(1).map((p, i) => ({ move: between(track[i], p), turn: turn(track[i].angle, p.angle) }));
+    // the lap is later in the stack than the launch, so it must be back before its start for the launch to show
+    cruise.currentTime = 0;
+    const pole = at(launch, 0);
+    return {
+      pole,
+      steps,
+      half: between(pole, at(launch, 1500)),
+      whole: between(pole, at(launch, 3000)),
+      launchSpeed: between(at(launch, 2900), at(launch, 3000)) / 100,
+      cruiseSpeed: between(at(cruise, 0), at(cruise, 100)) / 100,
+    };
+  }, LAPPING_CAR);
+
+  // it waits in the first grid slot, 11 units behind the line on Suzuka's straight (the line is at 622.1, 78.1)
+  expect(Math.abs(lap.pole.x - 611.1), "pole x").toBeLessThan(2.5);
+  expect(Math.abs(lap.pole.y - 78.1), "pole y").toBeLessThan(2.5);
+  // the launch builds speed steadily: the distance covered grows as the square of the time, so half the time covers a quarter of the way
+  expect(lap.half / lap.whole, "the launch is not a steady build of speed").toBeGreaterThan(0.2);
+  expect(lap.half / lap.whole, "the launch is not a steady build of speed").toBeLessThan(0.3);
+  // and it hands over to the lap at the speed it has reached, with no kick
+  expect(lap.launchSpeed / lap.cruiseSpeed, "speed at the handover").toBeGreaterThan(0.9);
+  expect(lap.launchSpeed / lap.cruiseSpeed, "speed at the handover").toBeLessThan(1.1);
+  // round the lap the pace is even: every step of a 480th of a lap is the same length, give or take the curve
+  const moves = lap.steps.map((s) => s.move).sort((a, b) => a - b);
+  const median = moves[Math.floor(moves.length / 2)];
+  expect(moves[0] / median, "the car slows somewhere on the lap").toBeGreaterThan(0.85);
+  expect(moves[moves.length - 1] / median, "the car jumps somewhere on the lap").toBeLessThan(1.15);
+  // the heading turns continuously: no step turns it through anything like the snap of a straight-segment heading, and it never spins the long way
+  const worstTurn = Math.max(...lap.steps.map((s) => Math.abs(s.turn)));
+  expect(worstTurn, "the heading snaps").toBeLessThan(40);
+  const net = lap.steps.reduce((sum, s) => sum + s.turn, 0);
+  expect(Math.abs(net), "Suzuka's figure of eight turns the car through no net turn; a spin the long way would add or take a whole one").toBeLessThan(25);
+});
+
+test("people: a driver's page describes the season, a team's page says who ran it with sources, and a principal's name finds their team", async ({ page }, testInfo) => {
+  test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("response", (response) => { if (response.status() >= 400) errors.push(`${response.status()}: ${response.url()}`); });
+  const width = testInfo.project.use.viewport!.width;
+
+  // the driver: the person, the season in words, the arc, the weekends, the team
+  await page.goto("/#/drivers/norris?season=2024");
+  await expect(page.getByRole("heading", { name: "About Norris" })).toBeVisible();
+  await expect(page.getByText(/Norris won 4 races \(Miami, Dutch, Singapore and Abu Dhabi\)/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Championship, round by round" })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Lando Norris: championship position after each round of 2024/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Weekends to look at" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "McLaren in 2024" })).toBeVisible();
+  await assertViewport(page, width);
+  // who ran the team comes with a source and says it is not from the dataset
+  const ran = page.locator("section", { has: page.getByRole("heading", { name: "Who ran McLaren" }) });
+  await expect(ran.getByText("Andrea Stella")).toBeVisible();
+  await expect(ran.locator('[data-provenance="reference"]').first()).toBeVisible();
+  await expect(ran.getByRole("link", { name: "the-race.com" })).toHaveAttribute("href", /^https:\/\/www\.the-race\.com\//);
+  await expect(ran.getByText(/This is not part of the race dataset/)).toBeVisible();
+
+  // the team: where it finished, and the people, with a team representative called what it was
+  await ran.getByRole("link", { name: "More about McLaren" }).click();
+  await expect(page).toHaveURL(/#\/teams\/mclaren/);
+  await expect(page.getByRole("heading", { level: 1, name: "McLaren" })).toBeVisible();
+  await expect(page.getByText(/finished 1st in the constructors' championship with 666 points/)).toBeVisible();
+  await assertViewport(page, width);
+  await page.goto("/#/teams/sauber?season=2024");
+  await expect(page.getByRole("heading", { level: 1, name: "Sauber" })).toBeVisible();
+  // his own row: called what he was called, and never a team principal
+  const row = page.locator("li", { hasText: "Alessandro Alunni Bravi" }).first();
+  await expect(row).toContainText(/team representative/i);
+  await expect(row).not.toContainText(/team principal/i);
+  await page.goto("/#/teams/alpine?season=2023");
+  await expect(page.getByText("in charge in 2023")).toHaveCount(2);
+  await assertViewport(page, width);
+
+  // searching a principal's name finds the team they ran
+  await page.goto("/#/");
+  await page.getByRole("button", { name: "Search races, drivers and pages" }).click();
+  await page.getByRole("combobox", { name: "Search" }).fill("toto");
+  // the palette's own results: the page has native <option>s of its own (a circuit picker) that come first in the document
+  const first = page.getByRole("dialog", { name: "Search races, drivers and pages" }).getByRole("option").first();
+  await expect(first).toContainText("Toto Wolff");
+  await expect(first).toContainText("Leader");
+  await page.getByRole("combobox", { name: "Search" }).press("Enter");
+  await expect(page).toHaveURL(/#\/teams\/mercedes/);
+  await expect(page.getByRole("heading", { level: 1, name: "Mercedes" })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+for (const reduced of [false, true]) {
+  test(`search: the highlight follows the keys, a new search sends it back at once, and the palette ${reduced ? "goes at once when motion is reduced" : "leaves with a fade"}`, async ({ page }, testInfo) => {
+    test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    if (reduced) await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/#/");
+    const trigger = page.getByRole("button", { name: "Search races, drivers and pages" });
+    await trigger.click();
+    const field = page.getByRole("combobox", { name: "Search" });
+    await expect(field).toBeFocused();
+    const cursor = page.locator(".palette__cursor");
+    const rowTop = () => page.evaluate(() => (document.querySelector("[role=option][aria-selected=true]") as HTMLElement).offsetTop);
+    const cursorAt = () => page.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector(".palette__cursor")!).transform).m42);
+
+    // A new search puts the highlight on its first row at once: it does not travel there.
+    await field.fill("abu");
+    await expect.poll(cursorAt).toBe(await rowTop());
+    await expect(cursor).not.toHaveAttribute("data-slide", "true");
+    // The keys move it, and it comes to rest exactly on the row they chose.
+    await field.press("ArrowDown");
+    await field.press("ArrowDown");
+    await expect(cursor).toHaveAttribute("data-slide", "true");
+    await expect.poll(cursorAt, { message: "the highlight did not come to rest on the active row" }).toBe(await rowTop());
+    await expect(page.locator("[role=option][aria-selected=true]")).toHaveCount(1);
+    // Typing again sends it back to the first row without a glide.
+    await field.fill("mon");
+    await expect(cursor).not.toHaveAttribute("data-slide", "true");
+    await expect.poll(cursorAt).toBe(await rowTop());
+
+    // Leaving: watched from the instant Escape is pressed, because a fade this short is gone before a poll would see it.
+    const leaving = page.evaluate(
+      () =>
+        new Promise<{ state: string | undefined; hidden: string | null; clicks: string } | "gone">((resolve) => {
+          const palette = document.querySelector("body > .palette")!;
+          const watch = new MutationObserver(() => {
+            if (!document.body.contains(palette)) {
+              watch.disconnect();
+              resolve("gone");
+            } else if ((palette as HTMLElement).dataset.state === "closing") {
+              watch.disconnect();
+              resolve({ state: (palette as HTMLElement).dataset.state, hidden: palette.getAttribute("aria-hidden"), clicks: getComputedStyle(palette).pointerEvents });
+            }
+          });
+          watch.observe(palette, { attributes: true });
+          watch.observe(document.body, { childList: true });
+          setTimeout(() => resolve("gone"), 2000);
+        }),
+    );
+    await field.press("Escape");
+    // focus is back on the button at once, whatever the palette is doing
+    await expect(trigger).toBeFocused();
+    const seen = await leaving;
+    if (reduced) expect(seen, "with reduced motion it goes at once, with no fade").toBe("gone");
+    else expect(seen, "it stays on screen for its fade, out of reach and hidden from assistive technology").toEqual({ state: "closing", hidden: "true", clicks: "none" });
+    await expect(page.locator("body > .palette")).toHaveCount(0);
+    await expect(page.locator("html")).not.toHaveClass(/palette-open/);
+
+    // Opening it again starts clean.
+    await page.keyboard.press("Control+k");
+    await expect(page.getByRole("combobox", { name: "Search" })).toHaveValue("");
+    await expect(page.locator("[role=option]").first()).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
 
 test("Race Lab configures, strategises, completes and exports a seeded race", async ({ page }, testInfo) => {
   test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));

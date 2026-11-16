@@ -8,6 +8,7 @@ const Home = lazy(() => import("./features/home/Home").then((m) => ({ default: m
 const RacePage = lazy(() => import("./features/race/RacePage").then((m) => ({ default: m.RacePage })));
 const DriversPage = lazy(() => import("./features/drivers/DriversPage").then((m) => ({ default: m.DriversPage })));
 const CircuitsPage = lazy(() => import("./features/circuits/CircuitsPage").then((m) => ({ default: m.CircuitsPage })));
+const TeamsPage = lazy(() => import("./features/teams/TeamsPage").then((m) => ({ default: m.TeamsPage })));
 const ModelPage = lazy(() => import("./features/model/ModelPage").then((m) => ({ default: m.ModelPage })));
 const MethodPage = lazy(() => import("./features/method/MethodPage").then((m) => ({ default: m.MethodPage })));
 const RaceLabPage = lazy(() => import("./features/raceLab/RaceLabPage").then((m) => ({ default: m.RaceLabPage })));
@@ -39,6 +40,9 @@ export default function App() {
     case "circuits":
       page = <CircuitsPage reference={second} query={location.query} />;
       break;
+    case "teams":
+      page = <TeamsPage reference={second} query={location.query} />;
+      break;
     case "model":
       page = <ModelPage />;
       break;
@@ -68,7 +72,7 @@ export default function App() {
   const key = section === "method" ? "method" : location.path.join("/");
 
   return (
-    <Shell section={["race", "race-lab", "analysis", "history", "league", "drivers", "circuits", "model", "method", "guide"].includes(section) ? section : ""}>
+    <Shell section={["race", "race-lab", "analysis", "history", "league", "drivers", "teams", "circuits", "model", "method", "guide"].includes(section) ? section : ""}>
       <Suspense fallback={<div className="pt-32"><LightsLoader label="Loading" /></div>}>
         <div key={key}>{page}</div>
       </Suspense>

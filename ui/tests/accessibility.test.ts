@@ -73,23 +73,12 @@ test("the phone dock has one slot per destination plus More, and its pill sits u
   assert.match(dock("no-such-page"), /--on:0/, "an unknown page leaves the pill hidden instead of lying");
 });
 
-test("the theme control is one named day/night switch, drawn in CSS, with no second button", async () => {
-  const { ThemeSwitch } = await loadModule<{ ThemeSwitch: never }>("/src/components/ThemeSwitch.tsx");
-  const html = render(ThemeSwitch, {});
-  // A real switch, named in words: a screen reader says "Dark mode, switch". With no saved choice the page is dark.
-  const toggle = html.match(/<button[^>]*role="switch"[^>]*>/)![0];
-  assert.match(toggle, /aria-label="Dark mode"/);
-  assert.match(toggle, /aria-checked="true"/);
-  assert.equal(count(html, /role="switch"/g), 1);
-  assert.equal(count(html, /<button/g), 1, "the switch is the whole control");
-  assert.doesNotMatch(html, /theme-system|Match my device|role="radio"|theme-switch/);
-  // The kerb, the lane, the floodlights and the car are inside an aria-hidden track: nothing for a screen reader but the name and state.
-  assert.equal(count(html, /<svg/g), 1, "one drawing: the car");
-  assert.match(html, /<svg class="theme-toggle__car"[^>]*aria-hidden="true"/);
-  assert.match(html, /<span class="theme-toggle__track" aria-hidden="true">/);
-  assert.equal(count(html, /class="car__wheel"/g), 4, "the car has four wheels");
-  assert.equal(count(html, /<i><\/i>/g), 4, "four floodlights");
-  assert.match(html, /class="theme-toggle__finish"/, "and a finish line");
+test("the bar has search and nothing to switch the theme: the site is dark and has no second look", async () => {
+  const { Shell } = await loadModule<{ Shell: never }>("/src/components/Shell.tsx");
+  const html = render(Shell, { section: "", children: "x" });
+  assert.equal(count(html, /role="switch"/g), 0, "no switch in the bar");
+  assert.doesNotMatch(html, /theme-toggle|theme-control|Dark mode|Switch to light/);
+  assert.match(html, /class="site-bar__tools"/, "the tools are still there");
 });
 
 test("the bar carries the logo mark alone: no wordmark, no search circle, and the brand link is still named", async () => {
@@ -104,21 +93,20 @@ test("the bar carries the logo mark alone: no wordmark, no search circle, and th
   assert.match(css, /\.site-tool\s*\{[^}]*border:\s*0/s, "search is a bare icon");
 });
 
-test("the logo is the supplied mark, drawn from one path that matches the icon source, in a colour that holds on both themes", async () => {
+test("the logo is the supplied mark, drawn from one path that matches the icon source, in a colour that holds on the dark page", async () => {
   const { MARK } = await loadModule<{ MARK: { d: string; viewBox: string; aspect: number } }>("/src/components/logo-data.ts");
   const source = readFileSync(new URL("../../scripts/logo-mark.svg", import.meta.url), "utf8");
   assert.equal(MARK.d, source.match(/<path fill="[^"]+" d="([^"]+)"/)![1].trim(), "the page and the icons are drawn from the same path");
   assert.equal(count(MARK.d, /M /g), 8, "the triangle and its seven pieces");
-  // Brand blue as supplied on the light page; a lighter tint of the same hue on the dark one (the original is 1.5:1 there).
+  // A lighter tint of the supplied brand blue: the original (#1800ad) is 1.5:1 on the dark page.
   assert.match(css, /--color-brand:\s*#8270ff;/);
-  assert.match(css, /:root\[data-theme="light"\]\s*\{[^}]*--color-brand:\s*#1800ad;/s);
   assert.match(css, /\.logo-mark\s*\{[^}]*color:\s*var\(--color-brand\)/s);
   // Nothing of the old horse is left to be served.
   assert.doesNotMatch(css, /logo-raster/);
 });
 
 test("the bar's pills and the dock's stop moving when motion is reduced", () => {
-  for (const selector of [".site-nav__pill", ".dock__pill", ".theme-toggle__knob", ".theme-toggle__track"]) {
+  for (const selector of [".site-nav__pill", ".dock__pill"]) {
     const escaped = selector.replace(".", "\\.");
     const pattern = new RegExp(`@media \\(prefers-reduced-motion: reduce\\)\\s*\\{[^}]*${escaped}[^}]*\\{[^}]*transition:\\s*none`);
     assert.match(css, pattern, `${selector} stops animating`);
@@ -141,17 +129,14 @@ test("the glass is see-through but legible: its tint is on its own layer, the dr
   // The dropdown blurs the page behind it too, and is denser than the bar because it holds text.
   assert.match(block(".more-panel"), /background-color:\s*var\(--glass-bg-strong\)/);
   assert.match(block(".more-panel"), /backdrop-filter:\s*blur\(/);
-  // How see-through the bar is, dark and light: clearly more transparent than the first 74% and 80%, and never so clear that a label can lose its background.
-  const dark = css.slice(css.indexOf("/* frosted glass, dark */"), css.indexOf("/* frosted glass, light"));
-  const light = css.slice(css.indexOf("/* frosted glass, light"), css.indexOf(".site-bar {"));
-  for (const [theme, rules] of [["dark", dark], ["light", light]] as const) {
-    const value = Number(rules.match(/--glass-bg:\s*color-mix\(in srgb, var\(--color-[a-z]+\) (\d+)%/)![1]);
-    const strong = Number(rules.match(/--glass-bg-strong:\s*color-mix\(in srgb, var\(--color-[a-z]+\) (\d+)%/)![1]);
-    assert.ok(value >= 58 && value <= 70, `${theme} glass is ${value}% dense`);
-    assert.ok(strong >= 82, `${theme} dropdown glass is ${strong}% dense`);
-  }
-  // On the dark theme the idle labels are the brighter of the greys, because they sit on thinner glass.
-  assert.match(dark, /--nav-idle:\s*var\(--color-steel\)/);
+  // How see-through the bar is: clearly more transparent than the first 74% and 80%, and never so clear that a label can lose its background.
+  const glass = css.slice(css.indexOf("/* frosted glass, dark */"), css.indexOf(".site-bar {"));
+  const value = Number(glass.match(/--glass-bg:\s*color-mix\(in srgb, var\(--color-[a-z]+\) (\d+)%/)![1]);
+  const strong = Number(glass.match(/--glass-bg-strong:\s*color-mix\(in srgb, var\(--color-[a-z]+\) (\d+)%/)![1]);
+  assert.ok(value >= 58 && value <= 70, `glass is ${value}% dense`);
+  assert.ok(strong >= 82, `dropdown glass is ${strong}% dense`);
+  // The idle labels are the brighter of the greys, because they sit on thinner glass.
+  assert.match(glass, /--nav-idle:\s*var\(--color-steel\)/);
   // Where blur is unavailable, or less transparency is asked for, the surfaces are solid.
   assert.match(css, /@supports not \(\(-webkit-backdrop-filter: blur\(1px\)\) or \(backdrop-filter: blur\(1px\)\)\)\s*\{\s*\.site-bar__inner::before,\s*\.dock::before\s*\{\s*background:\s*var\(--glass-solid\)/);
   assert.match(css, /@media \(prefers-reduced-transparency: reduce\)\s*\{\s*\.site-bar__inner::before,\s*\.dock::before\s*\{[^}]*backdrop-filter:\s*none[^}]*background:\s*var\(--glass-solid\)/);
@@ -160,7 +145,8 @@ test("the glass is see-through but legible: its tint is on its own layer, the dr
 test("the More list opens when a mouse rests on it, and a click keeps it open", () => {
   const source = readFileSync(new URL("../src/components/Shell.tsx", import.meta.url), "utf8");
   assert.match(source, /event\.pointerType !== "mouse"/, "only a mouse hovers; a touch is a plain toggle");
-  assert.match(source, /placement !== "down"/, "only the top bar's list opens by hover");
+  assert.match(source, /useDisclosure\(placement === "down"\)/, "only the top bar's More list opens by hover (the dock's is a touch target)");
+  assert.match(source, /const menu = useDisclosure\(true\);/, "and so does the section chip");
   assert.match(source, /setTimeout\(\(\) => setOpen\(true\), \d+\)/, "after a moment's intent");
   assert.match(source, /setTimeout\(\(\) => setOpen\(false\), \d+\)/, "and closes a moment after the pointer leaves");
   // The transparent bridge keeps the pointer inside the menu while it crosses the gap between the button and the list.
@@ -182,6 +168,38 @@ test("the search palette is mounted on the body, not inside the frosted bar, and
   // The panel never outgrows the part of the screen the on-screen keyboard leaves, and the page behind a phone's palette stays put.
   assert.match(css, /\.palette__panel\s*\{[^}]*max-height:\s*calc\(var\(--vv-h, 100dvh\)/);
   assert.match(css, /html\.palette-open\s*\{\s*overflow:\s*hidden/);
+});
+
+test("the search palette moves like the rest of the site: eased out, only opacity and transform, never past its target, and not at all when motion is reduced", () => {
+  const source = readFileSync(new URL("../src/components/CommandPalette.tsx", import.meta.url), "utf8");
+  // it fades and settles in, and fades out instead of vanishing
+  assert.match(css, /\.palette\s*\{[^}]*animation:\s*palette-in 140ms var\(--ease-out\) both/);
+  assert.match(css, /\.palette__panel\s*\{[^}]*animation:\s*palette-rise 200ms var\(--ease-out\) both/);
+  const exit = css.match(/\.palette\[data-state="closing"\]\s*\{[^}]*pointer-events:\s*none;[^}]*animation:\s*palette-out (\d+)ms var\(--ease-out\) both/);
+  assert.ok(exit, "while it leaves, a click goes through to the page, and it fades out");
+  assert.ok(Number(source.match(/LEAVE_MS = (\d+)/)?.[1]) >= Number(exit![1]), "it stays mounted at least as long as its exit takes");
+  // what moves is opacity and transform, which the compositor does without the page's help
+  for (const name of ["palette-in", "palette-out", "palette-rise", "palette-drop"]) {
+    const frames = css.match(new RegExp(`@keyframes ${name}\\s*\\{([\\s\\S]*?)\\n\\}`))?.[1] ?? "";
+    assert.ok(frames.trim(), `${name} exists`);
+    assert.doesNotMatch(frames, /\b(width|height|top|left|right|bottom|margin|padding)\s*:/, `${name} moves only opacity and transform`);
+  }
+  // reduced motion: no animation, and the component unmounts at once instead of waiting for a fade that is not there
+  assert.match(css, /prefers-reduced-motion: reduce\)\s*\{\s*\.palette,\s*\.palette__panel\s*\{\s*animation:\s*none !important/);
+  assert.match(source, /if \(reduce\) \{\s*setLeaving\(false\);\s*return;/);
+  // one highlight that glides only when the keys or the pointer move it, never when a new search replaces the list
+  assert.match(css, /\.palette__cursor\[data-slide\]\s*\{[^}]*transition:\s*transform 130ms var\(--ease-out\)/);
+  assert.doesNotMatch(css, /\.palette__cursor\s*\{[^}]*transition/);
+  assert.match(source, /setSlide\(false\);[^\n]*a new list/);
+  assert.match(source, /scrollIntoView\(\{ block: "nearest" \}\)/, "an instant scroll: held down, the arrow keys repeat faster than a smooth one can follow");
+  // a thin bar with no arrow buttons, and a list that glides between heights with its bar out of sight while it does
+  assert.match(css, /\.palette__list\s*\{[^}]*scrollbar-width:\s*thin/);
+  assert.match(css, /\.palette__list\s*\{[^}]*transition:\s*height 140ms var\(--ease-out\)/);
+  assert.match(css, /\.palette__list\[data-sizing\]\s*\{\s*overflow-y:\s*hidden/);
+  // focusing the field must never move the page behind it
+  assert.match(source, /focus\(\{ preventScroll: true \}\)/);
+  // the search button answers the press at once
+  assert.match(css, /\.site-tool:active\s*\{[^}]*transform:\s*scale\(0\.92\)/);
 });
 
 test("on a phone the footer, not the body, makes room for the dock, and the hidden bar's shadow stays off screen", () => {
@@ -250,57 +268,33 @@ test("the guided path says where the cutoff stands: step 5 is locked until the r
   assert.equal(count(after, /class="is-done"/g), 4);
 });
 
-test("changing the theme is one step that the knob leads, with no page-wide animation, and the car shows which theme it is", () => {
-  // The page re-styles and repaints in one go; anything animated across that holds the screen still while the browser paints
-  // it twice more (a stall of most of a second at a phone's speed), and a colour fade on every element froze a phone for seconds.
-  const theme = readFileSync(new URL("../src/lib/theme.ts", import.meta.url), "utf8");
-  for (const [name, text] of [["theme.ts", theme], ["index.css", css]] as const) {
-    assert.doesNotMatch(text, /startViewTransition|view-transition|theme-fade|theme-reveal/, `${name} has no page-wide transition`);
-  }
-  // The page changes after two frames, so the switch has started to move first; reduced motion changes at once; a hidden tab still changes.
-  assert.match(theme, /requestAnimationFrame\(\(\) => window\.requestAnimationFrame\(once\)\)/);
-  assert.match(theme, /prefers-reduced-motion: reduce\)"\)\.matches\) return update\(\)/);
-  assert.match(theme, /setTimeout\(once, \d+\)/);
-  // The control itself is quick, and moves by transform (which carries on while the page is busy repainting).
-  const knob = css.match(/\n\.theme-toggle__knob\s*\{[^}]*transition:\s*transform (\d+)ms/)!;
-  assert.ok(Number(knob[1]) <= 300, `the knob takes ${knob[1]}ms`);
-  assert.doesNotMatch(css.match(/\n\.theme-toggle__knob\s*\{([^}]*)\}/)![1], /transition:[^;]*(?:left|width|top)/);
-  // The car has a real stretch of lane to drive, and the car stays inside the lane at both ends.
-  // The switch is sized in pixels: it is a drawing and a tap target, and must not outgrow the bar when the reader enlarges their text.
-  const px = (name: string) => Number(css.match(new RegExp(`--${name}:\\s*(\\d+)px`))![1]);
-  const lane = px("track-w") - 2 * px("kerb");
-  const travel = lane - px("knob-w") - 2 * px("inset");
-  assert.ok(travel >= 24, `the car drives ${travel}px`);
-  assert.ok(px("knob-h") < lane / 4, "and it is a car, longer than it is wide");
+test("the bar and the dock keep their sizes, and nothing in the stylesheet or the code is left of the theme switch", () => {
   assert.match(css, /--bar-h:\s*56px/);
   assert.match(css, /--dock-h:\s*64px/);
-  // It turns round at the end of the drive, not the start (a delay), so it always goes forwards; and it is a light car by day and a dark one by night.
-  assert.match(css, /\.theme-toggle__car\s*\{[^}]*transition:\s*transform \d+ms ease 1\d\dms/s, "the turn is delayed");
-  assert.match(css, /\.theme-toggle\[aria-checked="true"\] \.theme-toggle__car\s*\{[^}]*transform:\s*scaleX\(-1\)/s, "it faces back down the lane at night");
-  const hex = (text: string, name: string) => text.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`))![1];
-  const day = css.match(/\.theme-toggle__car\s*\{([^}]*)\}/)![1];
-  const night = css.match(/\.theme-toggle\[aria-checked="true"\] \.theme-toggle__car\s*\{([^}]*)\}/)![1];
-  const lum = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
-  const ratio = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
-  assert.ok(lum(hex(day, "--car-body")) > 0.7 && lum(hex(night, "--car-body")) < 0.05, "a pale car by day and a carbon one by night");
-  // It can be seen on its lane in both: the day car against the lightest asphalt, the night car's rim light against the darkest.
-  assert.ok(ratio(hex(day, "--car-body"), "#979da8") >= 2, "the day car on the asphalt");
-  assert.ok(ratio(hex(night, "--car-edge"), "#171a21") >= 3, "the night car's edge on the dark lane");
-  assert.match(css, /\.theme-toggle\[aria-checked="true"\] \.car__beam[\s\S]*?opacity:\s*1/, "its headlamp beams come on at night");
+  assert.doesNotMatch(css, /startViewTransition|view-transition|theme-fade|theme-reveal|\.theme-toggle|--car-body/);
 });
 
-test("the capsule answers a deliberate gesture, and the section strip moves with it by transform, never by snapping", async () => {
+test("the capsule answers a deliberate gesture, and the section strip melts into it as a dropdown instead of becoming a second bar", async () => {
   const { HIDE_AFTER, SHOW_AFTER } = await loadModule<{ HIDE_AFTER: number; SHOW_AFTER: number }>("/src/components/Shell.tsx");
   // At 10px each way it flickered in and out under a jittery thumb. A little down puts it away; a real pull up brings it back.
   assert.ok(HIDE_AFTER >= 20 && HIDE_AFTER <= 40, `hide after ${HIDE_AFTER}px`);
   assert.ok(SHOW_AFTER >= 48 && SHOW_AFTER > HIDE_AFTER, `show after ${SHOW_AFTER}px`);
   const shell = readFileSync(new URL("../src/components/Shell.tsx", import.meta.url), "utf8");
   assert.match(shell, /Math\.sign\(delta\) === Math\.sign\(travel\) \? travel \+ delta : delta/, "the distance restarts whenever the direction changes");
-  // The strip follows the capsule on the same curve over the same time, so they read as one piece.
-  const ms = (pattern: RegExp) => css.match(pattern)![1];
-  assert.equal(ms(/\.chrome-bar\s*\{\s*transition:\s*transform (\d+)ms var\(--ease-out\)/), ms(/\.subnav\[data-stuck="true"\]\s*\{[^}]*transition:\s*transform (\d+)ms var\(--ease-out\)/));
-  assert.match(css, /\.subnav\[data-stuck="true"\]\s*\{\s*transform:\s*translateY\(var\(--chrome-shift\)\)/);
-  assert.match(css, /:root\[data-chrome="compact"\]\s*\{\s*--chrome-shift:\s*0px/);
+  // When the strip reaches the bar it fades up into it (and is out of the tab order and the accessibility tree), and the bar's chip
+  // grows in. There are never two bars: so the strip never docks under the bar, and nothing is shifted to make room for it.
+  assert.match(css, /\.subnav\[data-stuck="true"\]\s*\{[^}]*opacity:\s*0[^}]*visibility:\s*hidden[^}]*pointer-events:\s*none/);
+  assert.match(css, /\.section-menu\[data-stuck="true"\] \.section-chip\s*\{[^}]*opacity:\s*1[^}]*visibility:\s*visible/);
+  assert.match(css, /\.section-chip\s*\{[^}]*max-width:\s*0[^}]*visibility:\s*hidden/, "the chip is there, zero wide and invisible, until the strip arrives");
+  assert.doesNotMatch(css, /--chrome-shift/);
+  // On a phone the bar hides while reading, so the strip comes back alone at the top, and gives way to the chip when the bar returns.
+  assert.match(css, /:root\[data-chrome="compact"\] \.subnav\[data-stuck="true"\]\s*\{[^}]*opacity:\s*1[^}]*visibility:\s*visible/);
+  // The two share one list of sections, published by the strip and read by the bar.
+  const store = readFileSync(new URL("../src/lib/sectionNav.ts", import.meta.url), "utf8");
+  assert.match(store, /export function publishSectionNav/);
+  assert.match(readFileSync(new URL("../src/components/SectionStrip.tsx", import.meta.url), "utf8"), /publishSectionNav\(\{ label, items, active, stuck \}\)/);
+  assert.match(shell, /function SectionMenu\(\)/);
+  assert.match(shell, /<SectionMenu \/>/);
   // Every page with a strip uses it, and none sets the strip's `top` by hand any more (that snapped it 56px at a time).
   for (const page of ["race/RacePage", "method/MethodPage", "model/ModelPage"]) {
     const source = readFileSync(new URL(`../src/features/${page}.tsx`, import.meta.url), "utf8");
@@ -329,7 +323,7 @@ test("the section strip is the top bar's own material, shape and width, docked j
 test("nothing bounces: no easing curve in the stylesheet overshoots, and no page title carries a small label above it", () => {
   // A cubic-bezier whose y values leave 0..1 overshoots its target and springs back: that is the "bounce".
   const curves = [...css.matchAll(/cubic-bezier\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/g)];
-  assert.ok(curves.length >= 3);
+  assert.ok(curves.length >= 2, "the scan really found the curves");
   for (const [text, , y1, , y2] of curves) assert.ok(Number(y1) >= 0 && Number(y1) <= 1 && Number(y2) >= 0 && Number(y2) <= 1, `${text} overshoots`);
   assert.doesNotMatch(css, /@keyframes[^{]*(?:bounce|spring|wobble)/i);
   // The small label above a page title repeated the page's own name and read as decoration; breadcrumbs are links with an arrow.

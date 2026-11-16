@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type Provenance = "model" | "record" | "experimental" | "illustrative" | "simulation" | "user";
+export type Provenance = "model" | "record" | "reference" | "experimental" | "illustrative" | "simulation" | "user";
 
 const COPY: Record<Provenance, { label: string; title: string; className: string }> = {
   model: {
@@ -12,6 +12,11 @@ const COPY: Record<Provenance, { label: string; title: string; className: string
     label: "Historical record",
     title: "A real result or measurement from the dataset. Not produced by the model.",
     className: "tag tag-record",
+  },
+  reference: {
+    label: "Reference",
+    title: "A fact from public sources that is not in the race dataset, such as who ran a team. Written by hand, with its sources linked. Not model output.",
+    className: "tag tag-ref",
   },
   experimental: {
     label: "Experimental model",
@@ -45,7 +50,7 @@ export function Tag({ kind, children }: { kind: Provenance; children?: ReactNode
   );
 }
 
-/** The key to every marker. "list" is the compact ruled list for a narrow column; "cards" is a wall of six, each edged in its kind's colour. */
+/** The key to every marker. "list" is the compact ruled list for a narrow column; "cards" is a wall of seven, each edged in its kind's colour. */
 export function ProvenanceLegend({ variant = "list" }: { variant?: "list" | "cards" }) {
   const cards = variant === "cards";
   return (

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CircuitMap, CircuitThumb } from "../../components/CircuitMap";
 import { LightsLoader, Note, Tabs } from "../../components/Bits";
 import { Tag } from "../../components/Provenance";
+import { EventMark } from "../../components/EventMark";
 import { Icon } from "../../components/Icon";
+import { LAB_WORD } from "../../lib/eventMarks";
 import { RACES, SEASONS, circuit as circuitOf, layoutFor, loadAdvancedRace, loadLayout, loadRace, useResource, type Layout } from "../../lib/data";
 import { useTitle } from "../../lib/hooks";
 import { href } from "../../lib/router";
@@ -242,7 +244,7 @@ function RaceConsole(props: ConsoleProps) {
         <div className="min-h-64 bg-panel p-4 sm:p-6">
           {props.panel === "strategy" && (controlled ? <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]"><div><h2 className="display text-[2.1rem]">Call the race for {state.config.entrants.find((entry) => entry.id === controlled.id)?.code}</h2><p className="mt-2 text-steel">Every selection changes the next simulated lap. Attack is quicker but increases incident and retirement risk; conserve trades pace for reliability.</p><div className="mt-5 grid gap-4 sm:grid-cols-3"><label className="label">Pace<select className="select mt-2 w-full" value={controlled.strategy.pace} onChange={(event) => props.updateStrategy({ pace: event.target.value as Pace })}>{["conserve", "balanced", "attack"].map((value) => <option key={value}>{value}</option>)}</select></label><label className="label">Tyre assumption<select className="select mt-2 w-full" value={controlled.strategy.tyre} onChange={(event) => props.updateStrategy({ tyre: event.target.value as Tyre })}>{["soft", "medium", "hard"].map((value) => <option key={value}>{value}</option>)}</select></label><label className="label">Planned stop<input className="input mt-2 w-full" type="number" min={state.lap + 1} max={state.config.laps} value={controlled.strategy.pitLap ?? ""} onChange={(event) => props.updateStrategy({ pitLap: event.target.value ? Number(event.target.value) : null })} /></label></div></div><button type="button" className="btn btn-ghost min-h-16 self-end" disabled={controlled.pitStops > 0 || state.lap >= state.config.laps} onClick={() => props.updateStrategy({ pitLap: state.lap + 1 })}>Pit next lap</button></div> : <p className="text-steel">Simulator mode uses explicit AI policies. Choose Strategist mode in setup to control a driver.</p>)}
           {props.panel === "forecast" && <Forecast state={state} battle={battle} />}
-          {props.panel === "events" && <ol className="max-h-64 divide-y divide-line overflow-y-auto">{[...state.events].reverse().slice(0, 30).map((event, index) => <li key={`${event.lap}-${event.kind}-${index}`} className="grid grid-cols-[4rem_7rem_minmax(0,1fr)] gap-3 py-2 text-[0.86rem]"><span className="figure">L{event.lap}</span><span className="label">{event.kind}</span><span className="text-steel">{event.message}</span></li>)}</ol>}
+          {props.panel === "events" && <ol className="max-h-64 divide-y divide-line overflow-y-auto">{[...state.events].reverse().slice(0, 30).map((event, index) => <li key={`${event.lap}-${event.kind}-${index}`} className="grid grid-cols-[4rem_7rem_minmax(0,1fr)] gap-3 py-2 text-[0.86rem]"><span className="figure">L{event.lap}</span><span className="label inline-flex items-center gap-2"><EventMark kind={event.kind} />{LAB_WORD[event.kind]}</span><span className="text-steel">{event.message}</span></li>)}</ol>}
         </div>
       </section>
       <TimingTower state={state} />

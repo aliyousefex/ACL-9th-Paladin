@@ -123,7 +123,7 @@ test("a layout left over from another tab is never drawn under the wrong one", a
 test("every kind of information has its own label, including the viewer's own input", async () => {
   const { Tag, ProvenanceLegend } = await loadModule<{ Tag: never; ProvenanceLegend: never }>("/src/components/Provenance.tsx");
   const legend = render(ProvenanceLegend, {});
-  for (const label of ["Model output", "Historical record", "Illustrative", "Simulation", "Your input"]) assert.match(legend, new RegExp(label));
+  for (const label of ["Model output", "Historical record", "Reference", "Illustrative", "Simulation", "Your input"]) assert.match(legend, new RegExp(label));
   const user = render(Tag, { kind: "user" });
   assert.match(user, /tag-user/);
   assert.match(user, /Your input/);
@@ -134,8 +134,8 @@ test("every kind of information has its own label, including the viewer's own in
 test("the legend's card layout keeps every marker, its wording and its definition, one card per kind", async () => {
   const { ProvenanceLegend } = await loadModule<{ ProvenanceLegend: never }>("/src/components/Provenance.tsx");
   const cards = render(ProvenanceLegend, { variant: "cards" });
-  assert.equal((cards.match(/class="source-card"/g) ?? []).length, 6);
-  for (const kind of ["model", "record", "experimental", "illustrative", "simulation", "user"]) assert.match(cards, new RegExp(`data-kind="${kind}"`));
+  assert.equal((cards.match(/class="source-card"/g) ?? []).length, 7);
+  for (const kind of ["model", "record", "reference", "experimental", "illustrative", "simulation", "user"]) assert.match(cards, new RegExp(`data-kind="${kind}"`));
   // The same words as the compact list: the layout changes, what each marker says does not.
   const list = render(ProvenanceLegend, {});
   const words = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();

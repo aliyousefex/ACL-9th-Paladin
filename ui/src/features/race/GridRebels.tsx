@@ -21,7 +21,7 @@ const COPY: Record<Direction, { title: string; lead: string; empty: string; beca
 /** Where the model's order departs from the starting grid, with the inputs that account for each move. */
 export function GridRebels({ rows, revealed }: { rows: Row[]; revealed: boolean }) {
   return (
-    <Panel eyebrow="Where the model adds an opinion" title="Grid rebels" tag="model">
+    <Panel context="Where the model adds an opinion" title="Grid rebels" tag="model">
       <p className="max-w-[72ch] text-steel">
         Qualifying is a formidable baseline, so the grid is the comparison. These are the drivers Paladin moves furthest from their starting-grid rank,
         and the inputs that account for the move.

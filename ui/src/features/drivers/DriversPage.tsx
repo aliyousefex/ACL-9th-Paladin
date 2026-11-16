@@ -22,6 +22,7 @@ import { longDate, ordinal } from "../../lib/format";
 import { useTitle } from "../../lib/hooks";
 import { href, replaceQuery } from "../../lib/router";
 import { PLACE_COLOURS } from "../race/rows";
+import { ArcPanel, HighlightsPanel, ProfilePanel, SeasonStoryPanel, TeamPanel, useDriverStory } from "./DriverProfile";
 import { ScoreLines, seriesFor } from "./ScoreLines";
 
 type Sort = "score" | "podiums" | "starts" | "name";
@@ -246,6 +247,8 @@ function ComparePanel({ refs, season, onClear, onToggle }: { refs: string[]; sea
   const best = (f: (l: SeasonLine) => number | null, higher = true) => {
     const values = drivers.map((d) => f(d.seasons[String(season)]));
     const valid = values.filter((v): v is number => v !== null);
+    // nothing is best when there is nothing to compare, or when every value is the same
+    if (valid.length < 2 || valid.every((v) => v === valid[0])) return values.map(() => false);
     const target = higher ? Math.max(...valid) : Math.min(...valid);
     return values.map((v) => v !== null && v === target);
   };
@@ -253,7 +256,7 @@ function ComparePanel({ refs, season, onClear, onToggle }: { refs: string[]; sea
     { label: "Starts", value: (l) => l.races },
     { label: "Podiums", value: (l) => l.podiums, best: best((l) => l.podiums) },
     { label: "Wins", value: (l) => l.wins, best: best((l) => l.wins) },
-    { label: "Points", value: (l) => l.points ?? 0, best: best((l) => l.points) },
+    { label: "Points from races", value: (l) => l.points ?? 0, best: best((l) => l.points) },
     { label: "Average grid", value: (l) => l.avgGrid?.toFixed(1) ?? "–", best: best((l) => l.avgGrid, false) },
     { label: "Average finish", value: (l) => l.avgFinish?.toFixed(1) ?? "–", best: best((l) => l.avgFinish, false) },
     { label: "Mean podium score", value: (l) => l.meanScore.toFixed(3), best: best((l) => l.meanScore) },
@@ -266,7 +269,7 @@ function ComparePanel({ refs, season, onClear, onToggle }: { refs: string[]; sea
 
   return (
     <Panel
-      eyebrow={`Compare · ${season}`}
+      context={`Compare · ${season}`}
       title={drivers.map((d) => d.last).join(" vs ")}
       tag="model"
       actions={
@@ -303,7 +306,8 @@ function ComparePanel({ refs, season, onClear, onToggle }: { refs: string[]; sea
         </p>
       )}
 
-      <div className="mt-6 overflow-x-auto">
+      {/* `relative`: the screen-reader text in the table is absolutely positioned, and without a positioned scroller it would escape it and widen the whole page */}
+      <div className="relative mt-6 overflow-x-auto">
         <table className="w-full min-w-[560px] border-collapse text-left">
           <caption className="sr-only">Season statistics side by side</caption>
           <thead>
@@ -326,8 +330,13 @@ function ComparePanel({ refs, season, onClear, onToggle }: { refs: string[]; sea
                   {row.label}
                 </th>
                 {drivers.map((d, i) => (
-                  <td key={d.id} className={`py-2.5 pr-4 font-display text-[1.25rem] font-semibold tabular-nums ${row.best?.[i] ? "text-ink" : "text-steel"}`}>
-                    {row.best?.[i] && <span className="mr-1.5 inline-block h-1.5 w-1.5 bg-signal align-middle" aria-hidden />}
+                  <td key={d.id} className={`py-2.5 pr-4 font-display text-[1.25rem] font-semibold tabular-nums ${row.best?.[i] ? "text-fastest" : "text-steel"}`}>
+                    {row.best?.[i] && (
+                      <>
+                        <span className="mr-1.5 inline-block h-1.5 w-1.5 bg-fastest align-middle" aria-hidden />
+                        <span className="sr-only">Best: </span>
+                      </>
+                    )}
                     {row.value(d.seasons[String(season)])}
                   </td>
                 ))}
@@ -336,6 +345,9 @@ function ComparePanel({ refs, season, onClear, onToggle }: { refs: string[]; sea
           </tbody>
         </table>
       </div>
+      <p className="mt-3 text-[0.9rem] text-mute">
+        <span className="font-semibold text-fastest">Purple</span> marks the best value in each row: the highest, or the lowest for grid and finish. Equal values are not marked.
+      </p>
     </Panel>
   );
 }
@@ -383,6 +395,7 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
   const colour = teamColour(line.constructorId, season);
   const team = teamOf(line.constructorId);
   useTitle(driver.name, `${driver.name}: results in the 2022–2024 seasons and how Paladin scored them.`);
+  const story = useDriverStory(driver, season);
 
   const races = racesIn(season);
   const byRace = new Map(races.map((r) => [r.id, r]));
@@ -443,18 +456,21 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
       </header>
 
       <div className="mx-auto max-w-[1320px] space-y-6 px-4 pt-8 sm:px-6 lg:px-10">
+        <ProfilePanel driver={driver} story={story} season={season} />
+        <SeasonStoryPanel driver={driver} story={story} season={season} />
+
         <div className="grid gap-4 md:grid-cols-2">
-          <Panel eyebrow={`${season} season`} title="What happened" tag="record">
+          <Panel context={`${season} season`} title="What happened" tag="record">
             <dl className="grid grid-cols-3 gap-x-4 gap-y-5 sm:grid-cols-4">
               <Big label="Starts" value={line.races} />
               <Big label="Podiums" value={line.podiums} />
               <Big label="Wins" value={line.wins} />
-              <Big label="Points" value={line.points ?? 0} />
+              <Big label="Points" value={story.facts.championship?.points ?? line.points ?? 0} note={story.facts.championship && story.facts.championship.points !== (line.points ?? 0) ? `${line.points ?? 0} from the race results` : undefined} />
               <Big label="Average grid" value={line.avgGrid?.toFixed(1) ?? "–"} />
               <Big label="Average finish" value={line.avgFinish?.toFixed(1) ?? "–"} />
             </dl>
           </Panel>
-          <Panel eyebrow={`${season} season`} title="What the model thought" tag="model">
+          <Panel context={`${season} season`} title="What the model thought" tag="model">
             <dl className="grid grid-cols-3 gap-x-4 gap-y-5">
               <Big label="Mean score" value={line.meanScore.toFixed(2)} />
               <Big label="Podiums caught" value={`${line.flaggedCorrect}/${line.podiums}`} />
@@ -467,12 +483,16 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
           </Panel>
         </div>
 
-        <Panel eyebrow="Race by race" title="Podium score and finish" tag={["model", "record"]}>
+        <ArcPanel driver={driver} story={story} season={season} colour={colour} />
+        <HighlightsPanel story={story} season={season} />
+        <TeamPanel driver={driver} season={season} constructorId={line.constructorId} />
+
+        <Panel title="Podium score and finish" tag={["model", "record"]}>
           <ScoreLines season={season} series={series} />
         </Panel>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Panel eyebrow="Where the model was wrong" title="Biggest surprises" tag={["model", "record"]}>
+          <Panel context="Where the model was wrong" title="Biggest surprises" tag={["model", "record"]}>
             {surprises.length === 0 ? (
               <p className="text-steel">The model's flags and this driver's podiums agreed every time in {season}.</p>
             ) : (
@@ -481,8 +501,8 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
                   const race = byRace.get(r[0])!;
                   const podium = r[4] <= 3;
                   return (
-                    <li key={r[0]} className="py-3">
-                      <a className="font-display text-[1.2rem] font-bold uppercase no-underline hover:underline" href={href(raceHref(race))}>
+                    <li key={r[0]} className="py-1.5">
+                      <a className="inline-block py-2 font-display text-[1.2rem] font-bold uppercase no-underline hover:underline" href={href(raceHref(race))}>
                         {race.name.replace(" Grand Prix", "")} {race.year}
                       </a>
                       <p className="mt-0.5 text-[0.92rem] text-steel">
@@ -497,7 +517,7 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
             )}
           </Panel>
 
-          <Panel eyebrow="Same car" title={mate ? `Against ${mate.last}` : "Teammate"} tag={["model", "record"]}>
+          <Panel context="Same car" title={mate ? `Against ${mate.last}` : "Teammate"} tag={["model", "record"]}>
             {mate && h2h ? (
               <div>
                 <p className="text-[1.02rem] leading-snug">
@@ -522,7 +542,7 @@ function DriverDetail({ driver, query }: { driver: Driver; query: URLSearchParam
           </Panel>
         </div>
 
-        <Panel eyebrow="Every start" title={`${season} results`} tag={["model", "record"]}>
+        <Panel context="Every start" title={`${season} results`} tag={["model", "record"]}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse text-left">
               <caption className="sr-only">Race by race grid, podium score and finish</caption>

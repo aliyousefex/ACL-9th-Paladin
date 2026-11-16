@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { EventMark } from "../../components/EventMark";
 import type { AdvancedRace, RaceDetail, RaceMeta } from "../../lib/data";
 import { formatGap } from "../race/lapTrace";
 import type { Row } from "../race/rows";
@@ -131,7 +132,7 @@ export function DecisionStudio({ race, detail, rows, advanced }: { race: RaceMet
             {recent.length ? recent.map((event) => (
               <li key={event.id}>
                 <span className="figure text-steel">L{event.lap}</span>
-                <span>{eventLabel(event, names)}</span>
+                <span className="inline-flex min-w-0 items-center gap-2"><EventMark kind={event.type} />{eventLabel(event, names)}</span>
                 <span className={`tag ${event.provenance.kind === "derived" ? "tag-illus" : "tag-record"}`}>{event.provenance.kind}</span>
               </li>
             )) : <li className="text-mute">No recorded event is available before this cutoff.</li>}

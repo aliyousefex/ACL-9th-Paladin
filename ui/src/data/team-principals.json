@@ -1,0 +1,121 @@
+{
+  "contract": "paladin.team-principals.v1",
+  "checked": "2026-11-16",
+  "about": "Who ran each team in the 2022-2024 seasons. This is NOT part of the race dataset: it is a short reference list written by hand from public sources, which are linked on every entry. A title is given as it was published, because it is not always 'team principal' (Sauber had no team principal in 2023 and its leader was a 'team representative'; Williams's was also its CEO). Where a change happened part-way through a season, both people are listed for that season and the note says when. Only the seasons the site covers are given, so a tenure that began before 2022 or ended after 2024 is cut to those seasons.",
+  "people": [
+    { "ref": "christian_horner", "name": "Christian Horner", "nationality": "British", "flag": "GB" },
+    { "ref": "toto_wolff", "name": "Toto Wolff", "nationality": "Austrian", "flag": "AT" },
+    { "ref": "mattia_binotto", "name": "Mattia Binotto", "nationality": "Italian", "flag": "IT" },
+    { "ref": "frederic_vasseur", "name": "Frédéric Vasseur", "nationality": "French", "flag": "FR" },
+    { "ref": "andreas_seidl", "name": "Andreas Seidl", "nationality": "German", "flag": "DE" },
+    { "ref": "andrea_stella", "name": "Andrea Stella", "nationality": "Italian", "flag": "IT" },
+    { "ref": "otmar_szafnauer", "name": "Otmar Szafnauer", "nationality": "American", "flag": "US" },
+    { "ref": "bruno_famin", "name": "Bruno Famin", "nationality": "French", "flag": "FR" },
+    { "ref": "oliver_oakes", "name": "Oliver Oakes", "nationality": "British", "flag": "GB" },
+    { "ref": "mike_krack", "name": "Mike Krack", "nationality": "Luxembourgish", "flag": "LU" },
+    { "ref": "jost_capito", "name": "Jost Capito", "nationality": "German", "flag": "DE" },
+    { "ref": "james_vowles", "name": "James Vowles", "nationality": "British", "flag": "GB" },
+    { "ref": "franz_tost", "name": "Franz Tost", "nationality": "Austrian", "flag": "AT" },
+    { "ref": "laurent_mekies", "name": "Laurent Mekies", "nationality": "French", "flag": "FR" },
+    { "ref": "alessandro_alunni_bravi", "name": "Alessandro Alunni Bravi", "nationality": "Italian", "flag": "IT" },
+    { "ref": "guenther_steiner", "name": "Guenther Steiner", "nationality": "Italian", "flag": "IT" },
+    { "ref": "ayao_komatsu", "name": "Ayao Komatsu", "nationality": "Japanese", "flag": "JP" }
+  ],
+  "tenures": [
+    {
+      "constructor": "red_bull", "person": "christian_horner", "title": "Team Principal", "firstSeason": 2022, "lastSeason": 2024,
+      "note": "Led the team throughout the three seasons.",
+      "sources": ["https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/", "https://www.motorsportmagazine.com/articles/single-seaters/f1/2022-formula-1-grid-preview-teams-drivers-and-cars"]
+    },
+    {
+      "constructor": "mercedes", "person": "toto_wolff", "title": "Team Principal and CEO", "firstSeason": 2022, "lastSeason": 2024,
+      "note": "Led the team throughout the three seasons.",
+      "sources": ["https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/"]
+    },
+    {
+      "constructor": "ferrari", "person": "mattia_binotto", "title": "Team Principal", "firstSeason": 2022, "lastSeason": 2022,
+      "note": "Left at the end of the 2022 season.",
+      "sources": ["https://www.motorsportmagazine.com/articles/single-seaters/f1/f1s-team-boss-shake-up-the-principals-moving-in-2023"]
+    },
+    {
+      "constructor": "ferrari", "person": "frederic_vasseur", "title": "Team Principal", "firstSeason": 2023, "lastSeason": 2024,
+      "note": "Moved from Alfa Romeo to Ferrari for the 2023 season.",
+      "sources": ["https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/", "https://www.motorsportmagazine.com/articles/single-seaters/f1/f1s-team-boss-shake-up-the-principals-moving-in-2023"]
+    },
+    {
+      "constructor": "mclaren", "person": "andreas_seidl", "title": "Team Principal", "firstSeason": 2022, "lastSeason": 2022,
+      "note": "Left at the end of the 2022 season, to join Sauber.",
+      "sources": ["https://www.motorsportmagazine.com/articles/single-seaters/f1/2022-formula-1-grid-preview-teams-drivers-and-cars", "https://www.motorsportmagazine.com/articles/single-seaters/f1/f1s-team-boss-shake-up-the-principals-moving-in-2023"]
+    },
+    {
+      "constructor": "mclaren", "person": "andrea_stella", "title": "Team Principal", "firstSeason": 2023, "lastSeason": 2024,
+      "note": "Announced in December 2022 and in the role from the start of 2023.",
+      "sources": ["https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/", "https://www.motorsportmagazine.com/articles/single-seaters/f1/f1s-team-boss-shake-up-the-principals-moving-in-2023"]
+    },
+    {
+      "constructor": "alpine", "person": "otmar_szafnauer", "title": "Team Principal", "firstSeason": 2022, "lastSeason": 2023,
+      "note": "Announced in January 2022. Alpine said during the 2023 Belgian Grand Prix weekend that he would leave after that race.",
+      "sources": ["https://en.wikipedia.org/wiki/Alpine_F1_Team"]
+    },
+    {
+      "constructor": "alpine", "person": "bruno_famin", "title": "Team Principal", "firstSeason": 2023, "lastSeason": 2024,
+      "note": "Took over in mid-2023, when Szafnauer left. Alpine announced during the 2024 Belgian Grand Prix weekend that he would leave the role.",
+      "sources": ["https://en.wikipedia.org/wiki/Alpine_F1_Team"]
+    },
+    {
+      "constructor": "alpine", "person": "oliver_oakes", "title": "Team Principal", "firstSeason": 2024, "lastSeason": 2024,
+      "note": "Replaced Famin from the 2024 Dutch Grand Prix onwards.",
+      "sources": ["https://en.wikipedia.org/wiki/Alpine_F1_Team", "https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/"]
+    },
+    {
+      "constructor": "aston_martin", "person": "mike_krack", "title": "Team Principal", "firstSeason": 2022, "lastSeason": 2024,
+      "note": "Became team principal in 2022, after Otmar Szafnauer left for Alpine, and stayed through 2024.",
+      "sources": ["https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/"]
+    },
+    {
+      "constructor": "williams", "person": "jost_capito", "title": "CEO and Team Principal", "firstSeason": 2022, "lastSeason": 2022,
+      "note": "Left at the end of the 2022 season, after two years in the role.",
+      "sources": ["https://www.the-race.com/formula-1/team-boss-and-technical-director-both-leave-williams-f1-team", "https://www.formula1.com/en/latest/article/breaking-williams-announce-mercedes-strategy-chief-james-vowles-as-new-team.3r2YyguKYagcCCk6bhJgqx"]
+    },
+    {
+      "constructor": "williams", "person": "james_vowles", "title": "Team Principal", "firstSeason": 2023, "lastSeason": 2024,
+      "note": "Joined from Mercedes, where he was director of strategy, on 20 February 2023.",
+      "sources": ["https://www.formula1.com/en/latest/article/breaking-williams-announce-mercedes-strategy-chief-james-vowles-as-new-team.3r2YyguKYagcCCk6bhJgqx", "https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/"]
+    },
+    {
+      "constructor": "alphatauri", "person": "franz_tost", "title": "Team Principal", "firstSeason": 2022, "lastSeason": 2023,
+      "note": "Led the team in both of its AlphaTauri seasons in the data, and stepped down at the end of 2023.",
+      "sources": ["https://www.motorsportmagazine.com/articles/single-seaters/f1/2022-formula-1-grid-preview-teams-drivers-and-cars", "https://www.formula1.com/en/latest/article/timeline-laurent-mekies-journey-from-engineer-to-red-bull-boss.1F6Gsb5mEQcLLDp7P3TIYi"]
+    },
+    {
+      "constructor": "rb", "person": "laurent_mekies", "title": "Team Principal", "firstSeason": 2024, "lastSeason": 2024,
+      "note": "Joined from Ferrari to take over from Franz Tost, for the team's first season as RB. Peter Bayer was the team's CEO alongside him.",
+      "sources": ["https://www.formula1.com/en/latest/article/timeline-laurent-mekies-journey-from-engineer-to-red-bull-boss.1F6Gsb5mEQcLLDp7P3TIYi", "https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/"]
+    },
+    {
+      "constructor": "alfa", "person": "frederic_vasseur", "title": "CEO and Team Principal", "firstSeason": 2022, "lastSeason": 2022,
+      "note": "Ran the Sauber team, which raced as Alfa Romeo, and left for Ferrari after the 2022 season.",
+      "sources": ["https://the-race.com/formula-1/why-sauber-will-not-have-an-f1-team-principal-in-2023"]
+    },
+    {
+      "constructor": "alfa", "person": "alessandro_alunni_bravi", "title": "Team Representative", "firstSeason": 2023, "lastSeason": 2023,
+      "note": "The team had no team principal in 2023. Alunni Bravi was named team representative, speaking for it at race weekends and in effect running it, under CEO Andreas Seidl.",
+      "sources": ["https://the-race.com/formula-1/why-sauber-will-not-have-an-f1-team-principal-in-2023"]
+    },
+    {
+      "constructor": "sauber", "person": "alessandro_alunni_bravi", "title": "Team Representative", "firstSeason": 2024, "lastSeason": 2024,
+      "note": "Again the team representative, in effect running the team day to day, under CEO Andreas Seidl.",
+      "sources": ["https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/"]
+    },
+    {
+      "constructor": "haas", "person": "guenther_steiner", "title": "Team Principal", "firstSeason": 2022, "lastSeason": 2023,
+      "note": "Team principal from the team's first season until January 2024.",
+      "sources": ["https://en.wikipedia.org/wiki/Haas_F1_Team"]
+    },
+    {
+      "constructor": "haas", "person": "ayao_komatsu", "title": "Team Principal", "firstSeason": 2024, "lastSeason": 2024,
+      "note": "Took over from Steiner on 10 January 2024.",
+      "sources": ["https://en.wikipedia.org/wiki/Haas_F1_Team", "https://www.the-race.com/formula-1/who-are-the-10-f1-team-principals-in-2024/"]
+    }
+  ]
+}

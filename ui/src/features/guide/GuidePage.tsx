@@ -60,7 +60,7 @@ export function GuidePage() {
         </section>
 
         <section aria-labelledby="guide-markers" className="mt-16 border-t border-line pt-12">
-          <h2 id="guide-markers" className="section-title">The six source markers</h2>
+          <h2 id="guide-markers" className="section-title">The seven source markers</h2>
           <p className="mt-3 max-w-[60ch] text-[1.02rem] leading-relaxed text-steel">
             Every panel carries one of these, in words as well as colour.
           </p>

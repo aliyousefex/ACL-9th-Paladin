@@ -21,7 +21,7 @@ export function Autopsy({ race, rows }: { race: RaceMeta; rows: Row[] }) {
   const result = autopsy(rows, race.baseline, THRESHOLD);
 
   return (
-    <Panel eyebrow="Step 3 · After the flag" title="What Paladin got right and wrong" tag={["model", "record"]}>
+    <Panel context="Step 3 · After the flag" title="What Paladin got right and wrong" tag={["model", "record"]}>
       <p className="max-w-[72ch] text-[1.15rem] leading-snug text-ink">{result.statements.verdict}</p>
 
       <section className="mt-6" aria-labelledby="autopsy-podium">

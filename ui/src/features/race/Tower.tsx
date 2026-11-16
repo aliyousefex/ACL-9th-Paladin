@@ -37,7 +37,7 @@ export function Tower({
 
   return (
     <Panel
-      eyebrow="Every driver in the field"
+      context="Every driver in the field"
       title="Podium score ranking"
       tag="model"
       actions={

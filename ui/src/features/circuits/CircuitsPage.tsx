@@ -181,7 +181,7 @@ function CompareToScale({ refs, onClear, onToggle }: { refs: string[]; onClear: 
   const circuits = refs.map((r) => circuitByRef(r)).filter((c): c is Circuit => Boolean(c));
   return (
     <Panel
-      eyebrow="Compare circuits"
+      context="Compare circuits"
       title={circuits.map((c) => c.location || c.name).join(" · ")}
       tag="record"
       actions={
@@ -205,7 +205,7 @@ function CompareToScale({ refs, onClear, onToggle }: { refs: string[]; onClear: 
       </div>
       <p className="mt-3 text-[0.85rem] text-mute">All outlines share one scale: a longer lap is physically drawn longer.</p>
 
-      <div className="mt-6 overflow-x-auto">
+      <div className="relative mt-6 overflow-x-auto">
         <table className="w-full min-w-[520px] border-collapse text-left">
           <caption className="sr-only">Circuit statistics side by side</caption>
           <thead>
@@ -306,7 +306,7 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
       </header>
 
       <div className="mx-auto max-w-[1320px] space-y-6 px-4 pt-8 sm:px-6 lg:px-10">
-        <Panel eyebrow="The layout" title="Track map" tag="record" actions={circuit.layouts.length > 1 ? (
+        <Panel title="Track map" tag="record" actions={circuit.layouts.length > 1 ? (
           <Tabs<string>
             value={layoutId}
             onChange={setLayoutId}
@@ -333,12 +333,20 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
                 <div className="mt-6 border-t border-line pt-4">
                   <p className="label">Fastest race lap by season</p>
                   <ul className="mt-2 space-y-1">
-                    {Object.entries(stats.fastestLap).filter(([year]) => meta.years.length === 0 || meta.years.includes(Number(year))).map(([year, f]) => (
-                      <li key={year} className="flex items-baseline justify-between gap-3 text-[0.98rem]">
-                        <span className="text-steel">{year} · {driver(f.driverId).last}</span>
-                        <span className="font-display text-[1.2rem] font-semibold tabular-nums">{lapTime(f.ms)}</span>
-                      </li>
-                    ))}
+                    {(() => {
+                      const seasons = Object.entries(stats.fastestLap).filter(([year]) => meta.years.length === 0 || meta.years.includes(Number(year)));
+                      // the quickest of the seasons shown is purple, as on a timing screen; with one season there is nothing to be quicker than
+                      const quickest = seasons.length > 1 ? Math.min(...seasons.map(([, f]) => f.ms)) : null;
+                      return seasons.map(([year, f]) => (
+                        <li key={year} className="flex items-baseline justify-between gap-3 text-[0.98rem]">
+                          <span className="text-steel">{year} · {driver(f.driverId).last}</span>
+                          <span className="flex items-baseline gap-2">
+                            {f.ms === quickest && <span className="text-[0.82rem] font-semibold text-fastest">Quickest</span>}
+                            <span className={`font-display text-[1.2rem] font-semibold tabular-nums ${f.ms === quickest ? "text-fastest" : ""}`}>{lapTime(f.ms)}</span>
+                          </span>
+                        </li>
+                      ));
+                    })()}
                   </ul>
                 </div>
               )}
@@ -347,7 +355,7 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
         </Panel>
 
         {stats && (
-          <Panel eyebrow="Does starting position decide it here?" title="Podium rate by grid slot" tag="record">
+          <Panel context="Does starting position decide it here?" title="Podium rate by grid slot" tag="record">
             <p className="max-w-[70ch] text-[1rem] leading-snug text-steel">
               Share of starts from each of the first ten grid slots that finished on the podium, 2014–2024. The grey tick is the same slot across all
               circuits of the held-out seasons. The small number under each slot is how many starts it rests on; with about one race a year, single bars move easily.
@@ -360,7 +368,7 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
           </Panel>
         )}
 
-        <Panel eyebrow="How predictions differ by circuit" title="The model here, race by race" tag={["model", "record"]}>
+        <Panel title="The model here, race by race" tag={["model", "record"]}>
           <p className="max-w-[70ch] text-[1rem] leading-snug text-steel">
             {races.length} {races.length === 1 ? "edition was" : "editions were"} held in the test seasons. On average the model's top three contained{" "}
             <span className="font-semibold text-ink">{hits.mean.toFixed(1)} of the 3 podium drivers</span> here, against {overallMean.toFixed(1)} across all circuits.
@@ -384,7 +392,7 @@ function CircuitDetail({ circuit }: { circuit: Circuit }) {
         </Panel>
 
         {stats && stats.recentWinners.length > 0 && (
-          <Panel eyebrow="History" title="Recent winners" tag="record" level={3}>
+          <Panel title="Recent winners" tag="record" level={3}>
             <ol className="grid gap-x-8 sm:grid-cols-2">
               {[...stats.recentWinners].reverse().map((w) => (
                 <li key={w.year} className="flex items-baseline gap-4 border-b border-line py-2">

@@ -40,8 +40,8 @@ export function GrandPrixResults(props: ResultsProps) {
   return (
     <div>
       <div className="border-b border-line p-5 sm:p-7" style={{ borderTop: `4px solid ${tone.colour}` }}>
-        <p className="label" style={{ color: tone.colour }}>{tone.label} · {race.name} {race.year}</p>
-        <h4 className="display mt-1 text-[3.2rem] leading-none sm:text-[4.6rem]" style={{ color: tone.colour }} aria-live="polite">{outcome.headline}</h4>
+        <h4 className="display text-[3.2rem] leading-none sm:text-[4.6rem]" style={{ color: tone.colour }} aria-live="polite">{outcome.headline}</h4>
+        <p className="label mt-2" style={{ color: tone.colour }}>{tone.label} · {race.name} {race.year}</p>
         <p className="mt-3 max-w-[60ch] text-[1.05rem] text-steel">{outcome.detail}</p>
         {props.auto && <p className="mt-2 text-[0.88rem] text-mute">Autopilot drove this race, so it is not added to your record.</p>}
 
@@ -90,7 +90,7 @@ export function GrandPrixResults(props: ResultsProps) {
           <table className="w-full min-w-[34rem] text-left text-[0.95rem]">
             <caption className="sr-only">Final classification of the race</caption>
             <thead>
-              <tr className="border-b border-line text-[0.75rem] tracking-[0.1em] text-mute uppercase">
+              <tr className="border-b border-line text-[0.82rem] text-mute">
                 <th scope="col" className="py-2 pr-3 font-semibold">Pos</th>
                 <th scope="col" className="py-2 pr-3 font-semibold">Driver</th>
                 <th scope="col" className="py-2 pr-3 font-semibold">Team</th>

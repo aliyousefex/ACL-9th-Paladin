@@ -93,7 +93,7 @@ function GainsAndLosses({ summary }: { summary: Summary }) {
   const front = summary.bands.find((row) => row.band === "P1-3")!;
   const lost = front.gridCaught - front.modelCaught;
   return (
-    <Panel eyebrow="Podium finishers, grouped by where they started" title="Where Paladin gains on the grid and where it gives names back" tag={["model", "record"]}>
+    <Panel context="Podium finishers, grouped by where they started" title="Where Paladin gains on the grid and where it gives names back" tag={["model", "record"]}>
       <p className="max-w-[72ch] text-steel">
         The grid baseline can only ever name drivers who started in the top three. Paladin can name anyone. Over {summary.races} races it names {gained} podium finishers the grid could not, and leaves out {lost} front-three starters the grid kept, which is why the two totals end up so close.
       </p>
@@ -147,7 +147,7 @@ function Bar({ value, of, tone }: { value: number; of: number; tone: "model" | "
 
 function HowPicksFail({ summary }: { summary: Summary }) {
   return (
-    <Panel eyebrow="Every wrong pick and every missed podium finisher, sorted by what the record shows" title="How the model's errors break down" tag="record">
+    <Panel context="Every wrong pick and every missed podium finisher, sorted by what the record shows" title="How the model's errors break down" tag="record">
       <div className="grid gap-10 lg:grid-cols-2">
         <Breakdown
           heading={`${summary.falseAlarms.total} picks that missed the podium`}
@@ -210,7 +210,7 @@ function ThirdSystem({ summary }: { summary: Summary }) {
   const vsClassifier = t.pairedBootstrapHits.fieldModelMinusLogistic;
   const vsGrid = t.pairedBootstrapHits.fieldModelMinusGrid;
   return (
-    <Panel eyebrow="A model that ranks the whole field at once, set beside the other two" title="A third system: the field model" tag={["experimental", "record"]}>
+    <Panel context="A model that ranks the whole field at once, set beside the other two" title="A third system: the field model" tag={["experimental", "record"]}>
       <p className="max-w-[72ch] text-steel">
         Naming podium finishers is a ranking problem inside each race, and the classifier scores drivers one at a time. The field model keeps the same 16 inputs and changes only the objective. Here is what that bought on the {summary.races} held-out races.
       </p>
@@ -259,7 +259,7 @@ function ThirdSystem({ summary }: { summary: Summary }) {
 
 function Seasons({ summary }: { summary: Summary }) {
   return (
-    <Panel eyebrow="Podium names per race, by season" title="Season by season" tag="record">
+    <Panel context="Podium names per race, by season" title="Season by season" tag="record">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[32rem] border-collapse text-left">
           <caption className="sr-only">Paladin and the grid baseline, by season</caption>
@@ -370,8 +370,8 @@ function LedgerRow({ race, open, onToggle }: { race: RaceMeta; open: boolean; on
     <li className="border-b border-line">
       <div className="grid gap-3 py-4 md:grid-cols-2 md:gap-x-6 md:gap-y-4 lg:grid-cols-[minmax(11rem,1.1fr)_minmax(15rem,1.5fr)_auto_auto] lg:items-center lg:gap-6">
         <div className="min-w-0">
-          <p className="label">{race.year} · Round {race.round}</p>
-          <h3 className="mt-1 font-display text-[1.45rem] leading-none font-semibold uppercase">{race.name}</h3>
+          <h3 className="font-display text-[1.45rem] leading-none font-semibold uppercase">{race.name}</h3>
+          <p className="label mt-1.5">{race.year} · Round {race.round}</p>
         </div>
         <div className="min-w-0 space-y-1.5 text-[0.95rem]">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">

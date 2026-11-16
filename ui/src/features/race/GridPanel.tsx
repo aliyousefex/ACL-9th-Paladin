@@ -19,7 +19,7 @@ export function GridPanel({
 
   return (
     <Panel
-      eyebrow="Step 1 · Before lights out"
+      context="Step 1 · Before lights out"
       title="The starting grid and what the model sees"
       tag="record"
     >

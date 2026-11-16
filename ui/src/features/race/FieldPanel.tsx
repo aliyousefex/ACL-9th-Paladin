@@ -36,7 +36,7 @@ export function FieldPanel({ rows, revealed }: { rows: Row[]; revealed: boolean 
   const t = FIELD_META.test;
 
   return (
-    <Panel eyebrow="Step 2b · The whole podium, not one driver at a time" title="Field model" tag={["experimental", "model"]}>
+    <Panel context="Step 2b · The whole podium, not one driver at a time" title="Field model" tag={["experimental", "model"]}>
       <p className="max-w-[72ch] text-steel">
         The classifier scores each driver alone, so its top three need not describe a real podium. This model ranks the whole field at once: each driver gets one utility from the same 16 inputs, and the podium is drawn three times without replacement. That gives a probability for every podium that could happen.
       </p>

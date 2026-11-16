@@ -109,7 +109,7 @@ export function MapLayerControls({
               </span>
               <span className="min-w-0">
                 <span className="block font-display text-[0.86rem] leading-[1.05] font-bold tracking-[0.06em] uppercase sm:text-[0.92rem]">{label}</span>
-                <span className={`mt-0.5 block text-[0.75rem] leading-none font-semibold tracking-[0.08em] uppercase ${on ? "text-ink" : "text-mute"}`}>{STATE_TEXT[state]}</span>
+                <span className={`mt-0.5 block text-[0.82rem] leading-none font-semibold ${on ? "text-ink" : "text-mute"}`}>{STATE_TEXT[state]}</span>
               </span>
             </button>
           );

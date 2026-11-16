@@ -103,7 +103,7 @@ export function LeaguePage({ query }: { query: URLSearchParams }) {
         </div>
 
         {/* ------------------------------------------------------------ scoreboard */}
-        <Panel eyebrow={`${league.played} ${league.played === 1 ? "race" : "races"} called blind · ${scopeLabel}`} title="Your season against Paladin and the grid" tag="user">
+        <Panel context={`${league.played} ${league.played === 1 ? "race" : "races"} called blind · ${scopeLabel}`} title="Your season against Paladin and the grid" tag="user">
           {league.played === 0 ? (
             <div className="max-w-[62ch]">
               <p className="text-[1.05rem] leading-relaxed text-steel">
@@ -157,8 +157,8 @@ export function LeaguePage({ query }: { query: URLSearchParams }) {
 
         {/* ------------------------------------------------------------ races */}
         {league.played > 0 && (
-          <Panel eyebrow="Every counted race, oldest first" title="Your calls" tag={["user", "record"]}>
-            <div className="overflow-x-auto">
+          <Panel context="Every counted race, oldest first" title="Your calls" tag={["user", "record"]}>
+            <div className="relative overflow-x-auto">
               <table className="w-full min-w-[40rem] border-collapse text-left">
                 <caption className="sr-only">Each race you called blind, what you picked, and how you, Paladin and the grid scored</caption>
                 <thead>
@@ -204,7 +204,7 @@ export function LeaguePage({ query }: { query: URLSearchParams }) {
         )}
 
         {/* ------------------------------------------------------------ share */}
-        <Panel eyebrow="Send your season to a friend, or post it" title="Share" tag="user">
+        <Panel context="Send your season to a friend, or post it" title="Share" tag="user">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             <div className="min-w-0">
               <label className="block">
@@ -237,7 +237,7 @@ export function LeaguePage({ query }: { query: URLSearchParams }) {
         <Compare query={query} mine={plays} />
 
         {/* ------------------------------------------------------------ rules */}
-        <Panel eyebrow="What the league does and does not prove" title="How it stays fair" tag="record">
+        <Panel context="What the league does and does not prove" title="How it stays fair" tag="record">
           <ul className="grid gap-x-10 gap-y-4 text-[0.98rem] leading-snug text-steel md:grid-cols-2">
             <li><strong className="text-ink">Blind picks only.</strong> A pick counts when it was locked while the result was hidden, in a browser that had never shown that race's result. A pick made after seeing it is practice.</li>
             <li><strong className="text-ink">Final once revealed.</strong> After you reveal a counted pick, it cannot be changed or redone.</li>
@@ -269,7 +269,7 @@ function Compare({ query, mine }: { query: URLSearchParams; mine: { raceId: numb
   const them = decoded?.ok ? decoded.value.nickname || "Your friend" : "";
 
   return (
-    <Panel eyebrow="Paste a friend's code, or open their link" title="Compare with a friend" tag="user">
+    <Panel context="Paste a friend's code, or open their link" title="Compare with a friend" tag="user">
       <label className="block">
         <span className="label">Their code</span>
         <textarea

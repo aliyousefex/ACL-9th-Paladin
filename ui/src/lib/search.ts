@@ -4,7 +4,7 @@
  * ranks a title that starts with the query above one that merely contains it.
  */
 
-export type SearchKind = "page" | "race" | "driver" | "circuit";
+export type SearchKind = "page" | "race" | "driver" | "team" | "leader" | "circuit";
 
 export interface SearchItem {
   id: string;
@@ -31,7 +31,7 @@ export function normalise(text: string): string {
     .trim();
 }
 
-const KIND_ORDER: Record<SearchKind, number> = { page: 0, race: 1, driver: 2, circuit: 3 };
+const KIND_ORDER: Record<SearchKind, number> = { page: 0, race: 1, driver: 2, team: 3, leader: 4, circuit: 5 };
 
 interface Prepared {
   item: SearchItem;

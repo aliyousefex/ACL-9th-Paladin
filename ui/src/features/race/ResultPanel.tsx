@@ -25,7 +25,7 @@ export function ResultPanel({
 }) {
   if (!revealed) {
     return (
-      <Panel eyebrow="Step 3 · Chequered flag" title="Actual result" tag="record">
+      <Panel context="Step 3 · Chequered flag" title="Actual result" tag="record">
         <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
           <div>
             <p className="max-w-[60ch] text-[1.05rem] leading-snug text-steel">
@@ -52,7 +52,7 @@ export function ResultPanel({
   const classified = [...rows].sort((a, b) => (a.finish ?? 99) - (b.finish ?? 99));
 
   return (
-    <Panel eyebrow="Step 3 · Chequered flag" title="Actual result" tag={["record", "model"]}>
+    <Panel context="Step 3 · Chequered flag" title="Actual result" tag={["record", "model"]}>
       <div className="grid gap-5 md:grid-cols-3">
         <Summary title="Model's predicted podium" tag="model" rows={predicted} hits={race.hits} reference={race.actual} />
         <Summary title="Actual podium" tag="record" rows={actual} />

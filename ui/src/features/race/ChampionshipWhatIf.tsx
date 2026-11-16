@@ -38,7 +38,7 @@ export function ChampionshipWhatIf({ race, rows }: { race: RaceMeta; rows: Row[]
   const changedIds = new Set([challengerId, occupant?.driver.id]);
 
   return (
-    <Panel eyebrow="Rewrite one chequered flag" title="Alternate championship" tag="simulation">
+    <Panel context="Rewrite one chequered flag" title="Alternate championship" tag="simulation">
       <p className="max-w-[75ch] text-steel">
         Put a different driver in one podium place and see how transferring the two drivers' recorded race points changes the final {race.year} standings.
       </p>

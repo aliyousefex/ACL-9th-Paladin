@@ -74,7 +74,7 @@ export function GrandPrixRace(props: RaceViewProps) {
             </div>
             <div className="bg-tower/90 px-3 py-1.5 text-center whitespace-nowrap sm:px-4" aria-hidden>
               <p className="figure text-[2.6rem] leading-none sm:text-[3.2rem]" data-hud="position" style={{ color: position === 1 ? "var(--color-gold)" : undefined }}>P{position}</p>
-              <p className={`text-[0.75rem] font-semibold tracking-wide uppercase ${delta > 0 ? "text-hit" : delta < 0 ? "text-signal-text" : "text-mute"}`}>
+              <p className={`text-[0.82rem] font-semibold ${delta > 0 ? "text-hit" : delta < 0 ? "text-signal-text" : "text-mute"}`}>
                 {delta > 0 ? `▲ ${delta}` : delta < 0 ? `▼ ${-delta}` : `Started P${started}`}
                 {delta !== 0 && <span className="hidden sm:inline"> from the grid</span>}
               </p>
@@ -99,7 +99,7 @@ export function GrandPrixRace(props: RaceViewProps) {
               <span className="mt-1 block h-2 bg-line">
                 <span className="block h-2 transition-[width] duration-100 motion-reduce:transition-none" style={{ width: `${Math.min(100, speed)}%`, background: props.throttle ? "var(--color-hit)" : entrant.colour }} />
               </span>
-              <p className="mt-1 text-[0.75rem] font-semibold tracking-wide text-mute uppercase">{props.throttle ? "Accelerating" : "Braking"}</p>
+              <p className="mt-1 text-[0.82rem] font-semibold text-mute">{props.throttle ? "Accelerating" : "Braking"}</p>
             </div>
             {cue ? (
               <p className="bg-signal px-4 py-2 font-display text-[1.3rem] font-bold tracking-[0.1em] text-white uppercase" role="status">Brake</p>

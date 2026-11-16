@@ -184,7 +184,7 @@ export function ReplayPanel({
 
   return (
     <Panel
-      eyebrow="Step 3 · After the flag"
+      context="Step 3 · After the flag"
       title="Race replay"
       tag={["record", "illustrative"]}
     >

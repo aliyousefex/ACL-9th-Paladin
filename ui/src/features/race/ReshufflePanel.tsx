@@ -35,7 +35,7 @@ export function ReshufflePanel({ rows }: { rows: Row[] }) {
   };
 
   return (
-    <Panel eyebrow="Try it · same model, one group at a time" title="Hold an input group at its average" tag={["model", "user"]}>
+    <Panel context="Try it · same model, one group at a time" title="Hold an input group at its average" tag={["model", "user"]}>
       <p className="max-w-[74ch] text-steel">
         Paladin's score adds up contributions from five groups of inputs. Hold a group at the training average and it contributes nothing, and the same fitted model
         re-ranks the field. This is not retraining: the model never learned without these inputs, so read it as a way to see what each group is doing, not as another
@@ -61,7 +61,7 @@ export function ReshufflePanel({ rows }: { rows: Row[] }) {
                 }`}
               >
                 <span className="font-display text-[1.05rem] leading-none font-bold tracking-[0.06em] uppercase">{group}</span>
-                <span className={`text-[0.75rem] leading-snug font-semibold tracking-[0.08em] uppercase ${on ? "text-ink" : "text-mute"}`}>
+                <span className={`text-[0.82rem] leading-snug font-semibold ${on ? "text-ink" : "text-mute"}`}>
                   {on ? "Counts" : "Held at average"}
                   <span className="font-normal tracking-normal text-mute normal-case"> · {inputsOf(group).length} {inputsOf(group).length === 1 ? "input" : "inputs"}</span>
                 </span>

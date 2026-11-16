@@ -1,25 +1,30 @@
 import { useEffect, useRef } from "react";
 import { useStuck } from "../lib/hooks";
+import { publishSectionNav, type StripItem } from "../lib/sectionNav";
 
-export type StripItem = {
-  id: string;
-  label: string;
-  href: string;
-  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
-  /** Draws the red "lights out" tick before this item: the split between what was known before the race and what happened. */
-  divider?: boolean;
-};
+export type { StripItem };
 
 /**
  * A page's own section strip (the parts of a race, of the method, of the model page): a floating glass pill of the same
- * material, shape and width as the top bar, which it docks under as the page scrolls. It is the same pill whether it is in the
- * page or stuck to the screen, so there is nothing to change shape when the two meet; the page's content simply passes behind
- * it. It keeps the current section's tab in view, and marks it the way the main navigation marks the current page: with a tonal
- * pill. On a phone it moves down and up with the bar above it, in step (see `useStuck` and `.subnav` in the stylesheet).
+ * material, shape and width as the top bar, sitting in the page. When it reaches the bar it does not dock under it as a second
+ * bar: it melts into the first. The strip fades up into the bar and the bar grows a chip for the current section, which opens a
+ * dropdown of the sections (see `SectionMenu` in the shell). Scrolled back up it returns. The strip tells the bar about its
+ * sections through `publishSectionNav`. It keeps the current section's tab in view while it is showing, and marks it the way
+ * the main navigation marks the current page: a tonal pill.
+ *
+ * On a phone the bar hides while reading, so the strip is the way around then: it comes back, alone, at the top of the screen,
+ * and gives way to the bar's chip again when the bar returns. There are never two bars on screen at once.
  */
 export function SectionStrip({ label, items, active }: { label: string; items: StripItem[]; active: string }) {
   const { ref: marker, stuck } = useStuck();
   const list = useRef<HTMLUListElement>(null);
+
+  // Tell the bar what the sections are, which one is current, and whether the strip has reached it. (Runs every render so the
+  // bar always has the latest click handlers; the store only wakes the bar when something it shows has changed.)
+  useEffect(() => {
+    publishSectionNav({ label, items, active, stuck });
+  });
+  useEffect(() => () => publishSectionNav(null), []);
 
   useEffect(() => {
     const root = list.current;

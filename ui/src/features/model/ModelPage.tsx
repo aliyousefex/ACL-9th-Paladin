@@ -66,7 +66,7 @@ export function ModelPage() {
       />
 
       <div className="mx-auto max-w-[1320px] space-y-6 px-4 pt-8 sm:px-6 lg:px-10">
-        <Panel id="glance" eyebrow="At a glance" title="One question, one model" tag="model">
+        <Panel id="glance" title="One question, one model" tag="model">
           <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
             <div className="space-y-4 text-[1.05rem] leading-relaxed text-steel">
               <p>
@@ -133,7 +133,7 @@ const SYSTEMS: { name: string; status: string; tag: "model" | "record" | "experi
 
 function Systems() {
   return (
-    <Panel id="systems" eyebrow="Which is which" title="One coursework model, and everything built around it" tag={["model", "experimental"]}>
+    <Panel id="systems" title="One coursework model, and everything built around it" tag={["model", "experimental"]}>
       <p className="max-w-[78ch] text-[1.02rem] leading-snug text-steel">
         The site carries more than one system, and they do not have the same standing. Only the first row is the model the coursework is about. Each panel on the site carries a label saying which kind of thing it is showing.
       </p>
@@ -173,7 +173,7 @@ function Weights() {
   const rows = [...COEFFICIENTS].sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
   const max = Math.max(...rows.map((r) => Math.abs(r.weight)));
   return (
-    <Panel id="inputs" eyebrow="Inputs" title="What the logistic regression learned" tag="model">
+    <Panel id="inputs" title="What the logistic regression learned" tag="model">
       <p className="max-w-[78ch] text-[1.02rem] leading-snug text-steel">
         Sixteen inputs in five groups. Each bar is the change in the podium log-odds for a one-standard-deviation rise in that input (per training
         standard deviation), holding the others fixed. Starting position dominates: moving back the grid costs far more than any other
@@ -229,7 +229,7 @@ function Comparison() {
   return (
     <Panel
       id="compare"
-      eyebrow="Three models, one split"
+      context="Three models, one split"
       title="They are tied"
       tag="model"
       actions={
@@ -243,7 +243,8 @@ function Comparison() {
         />
       }
     >
-      <div className="overflow-x-auto" role="region" aria-label="Metrics by model, scrolls sideways on narrow screens" tabIndex={0}>
+      {/* `relative`: the screen-reader text in the table is absolutely positioned, and without a positioned scroller it would escape it and widen the whole page */}
+      <div className="relative overflow-x-auto" role="region" aria-label="Metrics by model, scrolls sideways on narrow screens" tabIndex={0}>
         <table className="w-full min-w-[620px] border-collapse text-left">
           <caption className="sr-only">Metrics by model for the {labels[split]} split</caption>
           <thead>
@@ -265,7 +266,8 @@ function Comparison() {
                   const best = Math.max(...MODELS.map((m) => metric(m, split, k)));
                   const v = metric(name, split, k);
                   return (
-                    <td key={k} className={`py-3 pr-4 text-right font-display text-[1.5rem] font-semibold tabular-nums ${v === best ? "text-ink" : "text-steel"}`}>
+                    <td key={k} className={`py-3 pr-4 text-right font-display text-[1.5rem] font-semibold tabular-nums ${v === best ? "text-fastest" : "text-steel"}`}>
+                      {v === best && <span className="sr-only">Highest: </span>}
                       {v.toFixed(3)}
                     </td>
                   );
@@ -275,6 +277,9 @@ function Comparison() {
           </tbody>
         </table>
       </div>
+      <p className="mt-3 max-w-[78ch] text-[0.9rem] text-mute">
+        <span className="font-semibold text-fastest">Purple</span> marks the highest score of the three on each metric. It is not a win: the intervals below show the differences are within noise.
+      </p>
 
       <h3 className="display mt-8 text-[1.5rem]">How sure are we that one is better?</h3>
       <p className="mt-2 max-w-[78ch] text-[1rem] leading-snug text-steel">
@@ -330,7 +335,7 @@ function RaceLevel() {
   const hits = model.raceHits;
   const max = Math.max(...Object.values(hits.model), ...Object.values(hits.grid));
   return (
-    <Panel id="races" eyebrow="Race by race" title="Does it beat the starting grid?" tag={["model", "record"]}>
+    <Panel id="races" title="Does it beat the starting grid?" tag={["model", "record"]}>
       <p className="max-w-[78ch] text-[1.05rem] leading-snug text-steel">
         The fairest question for a podium page: take the model's three highest scores in each race. How many of them really finished on the
         podium? Compare that with the laziest possible pick, the first three on the starting grid.
@@ -385,7 +390,7 @@ function Bar({ value, max, colour, label }: { value: number; max: number; colour
 function Reading() {
   const bins = model.reliability;
   return (
-    <Panel id="score" eyebrow="Reading a score" title="A score is a ranking signal, not a probability" tag={["model", "record"]}>
+    <Panel id="score" title="A score is a ranking signal, not a probability" tag={["model", "record"]}>
       <p className="max-w-[78ch] text-[1.02rem] leading-snug text-steel">
         The classes were weighted to offset how rare podiums are, which pushes scores upward. A score of 0.9 therefore does not mean a 90% chance.
         The honest reading is empirical: of all driver entries whose score fell in a band, what share finished on the podium? Bars show that
@@ -448,7 +453,7 @@ function Limits() {
     ["The replay moves cars by interpolation.", "Lap times and end-of-lap positions are real. Where a car is inside a lap is interpolated at constant speed, so the animation illustrates the race and is not telemetry."],
   ];
   return (
-    <Panel id="limits" eyebrow="Honest limits" title="Where this stops being true" tag="record">
+    <Panel id="limits" title="Where this stops being true" tag="record">
       <ul className="grid gap-4 md:grid-cols-2">
         {items.map(([title, body]) => (
           <li key={title} className="border border-line bg-tower p-4">
@@ -479,7 +484,7 @@ function Sources() {
   );
   const v = model.verification;
   return (
-    <Panel id="sources" eyebrow="Reproducibility" title="Data, checks and credits" tag="record">
+    <Panel id="sources" title="Data, checks and credits" tag="record">
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-4 text-[0.98rem] leading-snug text-steel">
           <p>

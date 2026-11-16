@@ -583,8 +583,30 @@ The circuit map on race and circuit pages is one shared component (`ui/src/compo
   drag pans and two-finger pinch zooms once zoomed; Ctrl or trackpad pinch zooms under the cursor. At 1x the map does not capture touch or arrow keys,
   so the page still scrolls. The zoom and pan arithmetic is pure and tested (`ui/src/lib/mapView.ts`). Corner badges are sized in screen pixels so they stay
   readable on a phone and thin out as you zoom in.
-- **Not drawn, because the data does not exist:** corner names, pit entry and exit, and a selected-driver trace. The faint dashed line along the track is a centreline for legibility, not a racing line. The direction arrow
+- **Detail is styling of the real outline, not a survey.** The full map draws weathered tarmac, white track limits, red and white kerbs on the inside
+  of the sharp turns, a line worn into the asphalt, a bridge where the lap crosses itself (Suzuka), a starting grid behind the line, direction chevrons on
+  the straights and sector timing lines, all worked out from the outline's own 360 samples (`ui/src/lib/mapDetail.ts`, tested against every shipped
+  circuit: never more runs of kerb than the circuit has corners, and only Suzuka crosses itself). It does not claim where a circuit's kerbs, rubber or
+  bridges really are, and a layout with no samples gets none of it. Thumbnails stay plain. The car is an original open-wheel drawing in real proportions
+  and team colour (`ui/src/components/VectorRaceCar.tsx`).
+- **Not drawn, because the data does not exist:** corner names, pit entry and exit, gravel and grass run-off, and a selected-driver trace. The dark line worn into
+  the asphalt follows the track's curvature (inside at the apex, wide on the way in and out); it is where a line would go, not a record of where the rubber is. The direction arrow
   is drawn only where the outline's samples exist, and the data tests check that every stated direction agrees with the outline's geometry.
+- **Driver and team pages are written from the record.** Each driver page has a profile and a season in plain sentences (who they are, what the three seasons add up to,
+  where the season ended, what was won, how the grid became the finish, how often the car reached the flag), the championship position after every round, the weekends
+  worth finding, and the team with its teammates (`ui/src/features/drivers/profile.ts`). Every number is a function of the race log and the standings, nothing is estimated, and
+  the sentences use surnames only, because the data says nothing about anyone's pronouns. Points mean one thing wherever they are quoted: the championship's when the standings have
+  them (they include any sprint points), the race results' otherwise, and where the two differ the page says where the other figure comes from. Team pages (`/teams`, `/teams/:team`) give
+  each team's season in the same way, and are tested against the whole grid (the teams' wins add up to each season's wins).
+- **Who ran each team is not in the dataset.** `ui/src/data/team-principals.json` is **written by hand** from public sources, each linked on its entry, and is the one file in
+  `ui/src/data` that no export script produces. Titles are given as they were published (Sauber had no team principal in 2023 or 2024: its leader was a *team representative*;
+  Williams's 2022 leader was also its CEO), a change part-way through a season lists both people with a dated note, and the interface labels all of it **Reference** (a seventh provenance
+  marker) so it is never mistaken for the record. `tests/teams.test.ts` fails if any team-season has nobody listed, if a person is listed for a season their team did not race, or if a
+  title drifts from "team principal" without being one. To update it, edit the file, link the source, and change its `checked` date.
+- **Team logos.** Each team card and team page has a tile in the team's colour with its mark on it. The marks are trademarks, so `ui/src/data/team-logos.json` lists only files with a free
+  licence for the file itself, each with its source, author and terms (shown under *Logo credits* on the Teams page): Simple Icons (CC0) for Mercedes, Ferrari, Red Bull, McLaren, Aston Martin
+  and Alfa Romeo, and Wikimedia Commons for Alpine, Haas, Williams and Sauber. RB and AlphaTauri have no free file, so their tiles show a three-letter code. To add or replace a mark, put the
+  file in `ui/public/teams/` and add an entry; `tests/teams.test.ts` fails if the file, the source, the author or the licence is missing.
 
 Build the data and the site (after `scripts/run_analysis.py` has written `artifacts/`):
 
@@ -659,31 +681,31 @@ What the measurements say, including the parts that do not flatter the additions
 - **Evaluation status.** 2022-2024 was reviewed during earlier product iterations, so these are retrospective benchmarks and not a pristine final hold-out.
 - **History graph.** Race-result points only: the Milestone 2 graph does not load `sprint_results.csv`, so a season total can sit a few points under the official one (Verstappen 2021: 388.5 here, 395.5 officially, the 7-point difference being his sprint points). A driver at a race counts once, even in the early seasons when a driver could hold two results. The Cypher in `milestone_2/product_queries.cypher` gives each question with parameters instead of hard-coded ids, and the site shows it beside every answer. It was **not executed against a live Neo4j** when written; the exported answers are checked against independent recomputation from the CSV files.
 
-## Light theme, accessibility and performance
+## Accessibility and performance
 
-The interface has a light theme and a dark one (the default). A sliding light/dark switch in the header follows the device (live) until it is flipped, then remembers the choice. The switch is a short stretch of circuit (kerb, asphalt, a chequered finish and floodlights) with an F1 car for a knob: pale with a red stripe by day, and at night, having driven to the far end and turned round, carbon-black with its lights on. The page changes in one step on every device, two frames after the car starts to drive: a page-wide animation held the whole screen still for most of a second at a phone's speed, so there is none. The design rules and the numbers are in `DESIGN.md`; what keeps them true is below.
+The interface is dark only: there is no light theme and no switch for one, so there is a single palette to keep accessible. `color-scheme: dark` is set, so native controls and scrollbars match, and nothing runs before first paint to choose a theme. The design rules and the numbers are in `DESIGN.md`; what keeps them true is below.
 
 | Concern | What was done | Checked by |
 | --- | --- | --- |
-| Light and dark theme | Colour is a token everywhere; the light palette is checked pair by pair for WCAG AA. The theme is resolved before first paint. | `ui/tests/theme.test.ts`, and an e2e test that measures the rendered contrast of every text run on nine pages in both themes |
-| Control visibility | A dedicated control-border colour, at least 3:1 on every surface in both themes | `ui/tests/theme.test.ts` |
+| One dark palette | Colour is a token everywhere; every text colour is checked on every surface for WCAG AA, and a test fails if a second theme, a switch or a stored theme choice comes back. | `ui/tests/palette.test.ts`, and an e2e test that measures the rendered contrast of every text run on the pages |
+| Control visibility | A dedicated control-border colour, at least 3:1 on every surface | `ui/tests/palette.test.ts` |
 | Text size | Nothing below 12px; provenance tags 12.8px | `ui/tests/typography.test.ts` |
 | Touch targets | Nothing pressable under 24px on a phone, and under 10% under 44px | e2e `touch targets` |
-| Navigation | A floating pill bar, centred on its middle, with a quiet tonal indicator that slides to the current destination, and a sliding light/dark switch (a real `role="switch"`: Space flips it). On a phone the destinations move to a bottom dock of five destinations and More; scrolling down slides the brand bar away while the dock stays, and the Race page's section navigation takes the top. Scrolling up or focusing the bar restores it. | e2e `phone header` and `theme`, `ui/tests/accessibility.test.ts` |
+| Navigation | A floating pill bar, centred on its middle, with a quiet tonal indicator that slides to the current destination, and search. On a phone the destinations move to a bottom dock of five destinations and More; scrolling down slides the brand bar away while the dock stays, and the Race page's section navigation takes the top. Scrolling up or focusing the bar restores it. | e2e `phone header`, `ui/tests/accessibility.test.ts` |
 | Long pages | The Error Atlas ledger shows 15 races at a time; a back-to-top button appears after two screens | e2e `Error Atlas` |
 | Image weight | A 320px copy of each driver portrait, chosen by `srcset` when the slot is small: `.venv\Scripts\python.exe scripts\optimize_portraits.py` | `tests/test_optimize_portraits.py`, `ui/tests/portraits.test.ts` |
 
 A note on one number. An early audit reported the Drivers page at about 910 KB on a phone. That figure was measured after scrolling to the very end of the page; a real first view is about 350 KB, and the service worker serves repeat visits from its cache. The portrait copies cut the bytes a desktop visitor downloads for the driver cards by roughly 40%. `vercel.json` also sets long cache lifetimes for hashed assets, fonts and images; that file is listed in `.gitignore`, so it is part of your local deployment setup and not of the repository.
 
-The end-to-end suite pins the dark theme by default (`colorScheme: "dark"` in `ui/playwright.config.ts`) so its screenshots stay comparable, and tests the light theme explicitly.
+The end-to-end suite runs with `colorScheme: "dark"` (`ui/playwright.config.ts`), and one test sets the device to light to show the site stays dark.
 
 ### Icons, search and sharing
 
 | Concern | What was done | Checked by |
 | --- | --- | --- |
-| Every screen | `ui/e2e/devices.spec.ts` runs every page, in both themes, on 18 screens from a 320px phone to a 2560px monitor (phones and tablets upright and on their side), and checks that nothing sticks out sideways, no text is cut off, the bar or the dock fits with nothing overlapping, and the search, the More list and the theme switch stay wholly on screen. It also checks a notched phone on its side (safe-area insets), forced colours (Windows High Contrast) and text at 200%. | `npx playwright test devices` from `ui/` (the whole matrix runs under the `desktop-1440` project) |
+| Every screen | `ui/e2e/devices.spec.ts` runs every page on 18 screens from a 320px phone to a 2560px monitor (phones and tablets upright and on their side), and checks that nothing sticks out sideways, no text is cut off, the bar or the dock fits with nothing overlapping, and the search and the More list stay wholly on screen. It also checks a notched phone on its side (safe-area insets), forced colours (Windows High Contrast) and text at 200%. | `npx playwright test devices` from `ui/` (the whole matrix runs under the `desktop-1440` project) |
 | Interface icons | One outline set (Tabler Icons, MIT), copied in as path data in `ui/src/components/Icon.tsx`, so every icon has the same weight, corners and optical size and nothing loads at runtime. An earlier hand-drawn set with soft tonal fills looked generated; to change an icon, choose another Tabler icon rather than drawing one. | `ui/tests/accessibility.test.ts` |
-| Logo, favicon and app icons | The logo is the supplied triangle mark, kept as `scripts/logo-mark.svg` (one path) and drawn from that path everywhere: inline in the bar and footer (`ui/src/components/Logo.tsx`, in the brand blue on the light page and a lighter tint of it on the dark one, where the original would be 1.5:1) and as white on the logo's blue in the favicon and app icons. The artwork is hairline, so each size thickens its lines to about 0.8 of a pixel. The SVG and every raster size (`favicon.ico` with a frame drawn for each of 16, 32 and 48px, `icon-192`, `icon-512`, a separate padded `icon-maskable-512`, and a full-bleed `apple-touch-icon`) come from one script: `.venv\Scripts\python.exe scripts\make_icons.py`. The share image `og-card.png` was patched in place to carry the mark | `tests/test_make_icons.py`, `ui/tests/seo.test.ts` |
+| Logo, favicon and app icons | The logo is the supplied triangle mark, kept as `scripts/logo-mark.svg` (one path) and drawn from that path everywhere: inline in the bar and footer (`ui/src/components/Logo.tsx`, in a lighter tint of the brand blue, because the original would be 1.5:1 on the dark page) and as white on the logo's blue in the favicon and app icons. The artwork is hairline, so each size thickens its lines to about 0.8 of a pixel. The SVG and every raster size (`favicon.ico` with a frame drawn for each of 16, 32 and 48px, `icon-192`, `icon-512`, a separate padded `icon-maskable-512`, and a full-bleed `apple-touch-icon`) come from one script: `.venv\Scripts\python.exe scripts\make_icons.py`. The share image `og-card.png` was patched in place to carry the mark | `tests/test_make_icons.py`, `ui/tests/seo.test.ts` |
 | Page head | One title, a 70 to 160 character description, language, robots, complete Open Graph and Twitter tags with alt text, and structured data (`WebSite` and `WebApplication`) that claims no ratings or offers. A `noscript` block gives crawlers and readers without scripts something to read. | `ui/tests/seo.test.ts` |
 | Per page | Every page sets its own tab title and, while it is open, its own description and share title (`useTitle`). The home page keeps the site-wide ones. | `ui/tests/seo.test.ts` |
 | Address-dependent tags | The canonical link, `og:url`, absolute share-image URLs, `robots.txt` and `sitemap.xml` need the public address. Build with `VITE_SITE_URL=https://your-domain npm run build` (Vercel's production host is picked up automatically). With no address those tags are left out rather than guessed. | `ui/tests/seo.test.ts` |

@@ -84,7 +84,7 @@ export function CircuitBoard() {
           {selected && (
             <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line px-4 py-3">
               <div>
-                <p className="font-display text-[0.82rem] tracking-[0.1em] text-steel uppercase">Track analysis · {era}</p>
+                <p className="font-display text-[0.95rem] text-steel">Track analysis · {era}</p>
                 <p className="mt-1 font-display text-[1.55rem] font-semibold">{selected.circuit}</p>
               </div>
               <div className="flex gap-6 text-right">
@@ -122,7 +122,7 @@ export function CircuitBoard() {
         </p>
       </div>
       <div>
-        <p className="mb-2 font-display text-[0.85rem] tracking-[0.1em] text-steel uppercase">Timing tower · front-row conversion</p>
+        <p className="mb-2 font-display text-[0.95rem] text-steel">Timing tower · front-row conversion</p>
         <ul className="border-t border-ink" aria-label={`Leading circuits, ${era}`}>
           {leaders.map((row) => {
             const on = row.circuit === selected?.circuit;

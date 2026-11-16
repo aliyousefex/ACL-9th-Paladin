@@ -2,10 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 
 /**
- * The device matrix: every page, in both themes, on the screens people actually use, from a 320px phone to a 2560px monitor,
+ * The device matrix: every page, on the screens people actually use, from a 320px phone to a 2560px monitor,
  * including phones and tablets on their side. For each it checks what a person would notice first: nothing sticks out sideways,
- * no text is cut off, the bar and the dock fit their screen with nothing overlapping, and the search, the More list and the theme
- * switch stay on screen. (The contrast and touch-target audits live in release.spec.ts.) One project runs the whole matrix.
+ * no text is cut off, the bar and the dock fit their screen with nothing overlapping, and the search and the More list
+ * stay on screen. (The contrast and touch-target audits live in release.spec.ts.) One project runs the whole matrix.
  */
 
 type Device = { name: string; w: number; h: number; mobile: boolean; dpr: number };
@@ -40,6 +40,9 @@ const ROUTES: [string, string][] = [
   ["method", "/#/method"],
   ["guide", "/#/guide"],
   ["drivers", "/#/drivers"],
+  ["driver", "/#/drivers/norris?season=2024"],
+  ["teams", "/#/teams"],
+  ["team", "/#/teams/alpine?season=2024"],
   ["circuits", "/#/circuits"],
   ["history", "/#/history"],
   ["league", "/#/league"],
@@ -116,7 +119,7 @@ async function chromeProblems(page: Page): Promise<string[]> {
     return {
       vw, vh,
       capsule: box("header .site-bar__inner"), nav: box("header nav.site-nav"), dock: box("nav.dock"),
-      toggle: box(".theme-toggle"), search: box("header .site-tool"), brand: box("header .nav-brand"),
+      search: box("header .site-tool"), brand: box("header .nav-brand"), chip: box("header .section-chip"),
       links: rects("header .site-nav__link"), dockItems: rects("nav.dock .dock__item"),
     };
   });
@@ -127,12 +130,19 @@ async function chromeProblems(page: Page): Promise<string[]> {
   if (!c.capsule) return ["the top bar is missing"];
   inside(c.capsule, "the top bar");
   if (c.capsule.sw > c.capsule.cw + 1) problems.push(`the top bar's contents overflow it (${c.capsule.sw} in ${c.capsule.cw})`);
-  for (const [what, b] of [["the theme switch", c.toggle], ["search", c.search], ["the brand link", c.brand]] as const) {
+  for (const [what, b] of [["search", c.search], ["the brand link", c.brand]] as const) {
     if (!b) problems.push(`${what} is missing`);
     else if (b.l < c.capsule.l - 0.5 || b.r > c.capsule.r + 0.5) problems.push(`${what} sticks out of the top bar`);
   }
   if (c.brand && c.search && c.brand.r > c.search.l + 0.5) problems.push("the brand link overlaps search");
-  if (c.toggle && c.search && c.search.r > c.toggle.l + 1) problems.push("search overlaps the theme switch");
+  // The section chip, when the page's strip has melted into the bar: inside it, beside the logo, clear of the links and the tools.
+  if (c.chip) {
+    if (c.chip.l < c.capsule.l - 0.5 || c.chip.r > c.capsule.r + 0.5) problems.push("the section chip sticks out of the top bar");
+    if (c.brand && c.chip.l < c.brand.r - 1) problems.push("the section chip overlaps the brand link");
+    if (c.search && c.chip.r > c.search.l + 0.5) problems.push("the section chip overlaps search");
+    if (c.vw >= 768 && c.links.length && c.chip.r > Math.min(...c.links.map((link) => link.l)) + 0.5) problems.push("the section chip overlaps the links in the bar");
+    if (c.chip.b - c.chip.t < 30) problems.push("the section chip is too short to tap");
+  }
   if (c.vw >= 768) {
     if (!c.nav) problems.push("a screen this wide has no navigation in the bar");
     if (c.dock) problems.push("a screen this wide still shows the phone dock");
@@ -155,7 +165,7 @@ async function chromeProblems(page: Page): Promise<string[]> {
   return problems;
 }
 
-/** Search, the More list and the theme switch, each opened and checked to be wholly on screen. */
+/** Search and the More list, each opened and checked to be wholly on screen. */
 async function overlayProblems(page: Page, device: Device): Promise<string[]> {
   const problems: string[] = [];
   const vw = device.w;
@@ -181,61 +191,73 @@ async function overlayProblems(page: Page, device: Device): Promise<string[]> {
   await page.keyboard.press("Escape");
   await page.mouse.click(Math.round(vw / 2), 3);
 
-  const toggle = page.getByRole("switch", { name: "Dark mode" });
-  const before = await toggle.getAttribute("aria-checked");
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-checked", before === "true" ? "false" : "true");
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-checked", before!);
   return problems;
 }
 
 for (const device of DEVICES) {
-  test(`${device.name}: every page fits, in both themes`, async ({ browser }, testInfo) => {
+  test(`${device.name}: every page fits`, async ({ browser }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-1440", "one project runs the whole matrix");
     test.setTimeout(420_000);
     mkdirSync("../artifacts/visual-qa/devices", { recursive: true });
     const problems: string[] = [];
-    for (const theme of ["dark", "light"] as const) {
-      const context = await browser.newContext({
-        viewport: { width: device.w, height: device.h },
-        deviceScaleFactor: device.dpr,
-        isMobile: device.mobile,
-        hasTouch: device.mobile,
-        colorScheme: theme,
-      });
-      const page = await context.newPage();
-      const errors: string[] = [];
-      page.on("pageerror", (error) => errors.push(error.message));
-      page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
-      await page.goto(ROUTES[0][1]);
-      for (const [label, path] of ROUTES) {
-        await page.goto(path);
-        await expect(page.locator("main")).toBeVisible();
-        await page.waitForTimeout(350);
-        await settle(page);
-        for (const problem of [...(await layoutProblems(page)), ...(await chromeProblems(page))]) problems.push(`[${theme}] ${label}: ${problem}`);
-        if (theme === "dark" && (label === "season" || label === "race")) {
-          await page.screenshot({ path: `../artifacts/visual-qa/devices/${device.w}x${device.h}-${label}.png`, scale: "css" });
-        }
-      }
-      await page.goto(ROUTES[0][1]);
+    const context = await browser.newContext({
+      viewport: { width: device.w, height: device.h },
+      deviceScaleFactor: device.dpr,
+      isMobile: device.mobile,
+      hasTouch: device.mobile,
+      colorScheme: "dark",
+    });
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
+    await page.goto(ROUTES[0][1]);
+    for (const [label, path] of ROUTES) {
+      await page.goto(path);
       await expect(page.locator("main")).toBeVisible();
-      for (const problem of await overlayProblems(page, device)) problems.push(`[${theme}] ${problem}`);
-      for (const error of errors) problems.push(`[${theme}] runtime error: ${error}`);
-      await context.close();
+      await page.waitForTimeout(350);
+      await settle(page);
+      for (const problem of [...(await layoutProblems(page)), ...(await chromeProblems(page))]) problems.push(`${label}: ${problem}`);
+      // On a page with sections, the strip melts into the bar when it reaches it: check the bar with the chip showing.
+      if (["race", "model", "method"].includes(label)) {
+        await page.evaluate(() => window.scrollTo(0, 1800));
+        await page.waitForTimeout(250);
+        if (device.w < 768) {
+          // The bar is away while reading; a pull brings it back. Wait for each state rather than for a time: on a slow, busy
+          // machine a fixed wait lets the jump and the pull fold into one scroll, which is correctly not a pull.
+          const chrome = () => page.evaluate(() => document.documentElement.dataset.chrome ?? "shown");
+          await expect.poll(chrome, { message: `${label}: reading puts the bar away`, timeout: 15_000 }).toBe("compact");
+          await page.evaluate(() => window.scrollBy(0, -120));
+          await expect.poll(chrome, { message: `${label}: a pull brings the bar back`, timeout: 15_000 }).toBe("shown");
+        }
+        await page.waitForTimeout(800);
+        const chip = page.locator("header .section-chip");
+        if (!(await chip.isVisible())) problems.push(`${label}: the strip did not become a chip in the bar`);
+        for (const problem of await chromeProblems(page)) problems.push(`${label} (chip showing): ${problem}`);
+        if (await page.getByRole("navigation", { name: /On this race|On this page|Walkthrough sections/ }).and(page.locator(".subnav")).isVisible()) problems.push(`${label}: two bars on screen at once`);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(450);
+      }
+      if (label === "season" || label === "race") {
+        await page.screenshot({ path: `../artifacts/visual-qa/devices/${device.w}x${device.h}-${label}.png`, scale: "css" });
+      }
     }
+    await page.goto(ROUTES[0][1]);
+    await expect(page.locator("main")).toBeVisible();
+    for (const problem of await overlayProblems(page, device)) problems.push(`${problem}`);
+    for (const error of errors) problems.push(`runtime error: ${error}`);
+    await context.close();
     expect(problems, `${problems.length} problems on ${device.name}:\n${problems.join("\n")}`).toEqual([]);
   });
 }
 
 /**
  * When the reader enlarges their text (the system's font size, which scales everything set in rem). At 200% the floating chrome
- * (bar, dock, switch) must still fit the screen, because it is sized in pixels so it cannot outgrow it; at 150%, a large but common
+ * (bar, dock) must still fit the screen, because it is sized in pixels so it cannot outgrow it; at 150%, a large but common
  * setting, every page's content must fit too. (Browser zoom scales everything, pixels included, and is covered by the 320px phone.)
  */
 for (const [scale, wholePage] of [[200, false], [150, true]] as const) {
-  test(`text at ${scale}%: ${wholePage ? "every page still fits a phone" : "the bar, the dock and the switch still fit a phone"}`, async ({ browser }, testInfo) => {
+  test(`text at ${scale}%: ${wholePage ? "every page still fits a phone" : "the bar and the dock still fit a phone"}`, async ({ browser }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-1440", "one project runs the whole matrix");
     test.setTimeout(240_000);
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, colorScheme: "dark" });
@@ -298,7 +320,7 @@ for (const [w, h, side, bottom, label] of [
   });
 }
 
-test("forced colours (Windows High Contrast): the bar, the dock and the theme switch are still there and still usable", async ({ browser }, testInfo) => {
+test("forced colours (Windows High Contrast): the bar and the dock are still there and still usable", async ({ browser }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-1440", "one project runs the whole matrix");
   mkdirSync("../artifacts/visual-qa/devices", { recursive: true });
   for (const [w, h, mobile] of [[1280, 720, false], [390, 844, true]] as const) {
@@ -306,11 +328,7 @@ test("forced colours (Windows High Contrast): the bar, the dock and the theme sw
     const page = await context.newPage();
     await page.goto("/#/");
     await expect(page.getByRole("heading", { name: /predict the podium/i })).toBeVisible();
-    const toggle = page.getByRole("switch", { name: "Dark mode" });
-    await expect(toggle).toBeVisible();
-    const before = await toggle.getAttribute("aria-checked");
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-checked", before === "true" ? "false" : "true");
+    await expect(page.getByRole("button", { name: "Search races, drivers and pages" })).toBeVisible();
     // The floating surfaces keep an edge in the system's own colour, so they are visible as boxes.
     const edge = await page.locator(mobile ? "nav.dock" : "header .site-bar__inner").evaluate((el) => getComputedStyle(el).borderTopColor);
     expect(edge, "an edge that is not transparent").not.toBe("rgba(0, 0, 0, 0)");

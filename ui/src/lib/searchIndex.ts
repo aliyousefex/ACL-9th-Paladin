@@ -1,5 +1,7 @@
 import { DRIVERS, RACES, RACE_CIRCUITS, circuit, raceHref } from "./data";
 import type { SearchItem } from "./search";
+import { PRINCIPALS, TEAMS, leaders } from "./teams";
+import { seasonSpan, titleInSentence } from "./teamLogic";
 
 /** The destinations a viewer might type a name for. */
 export const PAGE_ITEMS: SearchItem[] = [
@@ -12,6 +14,7 @@ export const PAGE_ITEMS: SearchItem[] = [
   { id: "page:method", kind: "page", title: "Method and data", subtitle: "How the data was cleaned, split and checked", to: "/method", keywords: "walkthrough leakage split reproducibility cleaning" },
   { id: "page:guide", kind: "page", title: "How to read this site", subtitle: "What every marker and value means", to: "/guide", keywords: "legend markers provenance model output historical record simulation illustrative your input source key explain" },
   { id: "page:drivers", kind: "page", title: "Driver archive", subtitle: "Every driver of the held-out seasons", to: "/drivers", keywords: "drivers archive" },
+  { id: "page:teams", kind: "page", title: "Team archive", subtitle: "Every team and who ran it", to: "/teams", keywords: "teams constructors team principals bosses managers" },
   { id: "page:circuits", kind: "page", title: "Circuit archive", subtitle: "Circuit maps and records", to: "/circuits", keywords: "circuits tracks maps archive" },
 ];
 
@@ -44,7 +47,36 @@ export function buildIndex(): SearchItem[] {
     to: `/circuits/${track.ref}`,
     keywords: `${track.ref} ${track.location} ${track.country}`,
   }));
-  return [...PAGE_ITEMS, ...races, ...drivers, ...circuits];
+  // A team is found by its name or by anyone who ran it, and each of those people is found by name and goes to the team they led.
+  const teams: SearchItem[] = TEAMS.map((team) => {
+    const latest = Math.max(...team.years);
+    const names = leaders(team.ref, latest).map((l) => l.person.name);
+    return {
+      id: `team:${team.ref}`,
+      kind: "team",
+      title: team.name,
+      subtitle: `${team.years.length === 1 ? team.years[0] : `${team.years[0]}–${latest}`} · ${names.join(" and ")}`,
+      to: `/teams/${team.ref}`,
+      keywords: `${team.ref} ${team.short} team constructor ${PRINCIPALS.tenures.filter((t) => t.constructor === team.ref).map((t) => PRINCIPALS.people.find((p) => p.ref === t.person)?.name ?? "").join(" ")}`,
+    };
+  });
+  const people: SearchItem[] = PRINCIPALS.people.flatMap((person) => {
+    const tenures = PRINCIPALS.tenures.filter((t) => t.person === person.ref).sort((a, b) => b.lastSeason - a.lastSeason);
+    const latest = tenures[0];
+    const team = TEAMS.find((c) => c.ref === latest?.constructor);
+    if (!latest || !team) return [];
+    return [
+      {
+        id: `leader:${person.ref}`,
+        kind: "leader" as const,
+        title: person.name,
+        subtitle: `${team.name} · ${titleInSentence(latest.title)}, ${seasonSpan(latest)}`,
+        to: `/teams/${team.ref}`,
+        keywords: `${person.nationality} ${team.name} team principal team boss manager ${tenures.map((t) => TEAMS.find((c) => c.ref === t.constructor)?.name ?? "").join(" ")}`,
+      },
+    ];
+  });
+  return [...PAGE_ITEMS, ...races, ...drivers, ...teams, ...people, ...circuits];
 }
 
 /** Shown before anything is typed: the main destinations and the most recent races. */

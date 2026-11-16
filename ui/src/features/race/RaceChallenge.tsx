@@ -54,7 +54,6 @@ export function RaceChallenge({ race, rows, revealed }: { race: RaceMeta; rows: 
 
   return (
     <Panel
-      eyebrow="Beat the model"
       title="Call the podium before the reveal"
       tag="user"
       actions={saved && canReset ? <button type="button" className="btn btn-ghost !min-h-11 !px-3 !text-[0.95rem]" onClick={reset}>New pick</button> : undefined}

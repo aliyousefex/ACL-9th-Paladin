@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
 import { Tag, type Provenance } from "./Provenance";
 
-/** A titled surface. The tag says whether its numbers are model output, record, or illustration. */
+/**
+ * A titled surface. The tag says whether its numbers are model output, record, or illustration. `context` is a plain line under the title
+ * for what the title does not say (the phase of the race, the season, the scope). It is never a label over the title: see DESIGN.md.
+ */
 export function Panel({
   id,
-  eyebrow,
+  context,
   title,
   tag,
   actions,
@@ -15,7 +18,7 @@ export function Panel({
   level = 2,
 }: {
   id?: string;
-  eyebrow?: string;
+  context?: string;
   title?: ReactNode;
   tag?: Provenance | Provenance[];
   actions?: ReactNode;
@@ -29,13 +32,13 @@ export function Panel({
   const tags = tag ? (Array.isArray(tag) ? tag : [tag]) : [];
   return (
     <section id={id} className={`panel ${flat ? "panel-flat" : ""} scroll-mt-32 ${className}`}>
-      {(eyebrow || title || tags.length > 0 || actions) && (
+      {(context || title || tags.length > 0 || actions) && (
         <header className="panel-heading flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b border-line px-4 pt-5 pb-4 sm:px-6">
           <div className="min-w-0">
             {title && (
               <Heading className="panel-title text-ink">{title}</Heading>
             )}
-            {eyebrow && <p className="panel-context mt-1">{eyebrow}</p>}
+            {context && <p className="panel-context mt-1">{context}</p>}
           </div>
           <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
             {tags.map((kind) => (

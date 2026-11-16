@@ -49,7 +49,7 @@ export function RaceTrace({ race, rows, detail }: { race: RaceMeta; rows: Row[];
 
   if (trace.totalLaps === 0) {
     return (
-      <Panel eyebrow="Step 3 · After the flag" title="Race trace" tag="record">
+      <Panel context="Step 3 · After the flag" title="Race trace" tag="record">
         <p className="text-steel">The dataset has no lap times for this race, so no trace can be drawn.</p>
       </Panel>
     );
@@ -68,7 +68,7 @@ export function RaceTrace({ race, rows, detail }: { race: RaceMeta; rows: Row[];
 
   return (
     <Panel
-      eyebrow="Step 3 · After the flag"
+      context="Step 3 · After the flag"
       title="Race trace"
       tag="record"
       actions={
@@ -464,7 +464,7 @@ function FullOrder({ trace, lap, byRow }: { trace: Trace; lap: number; byRow: Ma
       <table className="w-full min-w-[22rem] text-left text-[0.95rem]">
         <caption className="sr-only">Running order at the end of lap {lap}</caption>
         <thead>
-          <tr className="border-b border-line text-[0.78rem] tracking-[0.1em] text-mute uppercase">
+          <tr className="border-b border-line text-[0.82rem] text-mute">
             <th scope="col" className="py-1.5 pr-3 font-semibold">Pos</th>
             <th scope="col" className="py-1.5 pr-3 font-semibold">Driver</th>
             <th scope="col" className="py-1.5 pr-3 text-right font-semibold">Gap</th>

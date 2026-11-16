@@ -41,7 +41,6 @@ export function ComparePanel({
 
   return (
     <Panel
-      eyebrow="Compare drivers"
       title="Why the model scores them this way"
       tag="model"
       actions={

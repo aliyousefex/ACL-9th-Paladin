@@ -1,13 +1,13 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Icon, type IconName } from "./Icon";
 import { BackToTop } from "./BackToTop";
 import { CommandPalette } from "./CommandPalette";
-import { ThemeSwitch } from "./ThemeSwitch";
 import { LogoMark, Wordmark } from "./Logo";
 import { haptic } from "../lib/haptic";
 import { RACES } from "../lib/data";
 import { useSlidingPill } from "../lib/hooks";
 import { href } from "../lib/router";
+import { useSectionNav } from "../lib/sectionNav";
 
 interface NavItem {
   key: string;
@@ -45,7 +45,7 @@ function lastRacePath(): string {
 
 function items(): NavItem[] {
   return [
-    { key: "", label: "Season", short: "Season", to: "/", icon: "calendar", children: ["drivers", "circuits", "history", "league"] },
+    { key: "", label: "Season", short: "Season", to: "/", icon: "calendar", children: ["drivers", "teams", "circuits", "history", "league"] },
     { key: "race", label: "Race", short: "Race", to: lastRacePath(), icon: "flagGrid" },
     { key: "analysis", label: "Analysis", short: "Errors", to: "/analysis", icon: "target" },
     { key: "race-lab", label: "Lab", short: "Lab", to: "/race-lab", icon: "flask" },
@@ -131,32 +131,32 @@ export function Shell({ section, children }: { section: string; children: ReactN
 }
 
 /** Pages that belong to a destination without a place in the bar. They live under "More", and the destination that owns them stays marked. */
-export const MORE: { key: string; label: string; detail: string; to: string; icon: IconName }[] = [
-  { key: "method", label: "Method and data", detail: "The pipeline, step by step", to: "/method", icon: "database" },
-  { key: "guide", label: "How to read this site", detail: "What every marker and value means", to: "/guide", icon: "legend" },
-  { key: "history", label: "History graph", detail: "Drivers, teams and races as a graph", to: "/history", icon: "network" },
-  { key: "league", label: "Season league", detail: "Pick podiums blind and keep score", to: "/league", icon: "cup" },
-  { key: "drivers", label: "Driver archive", detail: "Every driver in the data", to: "/drivers", icon: "helmet" },
-  { key: "circuits", label: "Circuit archive", detail: "Every circuit and its maps", to: "/circuits", icon: "circuit" },
+export const MORE: { key: string; label: string; detail: string; to: string }[] = [
+  { key: "method", label: "Method and data", detail: "The pipeline, step by step", to: "/method" },
+  { key: "guide", label: "How to read this site", detail: "What every marker and value means", to: "/guide" },
+  { key: "history", label: "History graph", detail: "Drivers, teams and races as a graph", to: "/history" },
+  { key: "league", label: "Season league", detail: "Pick podiums blind and keep score", to: "/league" },
+  { key: "drivers", label: "Driver archive", detail: "Every driver in the data", to: "/drivers" },
+  { key: "teams", label: "Team archive", detail: "Every team and who ran it", to: "/teams" },
+  { key: "circuits", label: "Circuit archive", detail: "Every circuit and its maps", to: "/circuits" },
 ];
 
 const ownedByMore = (section: string): boolean => MORE.some((entry) => entry.key === section);
 
 /**
- * The "More" disclosure. It is a button that shows a short list of links, not an ARIA menu: the links stay in the page and
- * in the tab order while it is open, Escape closes it and returns focus to the button, and so does moving away from it or
- * pressing outside. The list is always in the markup (hidden when closed) so it is never a surprise to a crawler or a test.
+ * What the top bar's two dropdowns share (More, and the current section). Each is a disclosure, not an ARIA menu: a button that
+ * shows a short list of links, which stay in the page and in the tab order while it is open. Escape closes it and returns focus to
+ * the button, and so does moving focus away from it, pressing outside, or changing page.
  *
- * On a desktop (a mouse, in the top bar) it also opens by itself when the pointer rests on it, after a moment's intent so a
- * pointer passing over it does not trigger it, and closes shortly after the pointer leaves it and its list. Clicking it while
- * it is open that way keeps it open (the reader has said they want it); a second click closes it. A touch has no hover, so
- * there it is a plain toggle, and the keyboard is unchanged.
+ * With a mouse, in the top bar, it also opens by itself when the pointer rests on it, after a moment's intent so a pointer
+ * passing over it does not trigger it, and closes shortly after the pointer leaves it and its list. Clicking it while it is open
+ * that way keeps it open (the reader has said they want it); a second click closes it. A touch has no hover, so there it is a
+ * plain toggle, and the keyboard is unchanged.
  */
-function MoreMenu({ section, placement }: { section: string; placement: "down" | "up" }) {
+function useDisclosure(hoverable: boolean) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
-  const panelId = useId();
   const pinned = useRef(false); // opened by a click or a key: it stays until it is dismissed
   const timer = useRef<number | undefined>(undefined);
   const close = (restoreFocus = false) => {
@@ -166,10 +166,19 @@ function MoreMenu({ section, placement }: { section: string; placement: "down" |
     if (restoreFocus) button.current?.focus();
   };
   const hover = (event: React.PointerEvent, entering: boolean) => {
-    if (placement !== "down" || event.pointerType !== "mouse") return;
+    if (!hoverable || event.pointerType !== "mouse") return;
     window.clearTimeout(timer.current);
     if (entering) timer.current = window.setTimeout(() => setOpen(true), 70);
-    else if (!pinned.current) timer.current = window.setTimeout(() => setOpen(false), 220);
+    else if (!pinned.current) timer.current = window.setTimeout(() => setOpen(false), 260);
+  };
+  const toggle = () => {
+    window.clearTimeout(timer.current);
+    if (open && !pinned.current) pinned.current = true; // opened by hovering: the click keeps it open
+    else if (open) close();
+    else {
+      pinned.current = true;
+      setOpen(true);
+    }
   };
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
@@ -197,31 +206,42 @@ function MoreMenu({ section, placement }: { section: string; placement: "down" |
     };
   }, [open]);
 
+  return {
+    open,
+    root,
+    button,
+    close,
+    toggle,
+    hoverProps: {
+      onPointerEnter: (event: React.PointerEvent) => hover(event, true),
+      onPointerLeave: (event: React.PointerEvent) => hover(event, false),
+    },
+  };
+}
+
+/** The "More" disclosure: the pages that belong to a destination without a place in the bar. The list is always in the markup (hidden when closed). */
+function MoreMenu({ section, placement }: { section: string; placement: "down" | "up" }) {
+  const menu = useDisclosure(placement === "down");
+  const panelId = useId();
   const owns = ownedByMore(section);
   return (
-    <div ref={root} className="more" onPointerEnter={(event) => hover(event, true)} onPointerLeave={(event) => hover(event, false)}>
+    <div ref={menu.root} className="more" {...menu.hoverProps}>
       <button
-        ref={button}
+        ref={menu.button}
         type="button"
         className={placement === "down" ? "site-nav__link" : "dock__item"}
-        aria-expanded={open}
+        aria-expanded={menu.open}
         aria-controls={panelId}
         data-owns={owns ? "true" : undefined}
         onClick={() => {
           haptic("select");
-          window.clearTimeout(timer.current);
-          if (open && !pinned.current) pinned.current = true; // opened by hovering: the click keeps it open
-          else if (open) close();
-          else {
-            pinned.current = true;
-            setOpen(true);
-          }
+          menu.toggle();
         }}
       >
         {placement === "down" ? (
           <>
             More
-            <Icon name="chevronDown" size={14} className={`more__chevron ${open ? "rotate-180" : ""}`} />
+            <Icon name="chevronDown" size={14} className={`more__chevron ${menu.open ? "rotate-180" : ""}`} />
           </>
         ) : (
           <>
@@ -230,21 +250,19 @@ function MoreMenu({ section, placement }: { section: string; placement: "down" |
           </>
         )}
       </button>
-      <div id={panelId} hidden={!open} className={`more-panel more-panel--${placement === "down" ? "down" : "up"}`}>
+      <div id={panelId} hidden={!menu.open} className={`more-panel more-panel--${placement === "down" ? "down" : "up"}`}>
         {MORE.map((entry) => (
           <a
             key={entry.key}
             href={href(entry.to)}
             data-active={entry.key === section ? "true" : undefined}
+            aria-current={entry.key === section ? "page" : undefined}
             className="more-item"
             onClick={() => {
               haptic("select");
-              close();
+              menu.close();
             }}
           >
-            <span className="more-item__icon" aria-hidden>
-              <Icon name={entry.icon} size={22} strokeWidth={1.7} />
-            </span>
             <span className="min-w-0">
               <span className="more-item__label">{entry.label}</span>
               <span className="more-item__detail">{entry.detail}</span>
@@ -257,8 +275,75 @@ function MoreMenu({ section, placement }: { section: string; placement: "down" |
 }
 
 /**
- * The bar: a floating capsule with the brand, the destinations (a solid pill slides to the current one), search, and the
- * theme switch. On a phone it carries only the brand and the tools, since the destinations move to the dock.
+ * The current section, as a dropdown in the top bar. A page with sections (a race, the method, the model) has its own strip of
+ * them in the page; when that strip reaches the bar it melts into this: the strip fades up into the bar and this chip grows
+ * in beside the logo, naming the section the reader is in, and opens a list of all of them. So the bar and the strip are never
+ * two bars. It is only in the markup of pages that have sections, and only reachable (focusable, openable) while the strip is
+ * stuck. The page's own strip is the way around while the chip is not showing.
+ */
+function SectionMenu() {
+  const nav = useSectionNav();
+  const menu = useDisclosure(true);
+  const panelId = useId();
+  const showing = !!nav?.stuck;
+  useEffect(() => {
+    if (!showing) menu.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showing]);
+  if (!nav) return null;
+  const current = nav.items.find((item) => item.id === nav.active) ?? nav.items[0];
+  return (
+    <div ref={menu.root} className="section-menu" data-stuck={showing ? "true" : undefined} {...menu.hoverProps}>
+      <button
+        ref={menu.button}
+        type="button"
+        className="section-chip"
+        aria-expanded={menu.open}
+        aria-controls={panelId}
+        aria-label={`${nav.label}: ${current.label}. Choose a section`}
+        tabIndex={showing ? 0 : -1}
+        onClick={() => {
+          haptic("select");
+          menu.toggle();
+        }}
+      >
+        <Icon name="menu" size={16} strokeWidth={2} />
+        <span className="section-chip__label">{current.label}</span>
+        <Icon name="chevronDown" size={14} className={`section-chip__chevron ${menu.open ? "rotate-180" : ""}`} />
+      </button>
+      <nav id={panelId} aria-label={nav.label} hidden={!menu.open || !showing} className="section-panel">
+        <ul>
+          {nav.items.map((item) => (
+            <Fragment key={item.id}>
+              {item.divider && (
+                <li aria-hidden className="section-panel__divider">
+                  <span className="subnav__flag" /> Lights out
+                </li>
+              )}
+              <li>
+                <a
+                  href={item.href}
+                  aria-current={nav.active === item.id ? "true" : undefined}
+                  className="section-panel__link"
+                  onClick={(event) => {
+                    haptic("select");
+                    item.onClick?.(event);
+                    menu.close();
+                  }}
+                >
+                  {item.label}
+                </a>
+              </li>
+            </Fragment>
+          ))}
+        </ul>
+      </nav>
+    </div>
+  );
+}
+
+/**
+ * The bar: a floating capsule with the brand, the destinations (a solid pill slides to the current one), and search. On a phone it carries only the brand and the tools, since the destinations move to the dock.
  */
 function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
   const current = nav.find((item) => isCurrent(item, section));
@@ -266,9 +351,12 @@ function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
   return (
     <header className="chrome-bar site-bar fixed inset-x-0 top-0 z-50">
       <div className="site-bar__inner">
-        <a href={href("/")} onClick={() => haptic("select")} className="nav-brand flex shrink-0 items-center no-underline" aria-label="Paladin F1, season overview">
-          <LogoMark height={34} />
-        </a>
+        <div className="site-bar__lead">
+          <a href={href("/")} onClick={() => haptic("select")} className="nav-brand flex shrink-0 items-center no-underline" aria-label="Paladin F1, season overview">
+            <LogoMark height={34} />
+          </a>
+          <SectionMenu />
+        </div>
         <nav ref={ref} className="site-nav" data-ready={ready ? "true" : "false"} aria-label="Primary">
           <span aria-hidden className="site-nav__pill" />
           {nav.map((item) => (
@@ -287,7 +375,6 @@ function TopBar({ nav, section }: { nav: NavItem[]; section: string }) {
         </nav>
         <div className="site-bar__tools">
           <CommandPalette />
-          <ThemeSwitch />
         </div>
       </div>
     </header>
@@ -332,6 +419,7 @@ const FOOTER_LINKS: { title: string; links: { label: string; to: string }[] }[] 
     title: "Archives",
     links: [
       { label: "Drivers", to: "/drivers" },
+      { label: "Teams", to: "/teams" },
       { label: "Circuits", to: "/circuits" },
       { label: "History graph", to: "/history" },
     ],

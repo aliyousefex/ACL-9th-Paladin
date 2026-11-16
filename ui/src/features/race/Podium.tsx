@@ -59,7 +59,7 @@ export function Podium({
 
   return (
     <Panel
-      eyebrow="Step 2 · The model runs at lights out"
+      context="Step 2 · The model runs at lights out"
       title="Predicted podium"
       tag="model"
       actions={
@@ -153,7 +153,7 @@ function PodiumStep({
           eager
           label={`${row.driver.name}, ${row.team.short}`}
         />
-        <p className="mt-2 w-full truncate font-display text-[0.82rem] leading-none font-semibold tracking-[0.1em] text-mute uppercase sm:text-[0.95rem]">
+        <p className="mt-2 w-full truncate font-display text-[0.9rem] leading-none font-semibold text-mute sm:text-[1rem]">
           {row.team.short}
         </p>
         <p className="mt-1 w-full truncate font-display text-[1.15rem] leading-none font-bold tracking-[-0.01em] uppercase sm:text-[1.7rem]">

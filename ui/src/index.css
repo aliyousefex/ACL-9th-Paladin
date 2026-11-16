@@ -40,7 +40,7 @@
   --color-on-medal: #0a0b0e;
   /* The purple that means "fastest". */
   --color-fastest: #d987ff;
-  /* The logo's blue. The light page uses it as drawn (#1800ad); on the dark page that would be 1.5:1, so the dark theme uses a lighter tint of the same hue. */
+  /* The logo's blue, lightened from the drawn #1800ad, which would be 1.5:1 on this page. */
   --color-brand: #8270ff;
 
   --breakpoint-xs: 30rem;
@@ -59,55 +59,13 @@
   --shadow-bar: 0 8px 24px rgb(0 0 0 / 0.28);
   /* Where a page's own sticky section nav sits: under the bar. On a phone it moves to the top when the bar hides. */
   --sticky-top: calc(var(--bar-h) + 1rem + env(safe-area-inset-top));
-  /* Surfaces that are not a flat colour. The light theme redefines them. */
+  /* Surfaces that are not a flat colour. */
   --grain-a: rgb(255 255 255 / 0.022);
   --grain-b: rgb(255 255 255 / 0.012);
   --wash: rgb(255 255 255 / 0.03);
   --skeleton-a: #12161b;
   --skeleton-b: #1b2027;
   --scrollbar-thumb: #3a414c;
-}
-
-/*
-  The light theme: the same system on a warm paper sheet. Surfaces keep their roles (tower is the deepest, panel the
-  raised one), colour keeps its meaning (red = the model, green = a hit), and every text and control colour is checked
-  against its surface by tests/theme.test.ts. It is chosen by the data-theme attribute, which theme-init.js sets before
-  the first paint from the saved choice or the system setting.
-*/
-:root[data-theme="light"] {
-  color-scheme: light;
-  --color-paper: #f3f2ee;
-  --color-tower: #e9e8e3;
-  --color-panel: #ffffff;
-  --color-panel2: #f8f7f4;
-  --color-ink: #0a0b0e;
-  --color-steel: #2c333c;
-  --color-mute: #545c67;
-  --color-signal: #d10600;
-  --color-signal-text: #b40700;
-  --color-line: #d8d9dc;
-  --color-line2: #b7bbc2;
-  --color-control: #6a727d;
-  --color-quiet: #2c333c;
-  --color-gold: #7d5e00;
-  --color-silver: #5b6470;
-  --color-bronze: #9a5320;
-  --color-hit: #09723a;
-  --color-amber: #8a5600;
-  --color-sector1: #d93a2e;
-  --color-sector2: #1f6fd1;
-  --color-sector3: #b88100;
-  --color-drs: #14994b;
-  --color-on-medal: #ffffff;
-  --color-fastest: #7b2fb5;
-  --color-brand: #1800ad;
-  --grain-a: rgb(0 0 0 / 0.018);
-  --grain-b: rgb(0 0 0 / 0.012);
-  --wash: rgb(0 0 0 / 0.035);
-  --skeleton-a: #e6e5e0;
-  --skeleton-b: #efeee9;
-  --scrollbar-thumb: #b7bbc2;
-  --shadow-bar: 0 6px 22px rgb(30 34 44 / 0.1);
 }
 
 @layer base {
@@ -137,7 +95,7 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
-/* The logo mark is vector, so it simply takes the brand colour of the theme (see --color-brand). Its thickened lines run a little past the box. */
+/* The logo mark is vector, so it simply takes the brand colour (see --color-brand). Its thickened lines run a little past the box. */
 .logo-mark {
   color: var(--color-brand);
   overflow: visible;
@@ -247,7 +205,7 @@ a {
 .driver-chyron { --team-colour: var(--color-steel); display: grid; grid-template-columns: 5.25rem minmax(12rem, 1fr) repeat(3, minmax(7.5rem, .62fr)); min-height: 5.15rem; border-top: 1px solid var(--color-line2); border-bottom: 1px solid var(--color-line); background: var(--color-tower); box-shadow: inset 4px 0 0 var(--team-colour); }
 .driver-chyron > div { display: grid; align-content: center; min-width: 0; padding: .7rem 1rem; }
 .driver-chyron > div + div { border-left: 1px solid var(--color-line); }
-.driver-chyron span { color: var(--color-mute); font: 600 0.75rem/1 var(--font-display); letter-spacing: .035em; text-transform: uppercase; }
+.driver-chyron span { color: var(--color-mute); font: 600 0.85rem/1 var(--font-display); }
 .driver-chyron strong { margin-top: .3rem; overflow: hidden; font: 700 1.15rem/1 var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
 .driver-chyron__position { text-align: center; }
 .driver-chyron__position strong { color: var(--team-colour); font-size: 2.25rem; }
@@ -294,7 +252,7 @@ a {
 .decision-note { margin-top: 1rem; padding-left: .75rem; border-left: 2px solid var(--color-amber); color: var(--color-mute); font-size: .78rem; line-height: 1.55; }
 .decision-forecast { border-top: 1px solid var(--color-line2); }
 .decision-row { display: grid; grid-template-columns: minmax(7rem, 1fr) repeat(3, minmax(4.2rem, .55fr)); gap: .75rem; align-items: center; min-height: 3rem; border-bottom: 1px solid var(--color-line); font-size: .85rem; }
-.decision-row-head { min-height: 2.25rem; color: var(--color-mute); font-size: 0.75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.decision-row-head { min-height: 2.25rem; color: var(--color-mute); font-size: 0.82rem; font-weight: 600; }
 .decision-evolution { padding: clamp(1rem, 2.5vw, 2rem); border-bottom: 1px solid var(--color-line); }
 .decision-evolution-head { display: flex; align-items: end; justify-content: space-between; gap: 2rem; }
 .decision-evolution-head label { min-width: min(100%, 15rem); }
@@ -567,7 +525,7 @@ h3 {
 .journey-readout p { padding: 1.1rem 1.4rem 1.2rem; }
 .journey-readout p + p { border-left: 1px solid var(--color-line); }
 .journey-readout span, .journey-readout small { display: block; color: var(--color-mute); font-size: .78rem; }
-.journey-readout span { font-family: var(--font-display); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.journey-readout span { font-family: var(--font-display); font-weight: 600; font-size: .88rem; }
 .journey-readout strong { display: block; margin: .3rem 0 .25rem; font-family: var(--font-display); font-size: 1.5rem; line-height: 1.05; text-transform: uppercase; }
 
 @media (min-width: 901px) {
@@ -648,6 +606,16 @@ h3 {
   border: 0;
   clip-path: none;
   padding: 0;
+}
+
+/* Reference: a fact from outside the dataset. Quiet like the record, with a square marker where the others have a round one, so the difference is a shape as well as a colour. */
+.tag-ref {
+  background: transparent;
+  color: var(--color-quiet);
+}
+
+.tag-ref::before {
+  border-radius: 0;
 }
 
 .tag-illus {
@@ -1062,6 +1030,20 @@ nav.scroll-x::-webkit-scrollbar {
   }
 }
 
+/* The map's detail (kerbs, chevrons) fades in once the track has been drawn. */
+@keyframes map-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.map-in {
+  animation: map-in 600ms ease 1.2s both;
+}
+
 @keyframes draw {
   from {
     stroke-dashoffset: var(--len, 1000);
@@ -1113,6 +1095,7 @@ nav.scroll-x::-webkit-scrollbar {
   .skeleton,
   .pop-in,
   .rise,
+  .map-in,
   .lamp-driven > * {
     animation: none !important;
   }
@@ -1293,6 +1276,10 @@ nav.scroll-x::-webkit-scrollbar {
   --kind-c: var(--color-ink);
 }
 
+.source-card[data-kind="reference"] {
+  --kind-c: var(--color-quiet);
+}
+
 .source-card dd {
   color: var(--color-mute);
   font-size: 0.85rem;
@@ -1415,10 +1402,9 @@ nav.scroll-x::-webkit-scrollbar {
 /* ------------------------------------------------------------------ site navigation */
 
 /*
-  The bar, the dock and the theme switch are the one place the system uses a pill, and the one place it uses glass: a floating
+  The bar and the dock are the one place the system uses a pill, and the one place it uses glass: a floating
   capsule of frosted, glossy material (a blurred view of the page behind it, a soft sheen across the top, a bright
-  upper edge and a lifting shadow). The current destination is marked quietly: a tonal pill (a tint of the ink, so it works in
-  both themes) and ink text instead of muted text. The glass is kept dense enough (74% to 80%) that the labels stay legible
+  upper edge and a lifting shadow). The current destination is marked quietly: a tonal pill (a tint of the ink) and ink text instead of muted text. The glass is kept dense enough (74% to 80%) that the labels stay legible
   over any content, and it falls back to a solid surface when the browser cannot blur or the reader asks for less transparency.
 */
 
@@ -1438,25 +1424,6 @@ nav.scroll-x::-webkit-scrollbar {
   --glass-pill: color-mix(in srgb, var(--color-ink) 13%, transparent);
   --glass-pill-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 1px 3px rgb(0 0 0 / 0.4);
   --nav-idle: var(--color-steel);
-  --knob-bg: var(--color-ink);
-  --knob-fg: var(--color-paper);
-}
-
-/* frosted glass, light: whiter than the page, with a defined edge and a deeper shadow so it stands off the paper */
-:root[data-theme="light"] {
-  --glass-bg: color-mix(in srgb, var(--color-panel) 64%, transparent);
-  --glass-bg-strong: color-mix(in srgb, var(--color-panel) 90%, transparent);
-  --glass-solid: var(--color-panel);
-  --glass-sheen: rgb(255 255 255 / 0.7);
-  --glass-edge: rgb(10 11 14 / 0.16);
-  --glass-drop: 0 14px 34px rgb(30 34 44 / 0.22), 0 2px 6px rgb(30 34 44 / 0.12);
-  --glass-inset: inset 0 1px 0 rgb(255 255 255 / 1), inset 0 -1px 0 rgb(10 11 14 / 0.07);
-  --glass-shadow: var(--glass-drop), var(--glass-inset);
-  --glass-pill: color-mix(in srgb, var(--color-ink) 9%, transparent);
-  --glass-pill-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 1px 2px rgb(10 11 14 / 0.12), 0 0 0 1px rgb(10 11 14 / 0.07);
-  --nav-idle: var(--color-steel);
-  --knob-bg: var(--color-panel);
-  --knob-fg: var(--color-ink);
 }
 
 .site-bar {
@@ -1506,9 +1473,14 @@ nav.scroll-x::-webkit-scrollbar {
   pointer-events: none;
 }
 
-.nav-brand {
+/* The logo and, on a page that has sections, the chip for the current section. */
+.site-bar__lead {
   grid-column: 1;
   justify-self: start;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .site-bar__tools {
@@ -1531,12 +1503,19 @@ nav.scroll-x::-webkit-scrollbar {
   background: transparent;
   color: var(--nav-idle);
   cursor: pointer;
-  transition: color 140ms ease, background-color 140ms ease;
+  transition: color 140ms ease, background-color 140ms ease, transform 90ms var(--ease-out);
 }
 
 .site-tool:hover {
   background: var(--pill-bg);
   color: var(--color-ink);
+}
+
+/* Pressed: it gives a little under the finger at once, so the press is felt before the search has opened. */
+.site-tool:active {
+  background: var(--pill-bg);
+  color: var(--color-ink);
+  transform: scale(0.92);
 }
 
 /* ---- desktop destinations: a pill that slides to the current one */
@@ -1631,7 +1610,7 @@ button.dock__item {
 
 /*
   "More": the pages that belong to a destination without having a place in the bar.
-  It is the bar's glass, a little denser because it holds text (90% light, 86% dark against the bar's 64% and 62%), and it blurs
+  It is the bar's glass, a little denser because it holds text (86% against the bar's 62%), and it blurs
   the page behind it. That works because the capsule and the dock are not blurred surfaces themselves (their glass is a
   pseudo-element): a blurred surface inside another one cannot see the page, and the list used to show it through as ghost text.
   On a desktop it opens when the pointer is over it; the transparent bridge above it keeps it open while the pointer crosses
@@ -1710,7 +1689,7 @@ button.dock__item {
   align-items: center;
   gap: 0.8rem;
   min-height: 3.25rem;
-  padding: 0.45rem 0.6rem;
+  padding: 0.5rem 0.9rem;
   border-radius: 0.9rem;
   color: var(--color-steel);
   text-decoration: none;
@@ -1721,26 +1700,6 @@ button.dock__item {
 .more-item[data-active="true"] {
   background: var(--pill-bg);
   color: var(--color-ink);
-}
-
-.more-item__icon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.8rem;
-  background: var(--pill-bg);
-  box-shadow: inset 0 0 0 1px var(--pill-edge);
-  color: var(--color-ink);
-  transition: background-color 140ms ease, color 140ms ease;
-}
-
-/* The page you are on gets the inverted tile, so it is found at a glance. */
-.more-item[data-active="true"] .more-item__icon {
-  background: var(--color-ink);
-  box-shadow: none;
-  color: var(--color-paper);
 }
 
 .more-item__label {
@@ -1758,281 +1717,143 @@ button.dock__item {
   line-height: 1.25;
 }
 
-/* ---- the theme switch: a stretch of circuit, with a car that drives from day to night */
+/* ---- the current section, as a dropdown in the bar */
 
-.theme-control {
+.section-menu {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/*
+  The chip is the strip, melted into the bar: the current section in the same tonal pill the bar uses to mark the current page.
+  It is there (zero wide, invisible) whenever the page has sections, and grows in when the strip reaches the bar.
+*/
+.section-chip {
   display: inline-flex;
   align-items: center;
-}
-
-/*
-  The switch is a short stretch of track. It has a red and white kerb along its edge, asphalt with a dashed centre line, and an
-  F1 car, seen from above, for a knob. By day the car is pale, with a red stripe and a dark cockpit, and sits at the start with a
-  chequered finish line ahead of it. Switching drives it to the far end, where it turns round to face back down the lane: by
-  night it is carbon-black with a bright rim light and a gold helmet, its red rear light and headlamps are on, and its beams
-  light the lane while four floodlights come on one after another, like the start lights.
-  The track is 72 x 34 and the button around it 80 x 44, a comfortable target. Everything but the page's own repaint runs on
-  transforms and opacity, so it keeps moving smoothly while the page changes behind it.
-*/
-.theme-toggle {
-  --track-w: 72px;
-  --track-h: 34px;
-  --kerb: 3px;
-  --knob-w: 30px;
-  --knob-h: 12px;
-  --inset: 3px;
-  --travel: calc(var(--track-w) - 2 * var(--kerb) - var(--knob-w) - 2 * var(--inset));
-  --roll: cubic-bezier(0.22, 1, 0.36, 1); /* eases out and stops dead: nothing overshoots or bounces */
-  display: grid;
-  place-items: center;
-  width: 80px;
-  height: 44px;
-  border-radius: 999px;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* The kerb: red and white stripes round the edge. By night it is dimmed, so it is not the brightest thing on the bar. */
-.theme-toggle__track {
-  position: relative;
-  display: block;
-  width: var(--track-w);
-  height: var(--track-h);
-  padding: var(--kerb);
-  border-radius: 999px;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.3);
-}
-
-.theme-toggle__track::before,
-.theme-toggle__track::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-}
-
-.theme-toggle__track::before {
-  background: repeating-linear-gradient(90deg, #d40a00 0 6px, #f2f2f0 6px 12px);
-  transition: filter 160ms ease;
-}
-
-.theme-toggle__track::after {
-  background: rgb(0 0 0 / 0.36);
-  opacity: 0;
-  transition: opacity 260ms ease;
-}
-
-.theme-toggle:hover .theme-toggle__track::before {
-  filter: brightness(1.08);
-}
-
-.theme-toggle:focus-visible {
-  outline: none;
-}
-
-.theme-toggle:focus-visible .theme-toggle__track {
-  outline: 2px solid var(--color-ink);
-  outline-offset: 3px;
-}
-
-/* The asphalt, with its dashed centre line. */
-.theme-toggle__lane {
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
+  gap: 0.4rem;
+  height: 36px;
+  max-width: 0;
+  margin-left: 0;
+  padding: 0;
   overflow: hidden;
-  border-radius: inherit;
-  background:
-    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.5) 0 5px, transparent 5px 11px) center / 100% 2px no-repeat,
-    linear-gradient(180deg, #787e89 0%, #979da8 100%);
-  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.38);
-}
-
-/* Night: the same lane, dark, faded in over the day one. */
-.theme-toggle__night {
-  position: absolute;
-  inset: 0;
-  background:
-    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.26) 0 5px, transparent 5px 11px) center / 100% 2px no-repeat,
-    linear-gradient(180deg, #07080b 0%, #171a21 100%);
-  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.6);
+  border-radius: 999px;
+  background: var(--glass-pill);
+  box-shadow: var(--glass-pill-shadow);
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
   opacity: 0;
-  transition: opacity 240ms ease;
+  visibility: hidden;
+  transform: translateY(8px) scale(0.96);
+  transition: max-width 320ms var(--ease-out), margin 320ms var(--ease-out), padding 320ms var(--ease-out), opacity 180ms ease, transform 300ms var(--ease-out), visibility 0s linear 320ms;
 }
 
-/* Night: four floodlights in a gantry on the side the car has left. They come on one by one. */
-.theme-toggle__lights {
+.section-menu[data-stuck="true"] .section-chip {
+  max-width: 13rem;
+  margin-left: 0.25rem;
+  padding: 0 0.7rem 0 0.65rem;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: max-width 340ms var(--ease-out) 100ms, margin 340ms var(--ease-out) 100ms, padding 340ms var(--ease-out) 100ms, opacity 220ms ease 140ms, transform 320ms var(--ease-out) 120ms, visibility 0s;
+}
+
+.section-chip:hover,
+.section-chip[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--color-ink) 17%, transparent);
+}
+
+.section-chip__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.section-chip__chevron {
+  flex: none;
+  transition: rotate 200ms var(--ease-out);
+}
+
+/* On a tablet the bar has little room to spare: the chip is just its icon there, and its name is on the button for assistive technology. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .section-chip__label,
+  .section-chip__chevron {
+    display: none;
+  }
+  .section-menu[data-stuck="true"] .section-chip {
+    padding: 0 0.65rem;
+  }
+}
+
+/* The list of sections: the bar's glass, a little denser because it holds text, opening under the bar from the logo's side. */
+.section-panel {
   position: absolute;
-  inset: 0;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  width: min(22rem, 100%);
+  max-height: calc(100dvh - var(--nav-h) - 1.25rem);
+  padding: 0.4rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--glass-edge);
+  border-radius: 1.25rem;
+  background-color: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--glass-shadow);
+  transform-origin: top left;
 }
 
-.theme-toggle__lights i {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #fff7dc;
-  box-shadow: 0 0 4px 1px rgb(255 238 180 / 0.85), 0 0 9px 2px rgb(255 228 150 / 0.28);
-  opacity: 0;
-  transition: opacity 90ms ease;
+.section-panel:not([hidden]) {
+  animation: more-in 180ms var(--ease-out) both;
 }
 
-.theme-toggle__lights i:nth-child(1) { left: 11%; top: 24%; }
-.theme-toggle__lights i:nth-child(2) { left: 24%; top: 24%; }
-.theme-toggle__lights i:nth-child(3) { left: 11%; top: 64%; }
-.theme-toggle__lights i:nth-child(4) { left: 24%; top: 64%; }
-
-/* Day: a chequered finish line at the far end. */
-.theme-toggle__finish {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 14px;
-  background: repeating-conic-gradient(#f4f4f2 0 25%, #15171b 0 50%) 0 0 / 8px 8px;
-  opacity: 1;
-  transition: opacity 200ms ease;
+.section-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* The car's box: it slides along the lane by transform. */
-.theme-toggle__knob {
-  position: absolute;
-  top: 50%;
-  left: var(--inset);
-  width: var(--knob-w);
-  height: var(--knob-h);
-  margin-top: calc(var(--knob-h) / -2);
-  transition: transform 280ms var(--roll);
+.section-panel__link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border-radius: 0.9rem;
+  color: var(--color-steel);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 160ms ease, background-color 160ms ease;
 }
 
-/*
-  The car, from above, nose to the right: wings, four wheels, a body with sidepods that narrows to the nose, a stripe, a cockpit
-  and a rear light, with a pair of headlamp beams ahead of the nose. By day it faces the finish; by night it has turned round
-  (the turn happens at the end of the drive, not the start, so it always goes forwards). Its colours are variables, so each
-  state is just a set of values.
-*/
-.theme-toggle__car {
-  --car-body: #f4f4f2;
-  --car-wing: #e6e6e3;
-  --car-wheel: #15171b;
-  --car-cockpit: #15171b;
-  --car-accent: #d40a00;
-  --car-edge: #4d535c;
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  transition: transform 130ms ease 150ms;
+.section-panel__link:hover,
+.section-panel__link[aria-current="true"] {
+  color: var(--color-ink);
+  background: var(--glass-pill);
 }
 
-.theme-toggle__car .car__body,
-.theme-toggle__car .car__wing,
-.theme-toggle__car .car__wheel,
-.theme-toggle__car .car__cockpit {
-  stroke: var(--car-edge);
-  stroke-width: 0.45;
-  stroke-linejoin: round;
-  transition: fill 240ms ease, stroke 240ms ease;
+.section-panel__link[aria-current="true"] {
+  box-shadow: var(--glass-pill-shadow);
 }
 
-.theme-toggle__car .car__body { fill: var(--car-body); }
-.theme-toggle__car .car__wing { fill: var(--car-wing); }
-.theme-toggle__car .car__wheel { fill: var(--car-wheel); }
-.theme-toggle__car .car__cockpit { fill: var(--car-cockpit); }
-
-.theme-toggle__car .car__stripe {
-  fill: none;
-  stroke: var(--car-accent);
-  stroke-width: 1.3;
-  stroke-linecap: butt;
+.section-panel__divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem 0.3rem;
+  color: var(--color-mute);
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
-.theme-toggle__car .car__tail {
-  fill: #ff2a1a;
-  opacity: 0.25;
-  transition: opacity 200ms ease 120ms;
-}
-
-.theme-toggle__car .car__lamp {
-  fill: #fff7dc;
-  opacity: 0;
-  transition: opacity 200ms ease 120ms;
-}
-
-.theme-toggle__car .car__beam {
-  fill: url(#theme-beam);
-  opacity: 0;
-  transition: opacity 220ms ease 120ms;
-}
-
-.theme-toggle__car .beam-near {
-  stop-color: #fff4c4;
-  stop-opacity: 0.85;
-}
-
-.theme-toggle__car .beam-far {
-  stop-color: #fff4c4;
-  stop-opacity: 0;
-}
-
-/* Night: the dark lane, the floodlights (one after another), the dimmed kerb, the dark car at the far end with its lights on. */
-.theme-toggle[aria-checked="true"] .theme-toggle__night {
-  opacity: 1;
-}
-
-.theme-toggle[aria-checked="true"] .theme-toggle__track::after {
-  opacity: 1;
-}
-
-.theme-toggle[aria-checked="true"] .theme-toggle__finish {
-  opacity: 0;
-}
-
-.theme-toggle[aria-checked="true"] .theme-toggle__lights i {
-  opacity: 1;
-}
-
-.theme-toggle[aria-checked="true"] .theme-toggle__lights i:nth-child(1) { transition-delay: 120ms; }
-.theme-toggle[aria-checked="true"] .theme-toggle__lights i:nth-child(2) { transition-delay: 175ms; }
-.theme-toggle[aria-checked="true"] .theme-toggle__lights i:nth-child(3) { transition-delay: 230ms; }
-.theme-toggle[aria-checked="true"] .theme-toggle__lights i:nth-child(4) { transition-delay: 285ms; }
-
-.theme-toggle[aria-checked="true"] .theme-toggle__knob {
-  transform: translateX(var(--travel));
-}
-
-.theme-toggle[aria-checked="true"] .theme-toggle__car {
-  --car-body: #1d2129;
-  --car-wing: #13161b;
-  --car-wheel: #0a0b0e;
-  --car-cockpit: #f2c14e;
-  --car-edge: #a9b1c0;
-  transform: scaleX(-1);
-}
-
-.theme-toggle[aria-checked="true"] .car__tail {
-  opacity: 1;
-  filter: drop-shadow(0 0 1.5px rgb(255 42 26 / 0.95));
-}
-
-.theme-toggle[aria-checked="true"] .car__lamp,
-.theme-toggle[aria-checked="true"] .car__beam {
-  opacity: 1;
-}
-
-/* Before the first use nothing drives or fades: the control is simply drawn in the state the page is in. */
-.theme-control:not([data-touched="true"]) .theme-toggle__knob,
-.theme-control:not([data-touched="true"]) .theme-toggle__car,
-.theme-control:not([data-touched="true"]) .theme-toggle__car *,
-.theme-control:not([data-touched="true"]) .theme-toggle__night,
-.theme-control:not([data-touched="true"]) .theme-toggle__finish,
-.theme-control:not([data-touched="true"]) .theme-toggle__lights i,
-.theme-control:not([data-touched="true"]) .theme-toggle__track::before,
-.theme-control:not([data-touched="true"]) .theme-toggle__track::after {
-  transition: none;
+.section-panel__divider .subnav__flag {
+  margin: 0;
 }
 
 /* ---- the phone dock: destinations as a floating capsule at the thumb */
@@ -2139,6 +1960,21 @@ body::after {
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: var(--glass-shadow);
+  transition: opacity 260ms ease, transform 280ms var(--ease-out), visibility 0s;
+}
+
+/*
+  Reached the bar: the strip does not dock under it as a second bar, it melts into the first. It fades and lifts toward the bar
+  while the bar's chip for the current section grows in beside the logo (see .section-chip), and it goes the other way when the
+  page is scrolled back up. It keeps its place in the page, so nothing moves. Hidden once it has faded, so it is out of the tab
+  order and the accessibility tree while the chip is the way around.
+*/
+.subnav[data-stuck="true"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-14px) scale(0.985);
+  transition: opacity 240ms ease, transform 300ms var(--ease-out), visibility 0s linear 300ms;
 }
 
 .subnav-marker {
@@ -2224,23 +2060,21 @@ body::after {
     transition: transform 220ms var(--ease-out);
   }
   /*
-    On a phone the strip is pinned 8px from the top and, while the capsule is showing, sits 8px under it, like a second pill of the same bar. It gets there with a
-    transform, on the same curve and over the same time as the capsule's own slide, so the two move as one piece. It used to
-    follow the capsule by changing its `top`, which cannot animate without shifting layout: the strip snapped 56px every time the
-    capsule came or went.
+    On a phone the bar hides while reading, so the strip is the way around then: it comes back, alone, 8px from the top, and gives
+    way to the bar's chip again when the bar returns. There are never two bars on screen at once.
   */
-  :root {
-    --chrome-shift: calc(var(--bar-h) + 0.5rem);
-  }
-  :root[data-chrome="compact"] {
-    --chrome-shift: 0px;
-  }
   .subnav {
     top: calc(0.5rem + env(safe-area-inset-top));
   }
-  .subnav[data-stuck="true"] {
-    transform: translateY(var(--chrome-shift));
-    transition: transform 220ms var(--ease-out);
+  :root[data-chrome="compact"] .subnav[data-stuck="true"] {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
+    transition: opacity 220ms ease 140ms, transform 240ms var(--ease-out) 140ms, visibility 0s;
+  }
+  .site-bar__lead {
+    grid-column: 1 / 3;
   }
   .nav-brand .logo-mark {
     height: 30px;
@@ -2287,7 +2121,8 @@ body::after {
   .dock::before {
     background: var(--glass-solid);
   }
-  .more-panel {
+  .more-panel,
+  .section-panel {
     background-color: var(--glass-solid);
   }
 }
@@ -2299,7 +2134,8 @@ body::after {
     backdrop-filter: none;
     background: var(--glass-solid);
   }
-  .more-panel {
+  .more-panel,
+  .section-panel {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background-color: var(--glass-solid);
@@ -2309,16 +2145,9 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .site-nav__pill,
   .dock__pill,
-  .theme-toggle__track,
-  .theme-toggle__track::before,
-  .theme-toggle__track::after,
-  .theme-toggle__knob,
-  .theme-toggle__car,
-  .theme-toggle__car *,
-  .theme-toggle__night,
-  .theme-toggle__finish,
-  .theme-toggle__lights i,
   .subnav,
+  .section-chip,
+  .section-chip__chevron,
   body::after,
   .chrome-bar {
     transition: none !important;
@@ -2345,6 +2174,7 @@ body::after {
   padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) 0 max(0.75rem, env(safe-area-inset-left));
   background: rgb(0 0 0 / 0.65);
   overscroll-behavior: contain;
+  animation: palette-in 140ms var(--ease-out) both;
 }
 
 .palette__panel {
@@ -2357,6 +2187,46 @@ body::after {
   border: 1px solid var(--color-line2);
   background: var(--color-tower);
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
+  animation: palette-rise 200ms var(--ease-out) both;
+}
+
+/*
+  It fades and settles in, and fades out when it closes instead of vanishing. Only opacity and transform move, both on the
+  compositor, so a phone that is still drawing the page behind cannot make it stutter, and nothing eases past its target (every
+  curve here keeps its control heights between 0 and 1). While it leaves it is out of reach: a click goes through to the page.
+  `LEAVE_MS` in CommandPalette.tsx is at least the exit's length.
+*/
+@keyframes palette-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes palette-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes palette-rise {
+  from {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes palette-drop {
+  to {
+    transform: translateY(-6px);
+  }
+}
+
+.palette[data-state="closing"] {
+  pointer-events: none;
+  animation: palette-out 120ms var(--ease-out) both;
+}
+
+.palette[data-state="closing"] .palette__panel {
+  animation: palette-drop 120ms var(--ease-out) both;
 }
 
 .palette__field {
@@ -2413,11 +2283,52 @@ body::after {
 }
 
 .palette__list {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   padding: 0.25rem 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* a thin bar with no arrow buttons, in the colour of a hairline, instead of the browser's own */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line2) transparent;
+  transition: height 140ms var(--ease-out);
+}
+
+/* while the list changes height its own bar stays out of sight */
+.palette__list[data-sizing] {
+  overflow-y: hidden;
+}
+
+/*
+  One highlight behind the active row, moved by a transform. It glides to a row the keys or the pointer move it to
+  (`data-slide`), and goes straight to the first row when a new search replaces the list.
+*/
+.palette__cursor {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  list-style: none;
+  pointer-events: none;
+  background: var(--color-panel2);
+  box-shadow: inset 2px 0 0 var(--color-ink);
+  will-change: transform;
+}
+
+.palette__cursor[data-slide] {
+  transition: transform 130ms var(--ease-out), height 130ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palette,
+  .palette__panel {
+    animation: none !important;
+  }
+  .palette__cursor[data-slide],
+  .palette__list {
+    transition: none;
+  }
 }
 
 .palette__hint {
@@ -2439,6 +2350,11 @@ body::after {
   }
   .palette__list {
     max-height: min(24rem, 55vh);
+  }
+  /* a few rows of room whatever is typed, so the panel does not jump in height with every letter */
+  .palette__list,
+  .palette__empty {
+    min-height: min(13rem, 40vh);
   }
 }
 
@@ -2535,14 +2451,13 @@ body::after {
 
 /*
   Windows High Contrast and similar modes replace every colour with the reader's own. Glass, tints and drawn shapes then vanish
-  or turn to mush, so the floating surfaces become plain boxes with an edge in the system's text colour, and the theme switch,
-  which is a small drawing whose state is told by its colours, keeps its own (it still has its name and state for assistive
-  technology, and a focus ring).
+  or turn to mush, so the floating surfaces become plain boxes with an edge in the system's text colour.
 */
 @media (forced-colors: active) {
   .site-bar__inner,
   .dock,
   .more-panel,
+  .section-panel,
   .to-top,
   .palette__panel {
     -webkit-backdrop-filter: none;
@@ -2555,12 +2470,6 @@ body::after {
   .dock::before,
   body::after {
     display: none;
-  }
-  .theme-toggle {
-    forced-color-adjust: none;
-  }
-  .theme-toggle:focus-visible .theme-toggle__track {
-    outline-color: Highlight;
   }
   .site-nav__pill,
   .dock__pill {

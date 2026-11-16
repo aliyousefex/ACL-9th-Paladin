@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CircuitMap, CircuitThumb } from "../../components/CircuitMap";
 import { Flag } from "../../components/Flag";
 import { Icon } from "../../components/Icon";
@@ -28,7 +28,7 @@ import { useTitle } from "../../lib/hooks";
 import { replaceQuery, href, navigate } from "../../lib/router";
 import { usePrefersReducedMotion } from "../../lib/motion";
 import { pickUniform, readBookmarks, readChallenge } from "../../lib/challenge";
-import { pointAt } from "../race/replay";
+import { frameAt, lapFrames, lapLength, launchDistance, launchFrames, sampleTrack, type LapPoint } from "../../lib/lap";
 import model from "../../data/model.json";
 import { ChallengeHub } from "../games/ChallengeHub";
 import { FirstVisit } from "./FirstVisit";
@@ -143,13 +143,28 @@ function Kpi({ label, value, note }: { label: string; value: string; note?: stri
   );
 }
 
+/** The home car's timing, in milliseconds: the lights go out, the launch builds to a steady speed, and a lap at that speed takes this long. */
+const LIGHTS_OUT = 2800;
+const LAUNCH_MS = 3000;
+const LAP_MS = 24000;
+/** The first grid slot is this many map units behind the line. */
+const POLE_BACK = 11;
+/** The car is a little smaller than the track is wide (the wings sit well inside the white lines), and drawn in a box that holds it. */
+const CAR_SCALE = 1.1;
+const CAR_BOX = { w: 48, h: 26 };
+
 /** A real circuit with a car lapping it. Pure illustration, and labelled as such. */
 function Tracer() {
   const meta = currentLayout(circuitOf(22)); // Suzuka: a figure-eight reads well at a glance
   const { data: layout } = useResource<Layout>(meta.id, () => loadLayout(meta.id));
   const reduce = usePrefersReducedMotion();
-  const dot = useRef<SVGGElement>(null);
+  const stage = useRef<HTMLDivElement>(null); // the map, and the layer the car rides in laid over it
+  const deck = useRef<HTMLDivElement>(null); // that layer: the map's own coordinates, scaled to fit the drawing
+  const car = useRef<HTMLDivElement>(null);
+  const born = useRef(performance.now());
   const [lit, setLit] = useState(reduce ? 5 : 0);
+  // the lap, from points on the drawn curve itself (the outline's samples where the browser cannot measure a path)
+  const frames = useMemo(() => (layout ? lapFrames(sampleTrack(layout.path) ?? layout.samples) : []), [layout]);
 
   useEffect(() => {
     if (reduce) {
@@ -161,19 +176,73 @@ function Tracer() {
     return () => timers.forEach(window.clearTimeout);
   }, [reduce]);
 
+  // The car's layer sits over the map's drawn area (the map is drawn to fit its box, so there may be room either side of it).
   useEffect(() => {
-    if (!layout || reduce) return;
-    let frame = 0;
-    const start = performance.now() + 2800;
-    const tick = (now: number) => {
-      const s = Math.max(0, (now - start) / 24000) % 1;
-      const p = pointAt(layout.samples, s);
-      dot.current?.setAttribute("transform", `translate(${p.x} ${p.y}) rotate(${p.angle})`);
-      frame = requestAnimationFrame(tick);
+    const outer = stage.current;
+    const layer = deck.current;
+    const svg = outer?.querySelector("svg");
+    if (!outer || !layer || !svg || !layout) return;
+    const [w, h] = layout.viewBox;
+    const place = () => {
+      const around = outer.getBoundingClientRect();
+      const box = svg.getBoundingClientRect();
+      if (box.width <= 0 || box.height <= 0) return;
+      const k = Math.min(box.width / w, box.height / h);
+      const x = box.left - around.left + (box.width - w * k) / 2;
+      const y = box.top - around.top + (box.height - h * k) / 2;
+      layer.style.transform = `translate(${x}px, ${y}px) scale(${k})`;
+      layer.style.visibility = "visible";
     };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [layout, reduce]);
+    place();
+    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(place);
+    watch?.observe(svg);
+    watch?.observe(outer);
+    return () => watch?.disconnect();
+  }, [layout]);
+
+  // The car's lap. It is moved by the browser's animation engine, not by this code frame by frame, so it runs on the compositor and
+  // a busy page (a phone drawing the map, a script, a scroll) cannot make it stutter. It waits in the first grid slot for the lights to
+  // go out, pulls away with a steady build of speed, and then laps at an even pace with the heading turning continuously.
+  useEffect(() => {
+    const node = car.current;
+    const outer = stage.current;
+    if (!node || !outer || frames.length === 0) return;
+    const pose = (p: LapPoint) => ({ transform: `translate(${p.x.toFixed(2)}px, ${p.y.toFixed(2)}px) rotate(${p.angle.toFixed(2)}deg)` });
+    if (reduce || typeof node.animate !== "function") {
+      node.style.transform = pose(frameAt(frames, 0.08)).transform;
+      return;
+    }
+    const wait = Math.max(0, LIGHTS_OUT - (performance.now() - born.current));
+    const from = 1 - POLE_BACK / lapLength(frames);
+    const reach = launchDistance(LAUNCH_MS, LAP_MS);
+    node.style.transform = pose(frameAt(frames, from)).transform;
+    const launch = node.animate(launchFrames(frames, from, reach).map(pose), { delay: wait, duration: LAUNCH_MS, easing: "linear", fill: "both" });
+    const cruise = node.animate(frames.map(pose), { delay: wait + LAUNCH_MS, duration: LAP_MS, iterations: Infinity, iterationStart: (from + reach) % 1, easing: "linear", fill: "forwards" });
+    // Only while the map is on screen: scrolled away there is nothing to see, so the car waits where it is and goes on from there.
+    const held: Animation[] = [];
+    const watch =
+      typeof IntersectionObserver === "undefined"
+        ? null
+        : new IntersectionObserver(
+            ([entry]) => {
+              if (entry.isIntersecting) held.splice(0).forEach((a) => a.play());
+              else {
+                for (const a of [launch, cruise]) {
+                  if (a.playState !== "running") continue;
+                  a.pause();
+                  held.push(a);
+                }
+              }
+            },
+            { rootMargin: "120px" },
+          );
+    watch?.observe(outer);
+    return () => {
+      watch?.disconnect();
+      launch.cancel();
+      cruise.cancel();
+    };
+  }, [frames, reduce]);
 
   return (
     <div className="relative">
@@ -188,17 +257,22 @@ function Tracer() {
         </div>
         <div className="grid min-h-[300px] place-items-center">
           {layout ? (
-            <CircuitMap layout={layout} className="block w-full max-h-[420px]" sectors animateDraw weight={1} label="Suzuka circuit with a car lapping it">
-              <g
-                ref={dot}
-                transform={(() => {
-                  const start = pointAt(layout.samples, 0.08);
-                  return `translate(${start.x} ${start.y}) rotate(${start.angle})`;
-                })()}
+            <div ref={stage} className="relative w-full">
+              <CircuitMap layout={layout} className="block w-full max-h-[420px]" sectors animateDraw weight={1} label="Suzuka circuit with a car lapping it" />
+              {/* the car's layer: the map's own coordinates, so the car is placed and turned in them, and scaled with the drawing */}
+              <div
+                ref={deck}
+                aria-hidden
+                className="map-in pointer-events-none absolute left-0 top-0"
+                style={{ width: layout.viewBox[0], height: layout.viewBox[1], transformOrigin: "0 0", transform: "scale(0)", visibility: "hidden" }}
               >
-                <VectorRaceCar colour="#e10600" ink="#ffffff" number={null} scale={1.35} />
-              </g>
-            </CircuitMap>
+                <div ref={car} data-lapping-car className="absolute" style={{ left: -CAR_BOX.w / 2, top: -CAR_BOX.h / 2, width: CAR_BOX.w, height: CAR_BOX.h, transformOrigin: "50% 50%", willChange: "transform" }}>
+                  <svg viewBox={`${-CAR_BOX.w / 2} ${-CAR_BOX.h / 2} ${CAR_BOX.w} ${CAR_BOX.h}`} width={CAR_BOX.w} height={CAR_BOX.h} className="block overflow-visible" focusable="false">
+                    <VectorRaceCar colour="#e10600" ink="#ffffff" number={null} scale={CAR_SCALE} />
+                  </svg>
+                </div>
+              </div>
+            </div>
           ) : (
             <span className="skeleton h-64 w-full" />
           )}
@@ -441,7 +515,7 @@ function Standings({ season }: { season: number }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Panel eyebrow={`${season} · after round ${rounds}`} title="Drivers' championship" tag="record" level={3}>
+      <Panel context={`${season} · after round ${rounds}`} title="Drivers' championship" tag="record" level={3}>
         <ol className="divide-y divide-line" aria-label="Driver standings">
           {drivers.map((d, i) => {
             const info = driverOf(d.id);
@@ -465,7 +539,7 @@ function Standings({ season }: { season: number }) {
           })}
         </ol>
       </Panel>
-      <Panel eyebrow={`${season} · after round ${rounds}`} title="Constructors' championship" tag="record" level={3}>
+      <Panel context={`${season} · after round ${rounds}`} title="Constructors' championship" tag="record" level={3}>
         <ol className="divide-y divide-line" aria-label="Constructor standings">
           {teams.map((t, i) => {
             const info = teamOf(t.id);

@@ -47,7 +47,7 @@ export function WhatIfPanel({ rows, focus, onFocus }: { rows: Row[]; focus: numb
 
   return (
     <Panel
-      eyebrow="Try it · same model, your inputs"
+      context="Try it · same model, your inputs"
       title="What if the inputs were different?"
       tag={["model", "user"]}
       actions={

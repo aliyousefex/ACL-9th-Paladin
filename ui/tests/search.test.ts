@@ -43,7 +43,7 @@ test("an empty query returns the suggestions, not the whole index", () => {
   assert.deepEqual(search(index, "", 5), []);
 });
 
-test("the real index covers every race, driver and circuit once, and every result opens a real route", async () => {
+test("the real index covers every race, driver, team and circuit once, and every result opens a real route", async () => {
   const { buildIndex, suggestions } = await loadModule<{ buildIndex: () => SearchItem[]; suggestions: () => SearchItem[] }>("/src/lib/searchIndex.ts");
   const items = buildIndex();
   assert.equal(new Set(items.map((entry) => entry.id)).size, items.length, "ids are unique");
@@ -53,8 +53,15 @@ test("the real index covers every race, driver and circuit once, and every resul
   const raceCircuits = new Set(JSON.parse(readFileSync(new URL("../src/data/races.json", import.meta.url), "utf8")).map((race: { circuitId: number }) => race.circuitId)).size;
   assert.equal(items.filter((entry) => entry.kind === "driver").length, drivers);
   assert.equal(items.filter((entry) => entry.kind === "circuit").length, raceCircuits);
+  const constructors = JSON.parse(readFileSync(new URL("../src/data/drivers.json", import.meta.url), "utf8")).constructors as { ref: string }[];
+  const principals = JSON.parse(readFileSync(new URL("../src/data/team-principals.json", import.meta.url), "utf8")) as { people: { ref: string }[] };
+  assert.equal(items.filter((entry) => entry.kind === "team").length, constructors.length, "one item for each team");
+  assert.equal(items.filter((entry) => entry.kind === "leader").length, principals.people.length, "one item for each person who led one");
+  for (const entry of items.filter((e) => e.kind === "team" || e.kind === "leader")) {
+    assert.ok(constructors.some((c) => entry.to === `/teams/${c.ref}`), `${entry.id} opens a team page that exists: ${entry.to}`);
+  }
   for (const entry of items) {
-    assert.match(entry.to, /^\/($|race\/\d{4}\/[a-z0-9-]+$|drivers(\/[a-z0-9_-]+)?$|circuits(\/[a-z0-9_-]+)?$|analysis$|history$|league$|race-lab$|model$|method$|guide$)/, `${entry.id} -> ${entry.to}`);
+    assert.match(entry.to, /^\/($|race\/\d{4}\/[a-z0-9-]+$|drivers(\/[a-z0-9_-]+)?$|teams(\/[a-z0-9_]+)?$|circuits(\/[a-z0-9_-]+)?$|analysis$|history$|league$|race-lab$|model$|method$|guide$)/, `${entry.id} -> ${entry.to}`);
   }
   assert.equal(suggestions().length, 7);
   const index = prepare(items);
@@ -66,6 +73,17 @@ test("the real index covers every race, driver and circuit once, and every resul
   assert.equal(search(index, "verstappen")[0].kind, "driver");
   assert.ok(search(index, "ver").some((entry) => entry.title.includes("Verstappen")), "a driver's code finds them");
   assert.equal(search(index, "error atlas")[0].to, "/analysis");
+  // a team is found by the people who ran it, and each person by name goes to their team
+  const toto = search(index, "toto");
+  assert.equal(toto[0].title, "Toto Wolff");
+  assert.equal(toto[0].kind, "leader");
+  assert.equal(toto[0].to, "/teams/mercedes");
+  assert.ok(search(index, "wolff").some((entry) => entry.to === "/teams/mercedes"));
+  assert.equal(search(index, "mercedes")[0].kind, "team", "the team comes before the people who ran it");
+  assert.ok(search(index, "mercedes").some((entry) => entry.kind === "leader" && entry.title === "Toto Wolff"));
+  assert.equal(search(index, "horner")[0].to, "/teams/red_bull");
+  assert.equal(search(index, "vasseur")[0].to, "/teams/ferrari", "a person who led two teams goes to the one they led most recently");
+  assert.equal(search(index, "team archive")[0].to, "/teams");
   assert.equal(search(index, "teammate")[0].to, "/history");
   assert.equal(search(index, "2023 monaco").length >= 1, true);
 });

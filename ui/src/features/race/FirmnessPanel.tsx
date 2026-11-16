@@ -51,7 +51,7 @@ export function FirmnessPanel({ race, rows }: { race: RaceMeta; rows: Row[] }) {
   const highInterval = wilson(high.podiums, high.picks);
 
   return (
-    <Panel eyebrow="Step 2a · Would a small change move the call?" title="How firm is the call?" tag="model">
+    <Panel context="Step 2a · Would a small change move the call?" title="How firm is the call?" tag="model">
       <p className="max-w-[72ch] text-steel">
         A score looks more certain than it is. Each name below is read three ways before the start: how often similar scores reached the podium in earlier seasons, whether the name survives small nudges to the inputs, and whether a second model agrees.
       </p>

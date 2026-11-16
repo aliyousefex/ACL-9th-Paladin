@@ -94,20 +94,20 @@ export function Models() {
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h3 className="text-[1.9rem]">{open.name}</h3>
-          <p className="font-display text-[0.95rem] tracking-[0.06em] text-steel uppercase">{open.short}</p>
+          <p className="font-display text-[1.05rem] text-steel">{open.short}</p>
         </div>
         <p className="mt-2 max-w-[68ch] text-steel">{open.body}</p>
         <dl className="mt-6 grid gap-px bg-line md:grid-cols-3">
           <div className="bg-paper p-4">
-            <dt className="font-display text-[0.9rem] tracking-[0.06em] text-steel uppercase">How it learns</dt>
+            <dt className="font-display text-[1.05rem] font-semibold text-steel">How it learns</dt>
             <dd className="mt-2 leading-relaxed">{open.learns}</dd>
           </div>
           <div className="bg-paper p-4">
-            <dt className="font-display text-[0.9rem] tracking-[0.06em] text-steel uppercase">Why we used it</dt>
+            <dt className="font-display text-[1.05rem] font-semibold text-steel">Why we used it</dt>
             <dd className="mt-2 leading-relaxed">{open.strength}</dd>
           </div>
           <div className="bg-paper p-4">
-            <dt className="font-display text-[0.9rem] tracking-[0.06em] text-steel uppercase">What to watch</dt>
+            <dt className="font-display text-[1.05rem] font-semibold text-steel">What to watch</dt>
             <dd className="mt-2 leading-relaxed">{open.caution}</dd>
           </div>
         </dl>

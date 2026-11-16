@@ -1,0 +1,96 @@
+{
+  "contract": "paladin.team-logos.v1",
+  "about": "Team marks are registered trademarks of their owners, shown here only to identify each team. Only marks with a free licence for the file itself are bundled: Simple Icons (CC0) for Mercedes, Ferrari, Red Bull, McLaren, Aston Martin and Alfa Romeo, and Wikimedia Commons for Alpine, Haas, Williams and Sauber. RB and AlphaTauri have no free file, so their tile shows its three-letter code. Every mark is drawn in one colour, the one that reads on the team's colour. To add or replace one, put the file in public/teams/ and list it below with where it came from, who made it and the terms it may be used on (all three are required, and a test fails without them).",
+  "logos": [
+    {
+      "constructor": "mercedes",
+      "file": "mercedes.svg",
+      "width": 24,
+      "height": 24,
+      "source": "https://github.com/simple-icons/simple-icons/blob/13.21.0/icons/mercedes.svg",
+      "author": "Simple Icons contributors",
+      "licence": "CC0 1.0 (the mark itself is its owner's trademark)"
+    },
+    {
+      "constructor": "ferrari",
+      "file": "ferrari.svg",
+      "width": 17,
+      "height": 24,
+      "source": "https://github.com/simple-icons/simple-icons/blob/13.21.0/icons/ferrari.svg",
+      "author": "Simple Icons contributors",
+      "licence": "CC0 1.0 (the mark itself is its owner's trademark)"
+    },
+    {
+      "constructor": "red_bull",
+      "file": "red_bull.svg",
+      "width": 42,
+      "height": 24,
+      "source": "https://github.com/simple-icons/simple-icons/blob/13.21.0/icons/redbull.svg",
+      "author": "Simple Icons contributors",
+      "licence": "CC0 1.0 (the mark itself is its owner's trademark)"
+    },
+    {
+      "constructor": "mclaren",
+      "file": "mclaren.svg",
+      "width": 161,
+      "height": 24,
+      "source": "https://github.com/simple-icons/simple-icons/blob/13.21.0/icons/mclaren.svg",
+      "author": "Simple Icons contributors",
+      "licence": "CC0 1.0 (the mark itself is its owner's trademark)"
+    },
+    {
+      "constructor": "aston_martin",
+      "file": "aston_martin.svg",
+      "width": 105,
+      "height": 24,
+      "source": "https://github.com/simple-icons/simple-icons/blob/13.21.0/icons/astonmartin.svg",
+      "author": "Simple Icons contributors",
+      "licence": "CC0 1.0 (the mark itself is its owner's trademark)"
+    },
+    {
+      "constructor": "alfa",
+      "file": "alfa.svg",
+      "width": 24,
+      "height": 24,
+      "source": "https://github.com/simple-icons/simple-icons/blob/13.21.0/icons/alfaromeo.svg",
+      "author": "Simple Icons contributors",
+      "licence": "CC0 1.0 (the mark itself is its owner's trademark)"
+    },
+    {
+      "constructor": "alpine",
+      "file": "alpine.svg",
+      "width": 482,
+      "height": 442,
+      "source": "https://commons.wikimedia.org/wiki/File:Alpine_F1_Team_Logo.svg",
+      "author": "Alpine F1 Team (Wikimedia Commons)",
+      "licence": "Public domain on Wikimedia Commons (the mark is a trademark)"
+    },
+    {
+      "constructor": "haas",
+      "file": "haas.svg",
+      "width": 546,
+      "height": 181,
+      "source": "https://commons.wikimedia.org/wiki/File:Haas_F1_Team_Logo.svg",
+      "author": "Haas F1 Team (Wikimedia Commons)",
+      "licence": "Public domain on Wikimedia Commons (the mark is a trademark)"
+    },
+    {
+      "constructor": "williams",
+      "file": "williams.webp",
+      "width": 1163,
+      "height": 408,
+      "source": "https://commons.wikimedia.org/wiki/File:Williams_Racing_Logo_2024.webp",
+      "author": "Williams Grand Prix Engineering Limited (Wikimedia Commons)",
+      "licence": "Public domain on Wikimedia Commons (the mark is a trademark)"
+    },
+    {
+      "constructor": "sauber",
+      "file": "sauber.webp",
+      "width": 420,
+      "height": 369,
+      "source": "https://commons.wikimedia.org/wiki/File:Logo_of_Stake_F1_Team_Kick_Sauber.png",
+      "author": "KarlMarx1889 (Wikimedia Commons); the white ground removed here",
+      "licence": "CC0 1.0 (the mark itself is its owner's trademark)"
+    }
+  ]
+}

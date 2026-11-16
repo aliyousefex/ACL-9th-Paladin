@@ -23,7 +23,7 @@ export function CircuitPanel({ race, circuit, revealed }: { race: RaceMeta; circ
   return (
     <Panel
       id="circuit"
-      eyebrow={`${circuit.location}${circuit.location && circuit.country ? ", " : ""}${circuit.country}`}
+      context={`${circuit.location}${circuit.location && circuit.country ? ", " : ""}${circuit.country}`}
       title={circuit.name}
       tag="record"
       actions={circuit.flag ? <Flag code={circuit.flag} className="!h-4 !w-6" /> : undefined}

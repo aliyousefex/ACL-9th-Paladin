@@ -123,7 +123,7 @@ function Connections({ index, query, go }: { index: GraphIndex; query: URLSearch
   }, [index]);
 
   return (
-    <Panel eyebrow="Two drivers, and the cars that connect them" title="How are these two drivers connected?" tag="record">
+    <Panel context="Two drivers, and the cars that connect them" title="How are these two drivers connected?" tag="record">
       <p className="max-w-[72ch] text-steel">
         Two drivers are linked when they raced for the same constructor in the same race. The chain below is the shortest one, and where several chains are equally short, the one with the most shared races.
       </p>
@@ -213,7 +213,7 @@ function DriverHistory({ index, query, go }: { index: GraphIndex; query: URLSear
   const linkFor = (id: number) => href("/history", { tab: "driver", d: id });
 
   return (
-    <Panel eyebrow="One driver, as a path through constructors" title="Driver history" tag="record">
+    <Panel context="One driver, as a path through constructors" title="Driver history" tag="record">
       <div className="flex flex-wrap items-end gap-3">
         <DriverPicker label="Driver" value={d} onChange={(id) => go({ d: id })} index={index} />
         {d !== null && (
@@ -312,7 +312,7 @@ function CircuitPodiums({ index, query, go }: { index: GraphIndex; query: URLSea
   const heldOut = RACES.filter((race) => race.circuitId === circuitId);
 
   return (
-    <Panel eyebrow="Constructors, and the different drivers who gave them podiums" title="Circuit podium network" tag="record">
+    <Panel context="Constructors, and the different drivers who gave them podiums" title="Circuit podium network" tag="record">
       <div className="flex flex-wrap items-end gap-3">
         <label className="block min-w-[min(100%,15rem)] flex-1">
           <span className="label">Circuit</span>

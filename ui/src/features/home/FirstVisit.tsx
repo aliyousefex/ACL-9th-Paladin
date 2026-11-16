@@ -17,8 +17,7 @@ export function FirstVisit() {
     <section aria-labelledby="first-visit-title" className="border border-line2 bg-tower">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-4 py-4 sm:px-6">
         <div>
-          <p className="label !text-signal-text">New here?</p>
-          <h2 id="first-visit-title" className="font-display text-[1.7rem] leading-none font-semibold">Paladin in three steps</h2>
+          <h2 id="first-visit-title" className="font-display text-[1.7rem] leading-none font-semibold">New here? Paladin in three steps</h2>
         </div>
         <button type="button" className="btn btn-ghost !min-h-11 !px-3" onClick={() => setDismissed(true)}>
           Got it, hide this
