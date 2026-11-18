@@ -45,6 +45,7 @@ const ROUTES: [string, string][] = [
   ["team", "/#/teams/alpine?season=2024"],
   ["circuits", "/#/circuits"],
   ["history", "/#/history"],
+  ["knowledge graph", "/#/history?tab=kg"],
   ["league", "/#/league"],
 ];
 

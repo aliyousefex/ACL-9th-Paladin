@@ -6,6 +6,7 @@ import circuitStatsJson from "../data/circuit-stats.json";
 import portraitsJson from "../data/portraits.json";
 import { useEffect, useState } from "react";
 import type { GraphFile } from "./graph";
+import type { Milestone2File } from "./knowledgeGraph";
 
 /* ------------------------------------------------------------------ types */
 
@@ -312,6 +313,7 @@ export const loadAdvancedRace = (id: number) => getJson<AdvancedRace>(`data/adva
 export const loadLayout = (id: string) => getJson<Layout>(`data/circuits/${id}.json`);
 /** The Milestone 2 knowledge graph, exported from its CSV files. Fetched only by the History page. */
 export const loadGraph = () => getJson<GraphFile>("data/graph/graph.json");
+export const loadMilestone2 = () => getJson<Milestone2File>("data/graph/milestone2.json");
 
 export interface Resource<T> {
   data: T | null;

@@ -1,9 +1,27 @@
-from pathlib import Path
-from neo4j import GraphDatabase
+"""Milestone 2: build the Formula 1 knowledge graph in Neo4j from the CSV files in this folder.
+
+    python Create_kg.py
+
+The connection comes from config.txt (URI, USERNAME, PASSWORD, and DATABASE if the file has one), read by key.
+The script is safe to run again: every node is MERGEd on its unique key (each key has a uniqueness constraint) and
+every relationship is MERGEd, so a second run changes nothing. Parent nodes (Season, Status, Circuit, Driver,
+Constructor, Race) are created before the fact nodes (Result, Qualifying, PitStop) that link to them.
+
+Missing values (the literal \\N, and empty cells) are never stored: the property is left off the node.
+"""
+
+import time
 from datetime import date
+from pathlib import Path
+
 import pandas as pd
+from neo4j import GraphDatabase
 
 HERE = Path(__file__).parent   # the folder this script is in (CSVs and config.txt are here)
+
+# What the brief says the finished graph holds. Printed at the end for comparison; never enforced.
+EXPECTED_NODES = 51113
+EXPECTED_RELATIONSHIPS = 163510
 
 
 # ---------- 1. Config ----------
@@ -11,7 +29,7 @@ HERE = Path(__file__).parent   # the folder this script is in (CSVs and config.t
 def read_config(path):
     """Read config.txt as KEY=VALUE lines, by key, not by line number."""
     config = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
         line = line.strip()
         if not line or "=" not in line:
             continue                          # skip empty or broken lines
@@ -24,8 +42,10 @@ def read_config(path):
 
 def load_csv(name):
     """Read a CSV as text. \\N and empty cells become missing (NaN)."""
-    return pd.read_csv(HERE / f"{name}.csv", dtype=str,
-                       keep_default_na=False, na_values=["\\N", ""])
+    table = pd.read_csv(HERE / f"{name}.csv", dtype=str, keep_default_na=False,
+                        na_values=["\\N", ""], encoding="utf-8-sig")
+    table.columns = [column.strip() for column in table.columns]
+    return table
 
 
 def is_missing(value):
@@ -63,9 +83,9 @@ CONSTRAINTS = [
     ("Season", "year"),
     ("Status", "statusId"),
     ("Race", "raceId"),
-    ("Result", "resultId"),        # for Person B
-    ("Qualifying", "qualifyId"),   # for Person C
-    ("PitStop", "eventId"),        # for Person C
+    ("Result", "resultId"),
+    ("Qualifying", "qualifyId"),
+    ("PitStop", "eventId"),
 ]
 
 
@@ -84,10 +104,20 @@ def create_constraints(session):
 BATCH = 1000   # send 1000 rows per query, which is much faster than one query per row
 
 
+def write(session, query, rows):
+    """Run one batch in a managed transaction, which the driver retries if the server reports a transient error.
+    Every query here is a MERGE, so running a batch twice changes nothing."""
+    def work(tx):
+        tx.run(query, rows=rows).consume()
+    # execute_write is the name in driver 5 and later; write_transaction is the same thing in driver 4.
+    run = getattr(session, "execute_write", None) or session.write_transaction
+    run(work)
+
+
 def run_batches(session, query, rows):
     """Run the same Cypher query on the rows, 1000 at a time."""
     for start in range(0, len(rows), BATCH):
-        session.run(query, rows=rows[start:start + BATCH])
+        write(session, query, rows[start:start + BATCH])
 
 
 def merge_nodes(session, label, key, rows):
@@ -158,7 +188,8 @@ def create_races(session):
     """, links)
     print(f"AT_CIRCUIT and IN_SEASON: {len(links)} races linked")
 
-# ---------- 6. Person B: results (placeholder) ----------
+
+# ---------- 6. Fact nodes: results ----------
 
 def create_results(session):
     """Result nodes + FOR_RACE, BY_DRIVER, FOR_CONSTRUCTOR, HAS_STATUS
@@ -193,10 +224,11 @@ def create_results(session):
     """, links)
     print(f"FOR_RACE, BY_DRIVER, FOR_CONSTRUCTOR and HAS_STATUS: {len(links)} results linked")
 
-# ---------- 7. Person C: qualifying and pit stops (placeholders) ----------
+
+# ---------- 7. Fact nodes: qualifying and pit stops ----------
 
 def create_qualifying(session):
-    """Person C: Qualifying nodes + FOR_RACE, BY_DRIVER, FOR_CONSTRUCTOR."""
+    """Qualifying nodes + FOR_RACE, BY_DRIVER, FOR_CONSTRUCTOR."""
     qualifying_csv = load_csv("qualifying")
     rows = [props(qualifyId=to_int(r.qualifyId), number=to_int(r.number),
                   position=to_int(r.position), q1=to_str(r.q1),
@@ -223,7 +255,7 @@ def create_qualifying(session):
 
 
 def create_pitstops(session):
-    """Person C: PitStop nodes (eventId = raceId:driverId:stop) + FOR_RACE, BY_DRIVER."""
+    """PitStop nodes (eventId = raceId:driverId:stop) + FOR_RACE, BY_DRIVER."""
     pit_stop_csv = load_csv("pit_stops")
     records = []
     links = []
@@ -252,8 +284,22 @@ def create_pitstops(session):
 
 # ---------- 8. Run everything in order ----------
 
-def main():
-    config = read_config(HERE / "config.txt")
+def print_summary(session, started):
+    """Say how long the build took and what the graph now holds. Only reports: a failure here never fails the build."""
+    print(f"Built in {time.time() - started:.1f} s")
+    try:
+        nodes = session.run("MATCH (n) RETURN count(n) AS c").single()["c"]
+        relationships = session.run("MATCH ()-[r]->() RETURN count(r) AS c").single()["c"]
+        agree = nodes == EXPECTED_NODES and relationships == EXPECTED_RELATIONSHIPS
+        print(f"The graph holds {nodes:,} nodes and {relationships:,} relationships "
+              f"({'as the brief says' if agree else f'the brief says {EXPECTED_NODES:,} and {EXPECTED_RELATIONSHIPS:,}'})")
+    except Exception as error:   # noqa: BLE001 - reporting only
+        print(f"(could not count the graph: {error})")
+
+
+def main(config_path=None):
+    started = time.time()
+    config = read_config(config_path or HERE / "config.txt")
     driver = GraphDatabase.driver(config["URI"], auth=(config["USERNAME"], config["PASSWORD"]))
     try:
         driver.verify_connectivity()          # fails here if the URI or password is wrong
@@ -268,9 +314,10 @@ def main():
             create_constructors(session)
             create_races(session)
             # Fact nodes.
-            create_results(session)         # Person B
-            create_qualifying(session)      # Person C
-            create_pitstops(session)        # Person C
+            create_results(session)
+            create_qualifying(session)
+            create_pitstops(session)
+            print_summary(session, started)
     finally:
         driver.close()                        # always close the connection at the end
 

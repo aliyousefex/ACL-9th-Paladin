@@ -13,9 +13,11 @@
 //   * two drivers are teammates when each has a Result in the same Race for the same Constructor;
 //   * points are race-result points only (the graph does not load sprint_results.csv).
 //
-// STATUS: these queries were NOT executed against a live Neo4j instance when they were written. The exported
-// answers are checked against independent recomputation from the CSVs (tests/test_graph_export.py); the Cypher
-// itself should be run against your database before it is relied on.
+// STATUS: season_standings, head_to_head, driver_history and circuit_podium_network were run against a live Neo4j 5.26
+// holding the graph Create_kg.py builds (verify_kg.py --product): the first two return exactly the answers of queries.txt
+// Query 1 and Query 3, and the exported answers are also checked against independent recomputation from the CSVs
+// (tests/test_graph_export.py). materialise_teammates and teammate_path write TEAMMATE_OF relationships, which the
+// graded graph must not have (it must hold exactly 163,510), so they were not run there.
 //
 // Blocks start with a "// @name:" marker; the exporter embeds them so the website shows exactly this text.
 

@@ -61,7 +61,7 @@ test("the real index covers every race, driver, team and circuit once, and every
     assert.ok(constructors.some((c) => entry.to === `/teams/${c.ref}`), `${entry.id} opens a team page that exists: ${entry.to}`);
   }
   for (const entry of items) {
-    assert.match(entry.to, /^\/($|race\/\d{4}\/[a-z0-9-]+$|drivers(\/[a-z0-9_-]+)?$|teams(\/[a-z0-9_]+)?$|circuits(\/[a-z0-9_-]+)?$|analysis$|history$|league$|race-lab$|model$|method$|guide$)/, `${entry.id} -> ${entry.to}`);
+    assert.match(entry.to, /^\/($|race\/\d{4}\/[a-z0-9-]+$|drivers(\/[a-z0-9_-]+)?$|teams(\/[a-z0-9_]+)?$|circuits(\/[a-z0-9_-]+)?$|analysis$|history(\?tab=kg)?$|league$|race-lab$|model$|method$|guide$)/, `${entry.id} -> ${entry.to}`);
   }
   assert.equal(suggestions().length, 7);
   const index = prepare(items);

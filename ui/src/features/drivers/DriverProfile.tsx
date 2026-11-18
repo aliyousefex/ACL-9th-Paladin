@@ -220,7 +220,7 @@ export function TeamPanel({ driver, season, constructorId }: { driver: Driver; s
       </p>
 
       {mates.length > 0 ? (
-        <ul className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-px bg-line">
+        <ul className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-px bg-line">
           {mates.map(({ d, rows }) => (
             <li key={d.id} className="flex items-center gap-3 bg-panel px-4 py-3">
               <span className="h-5 w-1.5 shrink-0" style={{ background: colour }} aria-hidden />

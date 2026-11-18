@@ -256,7 +256,6 @@ function MoreMenu({ section, placement }: { section: string; placement: "down" |
             key={entry.key}
             href={href(entry.to)}
             data-active={entry.key === section ? "true" : undefined}
-            aria-current={entry.key === section ? "page" : undefined}
             className="more-item"
             onClick={() => {
               haptic("select");

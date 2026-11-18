@@ -168,3 +168,120 @@ def test_cypher_blocks_are_embedded_and_every_parameter_is_declared(graph):
         declared = set(re.findall(r"(\w+):", block["parameters"]))
         assert used == declared, f"{name}: query uses {used}, declares {declared}"
         assert not re.search(r"driverId:\s*\d+", block["query"]), f"{name}: ids must be parameters, not literals"
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The "Knowledge graph" tab: milestone2.json. The answers are recomputed here with plain loops over the CSV rows, a
+# different route from the pandas of milestone_2/kg_oracle.py that the export uses, so neither can hide a mistake in the other.
+
+
+@pytest.fixture(scope="module")
+def ms2() -> dict:
+    return eg.build_milestone2()
+
+
+@pytest.fixture(scope="module")
+def facts() -> dict:
+    """Plain lookups straight from the CSV files."""
+    def table(name: str) -> pd.DataFrame:
+        return pd.read_csv(SRC / f"{name}.csv", na_values=["\\N"], low_memory=False)
+
+    races = {int(r.raceId): {"year": int(r.year), "circuit": int(r.circuitId), "date": str(r.date)} for r in table("races").itertuples()}
+    status = {int(r.statusId): str(r.status) for r in table("status").itertuples()}
+    name = {int(r.driverId): f"{r.forename} {r.surname}" for r in table("drivers").itertuples()}
+    team = {int(r.constructorId): str(r.name) for r in table("constructors").itertuples()}
+    results = []
+    for r in table("results").itertuples():
+        pos = None if pd.isna(r.position) else int(float(r.position))
+        results.append({"race": int(r.raceId), "driver": int(r.driverId), "team": int(r.constructorId), "status": status[int(r.statusId)], "order": int(r.positionOrder), "pos": pos, "points": float(r.points), **races[int(r.raceId)]})
+    return {"results": results, "name": name, "team": team}
+
+
+def test_milestone2_file_is_current_and_carries_the_queries_as_submitted(ms2):
+    assert ms2["contract"] == "paladin.milestone2.v1" and len(ms2["source"]["sha256"]) == 64
+    assert ms2["counts"] == {"nodes": 51113, "relationships": 163510}
+    assert [q["number"] for q in ms2["questions"]] == [1, 2, 3, 4, 5]
+    text = (SRC / "queries.txt").read_text(encoding="utf-8").replace("\r\n", "\n")
+    for q in ms2["questions"]:
+        assert q["cypher"].startswith("MATCH")
+        assert q["cypher"] in text, f"Query {q['number']} is queries.txt as submitted"
+    if not eg.MS2_OUT.exists():
+        pytest.skip("run scripts/export_graph_data.py first")
+    assert json.loads(eg.MS2_OUT.read_text(encoding="utf-8")) == json.loads(json.dumps(ms2)), "the saved file is current: run scripts/export_graph_data.py"
+
+
+def test_the_answers_match_a_plain_loop_over_the_csv_rows(ms2, facts):
+    results, name, team = facts["results"], facts["name"], facts["team"]
+    q = {item["number"]: item["rows"] for item in ms2["questions"]}
+
+    # Query 1: 2021 points and wins per driver
+    points: dict[int, float] = defaultdict(float)
+    wins: dict[int, int] = defaultdict(int)
+    for r in results:
+        if r["year"] == 2021:
+            points[r["driver"]] += r["points"]
+            wins[r["driver"]] += r["pos"] == 1
+    want1 = sorted(((name[d], points[d], wins[d]) for d in points), key=lambda x: (-x[1], -x[2], x[0]))
+    assert [(r["Driver"], r["Points"], r["Wins"]) for r in q[1]] == want1
+
+    # Query 2: classified share of entries, 2014 to 2021, for constructors with at least 100 entries
+    entries: dict[int, int] = defaultdict(int)
+    classified: dict[int, int] = defaultdict(int)
+    for r in results:
+        if 2014 <= r["year"] <= 2021:
+            entries[r["team"]] += 1
+            classified[r["team"]] += r["status"] == "Finished" or r["status"].startswith("+")
+    want2 = sorted(((team[c], entries[c], classified[c]) for c in entries if entries[c] >= 100), key=lambda x: (-x[2] / x[1], x[0]))
+    assert [(r["Constructor"], r["Entries"], r["Classified"]) for r in q[2]] == want2
+    assert all(abs(r["Reliability"] - r["Classified"] / r["Entries"]) < 1e-12 for r in q[2])
+
+    # Query 3: Hamilton (1) and Bottas (822) in the same race for the same constructor
+    by_slot: dict[tuple[int, int], dict[int, int]] = defaultdict(dict)
+    for r in results:
+        if r["driver"] in (1, 822):
+            by_slot[(r["race"], r["team"])][r["driver"]] = r["order"]
+    shared: dict[int, list[int]] = defaultdict(lambda: [0, 0, 0])
+    for (_, t), seen in by_slot.items():
+        if len(seen) == 2:
+            shared[t][0] += 1
+            shared[t][1] += seen[1] < seen[822]
+            shared[t][2] += seen[822] < seen[1]
+    assert q[3] == [{"Constructor": team[t], "Shared_Races": s, "Hamilton_Ahead": h, "Bottas_Ahead": b} for t, (s, h, b) in sorted(shared.items())]
+
+    # Query 4: Monaco (6) before 2020. A start is a race; the average and the wins are over every remaining Result.
+    monaco: dict[int, dict] = defaultdict(lambda: {"races": set(), "orders": [], "wins": 0})
+    for r in results:
+        if r["circuit"] == 6 and r["date"] < "2020-01-01" and r["status"] not in ("Did not qualify", "Did not prequalify", "Withdrew"):
+            d = monaco[r["driver"]]
+            d["races"].add(r["race"])
+            d["orders"].append(r["order"])
+            d["wins"] += r["pos"] == 1
+    want4 = sorted(((name[i], len(d["races"]), sum(d["orders"]) / len(d["orders"]), d["wins"]) for i, d in monaco.items() if len(d["races"]) >= 5), key=lambda x: (x[2], -x[3], x[0]))
+    got4 = [(r["Driver"], r["Starts"], round(r["Avg_Finish"], 9), r["Wins"]) for r in q[4]]
+    assert got4 == [(a, b, round(c, 9), d) for a, b, c, d in want4]
+    # the drivers who had two Results in one of those races, counted here in Results minus races
+    twice = sum(len(d["orders"]) - len(d["races"]) for d in monaco.values())
+    assert len(ms2["questions"][3]["sharedDrives"]) == twice == 6
+
+    # Query 5: primary constructor in 2020 and in 2021 (most entries; a tie goes to the lower constructorId)
+    count: dict[tuple[int, int], dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    for r in results:
+        if r["year"] in (2020, 2021):
+            count[(r["driver"], r["year"])][r["team"]] += 1
+    primary = {k: min(v, key=lambda t: (-v[t], t)) for k, v in count.items()}
+    movers = [d for d in {k[0] for k in primary} if (d, 2020) in primary and (d, 2021) in primary and primary[(d, 2020)] != primary[(d, 2021)]]
+    changed = sorted(name[d] for d in movers)
+    assert q[5] == [{"Drivers_Changed": len(changed), "Drivers": changed}]
+    moves = {m["driver"]: (m["from"], m["to"]) for m in ms2["questions"][4]["moves"]}
+    assert moves == {name[d]: (team[primary[(d, 2020)]], team[primary[(d, 2021)]]) for d in movers}
+
+
+def test_the_schema_in_the_file_is_the_one_the_brief_gives(ms2):
+    labels = [n["label"] for n in ms2["schema"]]
+    assert labels == ["Driver", "Constructor", "Circuit", "Season", "Status", "Race", "Result", "Qualifying", "PitStop"]
+    assert {n["label"] for n in ms2["schema"] if n["kind"] == "fact"} == {"Result", "Qualifying", "PitStop"}
+    assert len(ms2["relationships"]) == 11
+    assert sum(n["count"] for n in ms2["schema"]) == 51113 and sum(r["count"] for r in ms2["relationships"]) == 163510
+    result = next(n for n in ms2["schema"] if n["label"] == "Result")
+    assert [p["name"] for p in result["properties"]] == ["resultId", "number", "grid", "position", "positionText", "positionOrder", "points", "laps", "time", "milliseconds", "fastestLap", "rank", "fastestLapTime", "fastestLapSpeed"]
+    assert {p["name"]: p["type"] for p in result["properties"]}["points"] == "float"

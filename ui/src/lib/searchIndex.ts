@@ -9,6 +9,7 @@ export const PAGE_ITEMS: SearchItem[] = [
   { id: "page:analysis", kind: "page", title: "Error Atlas", subtitle: "Where Paladin and the starting grid hit and miss", to: "/analysis", keywords: "analysis errors misses baseline grid failures" },
   { id: "page:league", kind: "page", title: "Season league", subtitle: "Call races blind and compare with Paladin and a friend", to: "/league", keywords: "game challenge beat the model score share code friend card" },
   { id: "page:history", kind: "page", title: "History graph", subtitle: "Teammate chains, driver careers, circuit podiums", to: "/history", keywords: "knowledge graph neo4j teammates connections milestone 2" },
+  { id: "page:kg", kind: "page", title: "Knowledge graph", subtitle: "The Milestone 2 schema and its five questions, with the Cypher", to: "/history?tab=kg", keywords: "neo4j cypher schema nodes relationships entity fact queries milestone 2 reliability monaco constructors changed" },
   { id: "page:lab", kind: "page", title: "Race Lab", subtitle: "Simulations and what-if scenarios", to: "/race-lab", keywords: "simulation strategy scenario" },
   { id: "page:model", kind: "page", title: "The model and its limits", subtitle: "Metrics, features, calibration and caveats", to: "/model", keywords: "research logistic regression features calibration roc pr auc" },
   { id: "page:method", kind: "page", title: "Method and data", subtitle: "How the data was cleaned, split and checked", to: "/method", keywords: "walkthrough leakage split reproducibility cleaning" },

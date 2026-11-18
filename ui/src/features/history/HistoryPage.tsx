@@ -7,13 +7,15 @@ import { useTitle } from "../../lib/hooks";
 import { href, replaceQuery } from "../../lib/router";
 import { CypherNote } from "./CypherNote";
 import { EgoGraph } from "./EgoGraph";
+import { KnowledgeGraph } from "./KnowledgeGraph";
 
-type Tab = "connections" | "driver" | "circuit";
+type Tab = "connections" | "driver" | "circuit" | "kg";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "connections", label: "Connections" },
   { id: "driver", label: "Driver history" },
   { id: "circuit", label: "Circuit podiums" },
+  { id: "kg", label: "Knowledge graph" },
 ];
 
 const DATALIST = "graph-drivers";
@@ -63,9 +65,12 @@ export function HistoryPage({ query }: { query: URLSearchParams }) {
             {tab === "connections" && <Connections index={index} query={query} go={go} />}
             {tab === "driver" && <DriverHistory index={index} query={query} go={go} />}
             {tab === "circuit" && <CircuitPodiums index={index} query={query} go={go} />}
-            <Note>
-              Source: {index.file.source.files.length} CSV files from <code>milestone_2/</code> (SHA-256 {index.file.source.sha256.slice(0, 12)}…). A driver at a race counts once, even in the early seasons when a driver could hold two results (a shared drive). Points are race-result points only: the graph does not load sprint results, so a modern season can sit a few points under the official total.
-            </Note>
+            {tab === "kg" && <KnowledgeGraph />}
+            {tab !== "kg" && (
+              <Note>
+                Source: {index.file.source.files.length} CSV files from <code>milestone_2/</code> (SHA-256 {index.file.source.sha256.slice(0, 12)}…). A driver at a race counts once, even in the early seasons when a driver could hold two results (a shared drive). Points are race-result points only: the graph does not load sprint results, so a modern season can sit a few points under the official total.
+              </Note>
+            )}
           </>
         )}
       </div>
