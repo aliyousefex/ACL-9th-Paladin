@@ -1,0 +1,37 @@
+Images used by the onboard race preview on the home page
+=========================================================
+
+Every image in this folder is derived from assets published by Poly Haven (https://polyhaven.com) under the Creative Commons
+CC0 1.0 Universal public-domain dedication (https://creativecommons.org/publicdomain/zero/1.0/). CC0 requires no attribution;
+it is given here because the authors deserve it.
+
+  sky.jpg
+      "Kloofendal 48d Partly Cloudy (Pure Sky)" (kloofendal_48d_partly_cloudy_puresky) by Greg Zaal, sky edits by Jarod Guest.
+      https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky
+      The 16k tone-mapped JPEG, reduced to 2048 x 1024.
+
+  asphalt-diff.jpg, asphalt-nor.jpg, asphalt-rough.jpg
+      "Asphalt Track" (asphalt_track) by Dimitrios Savva.
+      https://polyhaven.com/a/asphalt_track
+      The 1k diffuse, normal (OpenGL) and roughness maps, re-encoded as JPEG (roughness at 512 px, one channel).
+
+  grass-diff.jpg, grass-nor.jpg, grass-rough.jpg
+      "Aerial Grass Rock" (aerial_grass_rock) by Rob Tuytel.
+      https://polyhaven.com/a/aerial_grass_rock
+      The 1k diffuse, normal (OpenGL) and roughness maps, re-encoded as JPEG (roughness at 512 px, one channel).
+
+  tree-fir-a.webp, tree-fir-b.webp, tree-broad-a.webp, tree-broad-b.webp, bush-a.webp, bush-b.webp
+      Rendered from the 1k glTF scans "Fir Sapling" (fir_sapling), "Fir Sapling Medium" (fir_sapling_medium),
+      "Island Tree 01" (island_tree_01), "Island Tree 03" (island_tree_03) by Rob Tuytel and Rico Cilliers, and
+      "Shrub 02" (shrub_02) and "Shrub 04" (shrub_04) by Rico Cilliers.
+      https://polyhaven.com/a/fir_sapling  https://polyhaven.com/a/fir_sapling_medium  https://polyhaven.com/a/island_tree_01
+      https://polyhaven.com/a/island_tree_03  https://polyhaven.com/a/shrub_02  https://polyhaven.com/a/shrub_04
+      Each scan was lit in daylight and rendered once, from the side, on a transparent background. The scans themselves are not
+      shipped: they are far too large for a web page.
+
+  poster.jpg
+      A frame of the onboard preview itself, drawn at the start of the race, shown while the 3D scene loads.
+
+Only resizing, re-encoding and rendering were applied to the Poly Haven assets. Everything else the scene draws (the circuit, the barriers
+and their adverts, the cars, the gloves and the grandstands) is made in code, and the cars' liveries are invented colour schemes, not
+any team's.

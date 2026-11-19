@@ -742,89 +742,346 @@ test("keyboard focus reaches primary navigation and race controls", async ({ pag
   expect(["A", "BUTTON", "SELECT", "INPUT"]).toContain(focused);
 });
 
-/** The home car: one layer, moved by two animations of its transform (the launch, then the lap). */
-const LAPPING_CAR = "[data-lapping-car]";
+/** The home page's onboard preview. It is WebGL: where the browser has it the card must come up and run, and where it does not the card must say so. */
+const CARD = "[data-racing-hero]";
+const cardStatus = (page: Page) => page.locator(CARD).getAttribute("data-status");
+const readout = (page: Page) =>
+  page.evaluate(() => {
+    const read = (name: string) => document.querySelector(`[data-racing-hero] [data-hud="${name}"]`)?.textContent ?? "";
+    return { speed: read("speed"), gear: read("gear"), position: read("position"), lap: read("lap") };
+  });
+const lights = (page: Page) => page.locator("[data-racing-hero] [data-start-lights]");
 
-test("the home car is moved by the animation engine: it waits off screen, pulls away from the first grid slot, and laps at an even pace without snapping its heading", async ({ page }, testInfo) => {
-  test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
+async function openHome(page: Page) {
   await page.goto("/");
-  const map = page.locator('svg[aria-label^="Suzuka circuit"]');
-  await map.scrollIntoViewIfNeeded();
-  await expect(page.locator(LAPPING_CAR)).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: /predict the podium/i })).toBeVisible();
+  await expect.poll(() => cardStatus(page), { timeout: 45_000, message: "the card is neither ready nor in fallback" }).toMatch(/ready|fallback/);
+  return (await cardStatus(page)) as "ready" | "fallback";
+}
 
-  // two animations of the transform and of nothing else: that is what lets the browser run them off the main thread
-  const animations = await page.evaluate((selector) => {
-    const keys = ["offset", "computedOffset", "easing", "composite"];
-    return document.querySelector(selector)!.getAnimations().map((a) => ({
-      frames: a.effect!.getKeyframes().length,
-      properties: [...new Set(a.effect!.getKeyframes().flatMap((k) => Object.keys(k)).filter((p) => !keys.includes(p)))],
-    }));
-  }, LAPPING_CAR);
-  expect(animations.map((a) => a.properties)).toEqual([["transform"], ["transform"]]);
-  expect(animations[0].frames, "the launch").toBeGreaterThan(20);
-  expect(animations[1].frames, "the lap").toBeGreaterThan(300);
+test("home: the onboard preview replaces the circuit card, leaves the headline and buttons alone, and does not widen the page", async ({ page }, testInfo) => {
+  test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
+  const width = testInfo.project.use.viewport!.width;
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const status = await openHome(page);
+  // what was there stays
+  await expect(page.getByRole("heading", { name: /predict the podium/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Open .* 20\d\d/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Surprise me" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open simulation" })).toBeVisible();
+  // and what was replaced is gone
+  await expect(page.locator('svg[aria-label^="Suzuka circuit"]')).toHaveCount(0);
+  await expect(page.getByText(/real F1 timing map, sectors from telemetry/)).toHaveCount(0);
+  // the caption about the picture was taken off, and the way on to the circuits stays
+  await expect(page.locator(CARD).getByText(/An invented circuit and field/)).toHaveCount(0);
+  await expect(page.locator(CARD).getByRole("link", { name: "Explore circuits" })).toHaveAttribute("href", "#/circuits");
+  // the card is in the first screen, whole
+  const box = (await page.locator(CARD).boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(width);
+  if (testInfo.project.name === "desktop-1440") expect(box.y + box.height, "the card fits the first screen").toBeLessThanOrEqual(900);
+  await assertViewport(page, width);
+  expect(errors).toEqual([]);
+  console.log("onboard preview status:", status);
+});
 
-  // off screen it waits where it is, and on screen it goes on from there
-  const where = () => page.evaluate((selector) => getComputedStyle(document.querySelector(selector)!).transform, LAPPING_CAR);
-  const states = () => page.evaluate((selector) => document.querySelector(selector)!.getAnimations().map((a) => a.playState), LAPPING_CAR);
-  expect(await states()).toContain("running");
+test("home: when WebGL is there the picture runs, the instruments move, the order and the gaps are real, and it rests when scrolled away", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440");
+  const status = await openHome(page);
+  test.skip(status !== "ready", "this browser has no WebGL; the fallback test covers it");
+  // the race starts on the grid; wait for the lights to go out and the car to be away
+  await expect.poll(async () => Number((await readout(page)).speed), { timeout: 40_000, message: "the car never got away" }).toBeGreaterThan(60);
+  const first = await readout(page);
+  expect(first.speed).toMatch(/^\d{2,3}$/);
+  expect(first.position).toMatch(/^P\d{1,2}$/);
+  expect(Number(first.gear)).toBeGreaterThanOrEqual(1);
+  // the canvas has the size of the card and is drawn on
+  const canvas = page.locator(`${CARD} canvas`);
+  const size = await canvas.evaluate((c: HTMLCanvasElement) => ({ w: c.clientWidth, h: c.clientHeight, bw: c.width, bh: c.height }));
+  expect(size.w).toBeGreaterThan(300);
+  expect(size.bw, "the drawing buffer is at least the size of the card (to the pixel)").toBeGreaterThanOrEqual(size.w - 2);
+  // the timing tower names the player and the cars either side
+  const tower = page.locator(`${CARD} ol li`);
+  await expect.poll(() => tower.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
+  await expect(page.locator(`${CARD} ol li`, { hasText: "You" })).toHaveCount(1);
+  // the instruments change as the car moves
+  const seen = new Set<string>();
+  for (let i = 0; i < 12; i++) {
+    seen.add((await readout(page)).speed);
+    await page.waitForTimeout(250);
+  }
+  expect(seen.size, "the speed never changed: the picture is not running").toBeGreaterThan(2);
+  // scrolled away it stops: the page does not draw what nobody can see
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  await expect.poll(states, { message: "the car is still being animated with its map scrolled away" }).not.toContain("running");
-  const waiting = await where();
-  await page.waitForTimeout(600);
-  expect(await where(), "the car moved while its map was off screen").toBe(waiting);
-  await map.scrollIntoViewIfNeeded();
-  await expect.poll(states, { message: "the car did not start again" }).toContain("running");
+  await page.waitForTimeout(700);
+  const away = await readout(page);
+  await page.waitForTimeout(1200);
+  expect((await readout(page)).speed, "the preview kept running while off screen").toBe(away.speed);
+  await page.locator(CARD).scrollIntoViewIfNeeded();
+  await expect.poll(async () => (await readout(page)).speed, { timeout: 8_000, message: "it did not start again" }).not.toBe(away.speed);
+});
 
-  // scrub both animations through the whole lap, which needs no waiting and no luck with timing
-  const lap = await page.evaluate((selector) => {
-    const car = document.querySelector(selector)!;
-    const [launch, cruise] = car.getAnimations();
-    launch.pause();
-    cruise.pause();
-    const at = (animation: Animation, local: number) => {
-      animation.currentTime = (animation.effect!.getTiming().delay as number) + local;
-      const m = new DOMMatrix(getComputedStyle(car).transform);
-      return { x: m.m41, y: m.m42, angle: (Math.atan2(m.m12, m.m11) * 180) / Math.PI };
-    };
-    const turn = (from: number, to: number) => ((((to - from) % 360) + 540) % 360) - 180;
-    const between = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(b.x - a.x, b.y - a.y);
-    const lapMs = 24000;
-    const n = 480;
-    const track = Array.from({ length: n + 1 }, (_, i) => at(cruise, (i / n) * lapMs));
-    const steps = track.slice(1).map((p, i) => ({ move: between(track[i], p), turn: turn(track[i].angle, p.angle) }));
-    // the lap is later in the stack than the launch, so it must be back before its start for the launch to show
-    cruise.currentTime = 0;
-    const pole = at(launch, 0);
-    return {
-      pole,
-      steps,
-      half: between(pole, at(launch, 1500)),
-      whole: between(pole, at(launch, 3000)),
-      launchSpeed: between(at(launch, 2900), at(launch, 3000)) / 100,
-      cruiseSpeed: between(at(cruise, 0), at(cruise, 100)) / 100,
-    };
-  }, LAPPING_CAR);
+test("home: driving needs the card to have focus, the page keeps scrolling otherwise, and the autopilot takes the car back", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440");
+  const status = await openHome(page);
+  test.skip(status !== "ready", "this browser has no WebGL");
+  const stage = page.locator(`${CARD} [role="group"]`).first();
+  const toggle = page.locator(CARD).getByRole("button", { name: /Take the wheel|Back to autopilot/ });
+  await expect(toggle).toHaveText("Take the wheel");
+  await expect.poll(async () => Number((await readout(page)).speed), { timeout: 40_000, message: "the car never got away" }).toBeGreaterThan(40);
+  // keys pressed anywhere else do nothing to it
+  await page.locator("body").press("w");
+  await expect(toggle).toHaveText("Take the wheel");
+  // an arrow key on the focused card, before the wheel is taken, still scrolls the page
+  await stage.focus();
+  const before = await page.evaluate(() => window.scrollY);
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(() => window.scrollY), "the arrow key was swallowed").toBeGreaterThan(before);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  // W takes the wheel; holding it builds speed, and a brake takes it off
+  await stage.focus();
+  await page.keyboard.down("w");
+  await expect(toggle).toHaveText("Back to autopilot");
+  await page.waitForTimeout(2500);
+  const fast = Number((await readout(page)).speed);
+  await page.keyboard.up("w");
+  await page.keyboard.down("s");
+  await page.waitForTimeout(1800);
+  await page.keyboard.up("s");
+  expect(Number((await readout(page)).speed), "braking did not slow the car").toBeLessThan(fast);
+  // Escape hands it back
+  await page.keyboard.press("Escape");
+  await expect(toggle).toHaveText("Take the wheel");
+  // and so does a click on the button, and so does a quiet spell
+  await toggle.click();
+  await expect(toggle).toHaveText("Back to autopilot");
+  await expect(toggle).toHaveText("Take the wheel", { timeout: 12_000 });
+});
 
-  // it waits in the first grid slot, 11 units behind the line on Suzuka's straight (the line is at 622.1, 78.1)
-  expect(Math.abs(lap.pole.x - 611.1), "pole x").toBeLessThan(2.5);
-  expect(Math.abs(lap.pole.y - 78.1), "pole y").toBeLessThan(2.5);
-  // the launch builds speed steadily: the distance covered grows as the square of the time, so half the time covers a quarter of the way
-  expect(lap.half / lap.whole, "the launch is not a steady build of speed").toBeGreaterThan(0.2);
-  expect(lap.half / lap.whole, "the launch is not a steady build of speed").toBeLessThan(0.3);
-  // and it hands over to the lap at the speed it has reached, with no kick
-  expect(lap.launchSpeed / lap.cruiseSpeed, "speed at the handover").toBeGreaterThan(0.9);
-  expect(lap.launchSpeed / lap.cruiseSpeed, "speed at the handover").toBeLessThan(1.1);
-  // round the lap the pace is even: every step of a 480th of a lap is the same length, give or take the curve
-  const moves = lap.steps.map((s) => s.move).sort((a, b) => a - b);
-  const median = moves[Math.floor(moves.length / 2)];
-  expect(moves[0] / median, "the car slows somewhere on the lap").toBeGreaterThan(0.85);
-  expect(moves[moves.length - 1] / median, "the car jumps somewhere on the lap").toBeLessThan(1.15);
-  // the heading turns continuously: no step turns it through anything like the snap of a straight-segment heading, and it never spins the long way
-  const worstTurn = Math.max(...lap.steps.map((s) => Math.abs(s.turn)));
-  expect(worstTurn, "the heading snaps").toBeLessThan(40);
-  const net = lap.steps.reduce((sum, s) => sum + s.turn, 0);
-  expect(Math.abs(net), "Suzuka's figure of eight turns the car through no net turn; a spin the long way would add or take a whole one").toBeLessThan(25);
+test("home: the race starts on the grid with five red lights, then lights out and green, and nothing can be driven until they are out", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440");
+  await page.goto("/");
+  await expect.poll(() => cardStatus(page), { timeout: 45_000 }).toMatch(/ready|fallback/);
+  test.skip((await cardStatus(page)) !== "ready", "this browser has no WebGL");
+  // on the grid: the car is standing, and the lights come on one after another
+  await expect(lights(page)).toBeVisible({ timeout: 15_000 });
+  // one snapshot of the lights and the speed together, so what is asserted is what the page showed at that moment
+  const snap = () =>
+    page.evaluate(() => {
+      const el = document.querySelector("[data-racing-hero] [data-start-lights]");
+      return {
+        present: !!el,
+        lit: el?.getAttribute("data-lit") ?? "",
+        green: el?.getAttribute("data-green") === "true",
+        speed: Number(document.querySelector('[data-racing-hero] [data-hud="speed"]')?.textContent),
+      };
+    });
+  const stage = page.locator(`${CARD} [role="group"]`).first();
+  await stage.focus();
+  const lit: string[] = [];
+  let sawGreen = false;
+  await expect
+    .poll(
+      async () => {
+        const s = await snap();
+        if (s.lit && lit[lit.length - 1] !== s.lit) lit.push(s.lit);
+        sawGreen ||= s.green;
+        return lit.includes("5");
+      },
+      { timeout: 60_000, intervals: [50], message: "the five lights never all lit" },
+    )
+    .toBe(true);
+  // a key pressed with the lights on is no jump start. The hold after the fifth light can be as short as a second, so the check
+  // only counts when the same snapshot still shows the five red lights (a car that is away after lights out is not a jump start)
+  await page.keyboard.down("w");
+  await page.waitForTimeout(300);
+  const pressed = await snap();
+  sawGreen ||= pressed.green;
+  if (pressed.present && pressed.lit === "5" && !pressed.green) expect(pressed.speed, "it moved before the lights went out").toBe(0);
+  await page.keyboard.up("w");
+  // having tried, give the car back to the autopilot
+  await page.keyboard.press("Escape");
+  // then they go out and show green, and the car goes
+  await expect
+    .poll(
+      async () => {
+        const s = await snap();
+        sawGreen ||= s.green;
+        return s.speed;
+      },
+      { timeout: 40_000, intervals: [50] },
+    )
+    .toBeGreaterThan(30);
+  expect(sawGreen, "the lights never showed green").toBe(true);
+  expect(lit.map(Number).sort()).toEqual(expect.arrayContaining([1, 2, 3, 4, 5]));
+  // and the lights are gone once the race is on
+  await expect(lights(page)).toHaveCount(0, { timeout: 15_000 });
+});
+
+test("home: the card goes full screen and comes back, and can be restarted from the grid", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440");
+  const status = await openHome(page);
+  test.skip(status !== "ready", "this browser has no WebGL");
+  const full = page.getByRole("button", { name: "Full screen" });
+  await expect(full).toBeVisible();
+  const before = (await page.locator(CARD).boundingBox())!;
+  await full.click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.className ?? ""), { timeout: 8_000 }).toContain("racing-card");
+  // the picture fills the whole screen: the instruments and notes are small panels over its corners, not strips beside it
+  const stageBox = await page.locator(`${CARD} .racing-stage`).evaluate((el) => ({ w: el.clientWidth, h: el.clientHeight, iw: window.innerWidth, ih: window.innerHeight }));
+  expect(stageBox.w).toBe(stageBox.iw);
+  expect(stageBox.h).toBe(stageBox.ih);
+  await expect(page.getByRole("button", { name: "Exit full screen" })).toBeVisible();
+  const overlay = page.locator(`${CARD} [data-racing-overlay]`);
+  await expect(overlay).toBeVisible();
+  const panels = await overlay.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, ih: window.innerHeight, readouts: ["speed", "gear", "position", "lap"].every((n) => !!el.querySelector(`[data-hud="${n}"]`)) };
+  });
+  expect(panels.readouts, "speed, gear, position and lap are all still on screen").toBe(true);
+  expect(panels.bottom).toBeLessThanOrEqual(panels.ih);
+  expect(panels.ih - panels.top, "the panels take a thin strip of the picture").toBeLessThan(panels.ih * 0.14);
+  await expect(page.locator(CARD).getByText(/An invented circuit and field/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Take the wheel" })).toBeVisible();
+  // they are still alive: the numbers keep moving
+  await expect.poll(async () => Number((await readout(page)).speed), { timeout: 40_000 }).toBeGreaterThan(40);
+  // the canvas follows the new size
+  await expect.poll(() => page.locator(`${CARD} canvas`).evaluate((c: HTMLCanvasElement) => c.clientWidth), { timeout: 8_000 }).toBe(stageBox.iw);
+  await page.getByRole("button", { name: "Exit full screen" }).click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
+  const after = (await page.locator(CARD).boundingBox())!;
+  expect(Math.round(after.width)).toBe(Math.round(before.width));
+  // restart: back on the grid, lights and all
+  await expect.poll(async () => Number((await readout(page)).speed), { timeout: 40_000 }).toBeGreaterThan(40);
+  await page.getByRole("button", { name: "Restart from the grid" }).click();
+  await expect(lights(page)).toBeVisible({ timeout: 8_000 });
+  await expect.poll(async () => Number((await readout(page)).speed), { timeout: 8_000 }).toBeLessThan(10);
+});
+
+test("home: sound is off until it is asked for, then an engine runs, and it can be switched off again", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440");
+  // count the audio contexts the page makes: none before the button is pressed
+  await page.addInitScript(() => {
+    const w = window as unknown as { __contexts: number; AudioContext: typeof AudioContext };
+    w.__contexts = 0;
+    const Original = w.AudioContext;
+    w.AudioContext = class extends Original {
+      constructor(...args: ConstructorParameters<typeof AudioContext>) {
+        super(...args);
+        w.__contexts++;
+      }
+    } as typeof AudioContext;
+  });
+  const status = await openHome(page);
+  test.skip(status !== "ready", "this browser has no WebGL");
+  const contexts = () => page.evaluate(() => (window as unknown as { __contexts: number }).__contexts);
+  const button = page.getByRole("button", { name: "Sound", exact: true });
+  await expect(button).toBeVisible();
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await page.waitForTimeout(1500);
+  expect(await contexts(), "the page made sound before it was asked to").toBe(0);
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  expect(await contexts()).toBe(1);
+  // the audio is running, not stuck waiting for a gesture
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __contexts: number }).__contexts), { timeout: 3000 })
+    .toBe(1);
+  await page.waitForTimeout(1200);
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  // and on again: the same context, not a new one each time
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  expect(await contexts()).toBe(1);
+});
+
+test("home: where the browser has no full screen the card fills the window instead, and Escape gives it back", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-375");
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "fullscreenEnabled", { value: false });
+  });
+  const status = await openHome(page);
+  test.skip(status !== "ready", "this browser has no WebGL");
+  await page.getByRole("button", { name: "Full screen" }).click();
+  await expect(page.locator(CARD).locator("section")).toHaveAttribute("data-expanded", "true");
+  const box = (await page.locator(CARD).locator("section").boundingBox())!;
+  expect(Math.round(box.x)).toBe(0);
+  expect(Math.round(box.y)).toBe(0);
+  expect(Math.round(box.width)).toBe(375);
+  await assertViewport(page, 375);
+  // the instruments and notes sit over the picture, inside the window
+  const overlay = (await page.locator(`${CARD} [data-racing-overlay]`).boundingBox())!;
+  expect(overlay.x).toBeGreaterThanOrEqual(0);
+  expect(overlay.x + overlay.width).toBeLessThanOrEqual(375);
+  await page.getByRole("button", { name: "Exit full screen" }).click();
+  await expect(page.locator(CARD).locator("section")).not.toHaveAttribute("data-expanded", "true");
+});
+
+test("home: a phone scrolls over the picture, and drives only from its own buttons", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-375");
+  const status = await openHome(page);
+  test.skip(status !== "ready", "this browser has no WebGL");
+  const stage = page.locator(`${CARD} [role="group"]`).first();
+  expect(await stage.evaluate((el) => getComputedStyle(el).touchAction)).toBe("pan-y");
+  await page.getByRole("button", { name: "Take the wheel" }).click();
+  await expect(page.getByRole("group", { name: "Driving controls" })).toBeVisible();
+  for (const name of ["Steer left", "Steer right", "Brake", "Accelerate"]) {
+    const box = (await page.getByRole("button", { name }).boundingBox())!;
+    expect(box.width, name).toBeGreaterThanOrEqual(44);
+    expect(box.height, name).toBeGreaterThanOrEqual(44);
+  }
+  expect(await stage.evaluate((el) => getComputedStyle(el).touchAction)).toBe("none");
+  await assertViewport(page, 375);
+  await page.getByRole("button", { name: "Back to autopilot" }).click();
+  await expect(page.getByRole("group", { name: "Driving controls" })).toHaveCount(0);
+});
+
+test("home: asked for less motion, it holds still until it is asked to play", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-1440");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const status = await openHome(page);
+  test.skip(status !== "ready", "this browser has no WebGL");
+  await expect(page.getByRole("button", { name: "Play preview" })).toBeVisible();
+  const still = await readout(page);
+  await page.waitForTimeout(1500);
+  expect((await readout(page)).speed, "it moved with reduced motion asked for").toBe(still.speed);
+  await page.getByRole("button", { name: "Play preview" }).click();
+  await expect.poll(async () => (await readout(page)).speed, { timeout: 25_000 }).not.toBe(still.speed);
+});
+
+test("home: without WebGL the card says so and still shows a picture, and the page works", async ({ page }, testInfo) => {
+  test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
+  await page.addInitScript(() => {
+    const real = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
+      if (/webgl/i.test(kind)) return null;
+      return (real as (...a: unknown[]) => unknown).call(this, kind, ...rest);
+    } as typeof HTMLCanvasElement.prototype.getContext;
+  });
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await expect.poll(() => cardStatus(page), { timeout: 15_000 }).toBe("fallback");
+  await expect(page.locator(CARD).getByText(/3D view is unavailable/)).toBeVisible();
+  // a real picture of the scene stands in for it (a photograph, not a drawing)
+  await expect.poll(() => page.locator(`${CARD} img[src="/racing/poster.jpg"]`).evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth), { timeout: 10_000 }).toBeGreaterThan(500);
+  await expect(page.getByRole("heading", { name: /predict the podium/i })).toBeVisible();
+  await assertViewport(page, testInfo.project.use.viewport!.width);
+  expect(errors).toEqual([]);
+});
+
+test("race: the step strip says in words where the reader is", async ({ page }, testInfo) => {
+  test.skip(!["mobile-375", "desktop-1440"].includes(testInfo.project.name));
+  await page.goto(RACE);
+  const steps = page.locator(".journey-steps li");
+  await expect(steps).toHaveCount(5);
+  await expect(steps.nth(0)).toHaveAttribute("data-state", "next");
+  await expect(steps.nth(4)).toHaveAttribute("data-state", "locked");
+  await expect(steps.nth(4)).toContainText("Unlocks after reveal");
+  await assertViewport(page, testInfo.project.use.viewport!.width);
 });
 
 test("people: a driver's page describes the season, a team's page says who ran it with sources, and a principal's name finds their team", async ({ page }, testInfo) => {

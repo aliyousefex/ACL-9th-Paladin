@@ -105,10 +105,8 @@ test("a launch from just before the start line crosses the seam of the lap witho
   assert.ok(launch[launch.length - 1].angle - launch[0].angle > 0, "and it carries on turning the same way");
 });
 
-test("a path cannot be measured without a browser, and the lap then comes from the outline's samples", () => {
+test("a path cannot be measured without a browser, so a caller falls back to the outline's own samples", () => {
   assert.equal(sampleTrack("M0 0L10 0L10 10Z"), null);
-  const home = read("../src/features/home/Home.tsx");
-  assert.match(home, /sampleTrack\(layout\.path\) \?\? layout\.samples/);
 });
 
 // ---- the real circuits -------------------------------------------------------------------------------------------------------
@@ -138,21 +136,4 @@ test("every shipped circuit gives a closed lap whose heading turns more gently t
     assert.ok(worstSmooth <= worstRaw + 1e-9, `${name}: the heading steps by up to ${worstSmooth.toFixed(1)} degrees, no better than ${worstRaw.toFixed(1)}`);
     assert.ok(worstSmooth < 60, `${name}: a ${worstSmooth.toFixed(1)} degree step in the heading`);
   }
-});
-
-// ---- how the home car is put together ----------------------------------------------------------------------------------------
-
-test("the home car is moved by the browser's animation engine, not by script every frame, and is smaller than the track is wide", () => {
-  const source = read("../src/features/home/Home.tsx");
-  assert.doesNotMatch(source, /requestAnimationFrame/, "no per-frame script on the home page's map");
-  assert.doesNotMatch(source, /setAttribute\("transform"/, "the car is not moved by setting an attribute");
-  assert.match(source, /node\.animate\(/, "its movement is a Web Animation, which the browser can run off the main thread");
-  assert.match(source, /iterations: Infinity/);
-  assert.match(source, /new IntersectionObserver/, "it waits while its map is off screen");
-  assert.match(source, /data-lapping-car/);
-  // the front wing's end plates and footplates reach 7.5 units from the car's middle at scale 1; the asphalt is 20 wide, so 10 each side
-  const scale = Number(source.match(/CAR_SCALE = ([\d.]+)/)?.[1]);
-  assert.ok(scale > 0 && 7.5 * scale <= 9, `the car, at ${scale}, is wider than the track allows`);
-  // nothing in the car's timing overshoots or bounces: the launch is a straight build of speed
-  assert.match(source, /easing: "linear"/);
 });

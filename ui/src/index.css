@@ -358,6 +358,32 @@ a.crumbs:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* The onboard card filling the screen, either through the browser's full screen or, where there is none, by filling the window. The picture takes all of it: the instruments and notes are small panels over its corners (see RacingHero), not strips beside it. */
+.racing-card:fullscreen,
+.racing-card[data-expanded="true"] {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  /* the utilities layer (border, aspect-ratio) outranks this one, so these two say so */
+  border-width: 0 !important;
+  background: var(--color-tower);
+}
+.racing-card[data-expanded="true"] { position: fixed; inset: 0; z-index: 60; height: 100dvh; }
+/* position: fixed belongs to the nearest transformed ancestor, and the page's entrance animation leaves a transform on its wrapper; while the card fills the window that wrapper holds still */
+.page-in:has(.racing-card[data-expanded="true"]) { animation: none !important; transform: none !important; }
+.racing-card:fullscreen .racing-stage,
+.racing-card[data-expanded="true"] .racing-stage { aspect-ratio: auto !important; flex: 1 1 0; min-height: 0; }
+
+/* The racing card's instrument figures: the same face as .figure, sized by their own classes (the home hero resizes every .figure). */
+.racing-num {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Captions set inside a figure ("/ 24 races played") are text, not numerals: keep their spacing open. */
 .figure > span {
   letter-spacing: 0.01em;
@@ -440,44 +466,50 @@ h3 {
 
 .journey-lead .journey-state[data-open="true"]::before { background: var(--color-hit); }
 
-.journey-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+/*
+ * The route through a race, drawn like a timing screen's sector bar: each step is a segment with its own coloured edge, a large
+ * numeral, and a state in words (colour never says it alone). Done is solid, the next step carries the one signal, a locked step is hatched.
+ */
+.journey-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-top: 1px solid var(--color-line);
+}
 
 .journey-steps li {
   position: relative;
   min-width: 0;
+  border-left: 1px solid var(--color-line);
 }
 
-/* The path: a hairline runs from each step's number to the next one. */
-.journey-steps li:not(:last-child)::after {
+.journey-steps li:first-child { border-left: 0; }
+
+/* the segment: a bar along the top of each step */
+.journey-steps li::before {
   content: "";
   position: absolute;
-  top: 2.15rem;
-  left: 3.6rem;
-  right: 0;
-  height: 1px;
+  inset: -1px 0 auto 0;
+  height: 4px;
   background: var(--color-line2);
+  transition: background-color 200ms var(--ease-out);
 }
 
-.journey-steps li + li::before {
-  content: "";
-  position: absolute;
-  top: 2.15rem;
-  left: 0;
-  width: 1rem;
-  height: 1px;
-  background: var(--color-line2);
+.journey-steps li[data-state="done"]::before { background: var(--color-ink); }
+.journey-steps li[data-state="next"]::before { background: var(--color-signal); }
+.journey-steps li[data-state="locked"]::before {
+  background: repeating-linear-gradient(-45deg, var(--color-line2) 0 4px, transparent 4px 8px);
 }
 
 .journey-steps a {
   position: relative;
-  z-index: 1;
   display: grid;
-  grid-template-columns: 2.3rem minmax(0, 1fr);
-  grid-template-areas: "node go" "text text";
-  align-items: center;
-  row-gap: 0.9rem;
-  min-height: 7.5rem;
-  padding: 1rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "node flag" "text text";
+  align-items: start;
+  column-gap: 0.75rem;
+  row-gap: 0.65rem;
+  min-height: 9rem;
+  padding: 1.35rem 1.25rem 1.3rem;
   color: var(--color-ink);
   text-decoration: none;
   transition: background-color 160ms ease;
@@ -487,39 +519,44 @@ h3 {
 .journey-steps a.is-locked { color: var(--color-mute); cursor: not-allowed; }
 .journey-steps a.is-locked:hover { background: transparent; }
 
+/* the numeral is a quiet landmark until the step is done or being hovered */
 .journey-node {
   grid-area: node;
-  display: grid;
-  place-items: center;
-  width: 2.3rem;
-  height: 2.3rem;
-  border: 1px solid var(--color-control);
-  background: var(--color-tower);
-  color: var(--color-ink);
+  color: var(--color-line2);
   font-family: var(--font-display);
-  font-size: 1.3rem;
-  line-height: 1;
+  font-size: 3.1rem;
+  font-weight: 700;
+  line-height: 0.85;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition: color 160ms ease;
 }
 
-.journey-steps a:hover .journey-node { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
-.journey-steps a.is-done .journey-node { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
-.journey-steps a.is-locked .journey-node { border-style: dashed; border-color: var(--color-line2); background: transparent; color: var(--color-mute); }
+.journey-steps a:hover .journey-node,
+.journey-steps li[data-state="done"] .journey-node,
+.journey-steps li[data-state="next"] .journey-node { color: var(--color-ink); }
+.journey-steps a.is-locked:hover .journey-node { color: var(--color-line2); }
 
-.journey-go {
-  grid-area: go;
+.journey-flag {
+  grid-area: flag;
   justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   color: var(--color-mute);
-  transition: transform 200ms var(--ease-out), color 160ms ease;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1;
 }
 
-.journey-steps a:hover .journey-go { color: var(--color-ink); transform: translateX(3px); }
-.journey-steps a.is-locked:hover .journey-go { color: var(--color-mute); transform: none; }
+.journey-steps li[data-state="done"] .journey-flag { color: var(--color-steel); }
+.journey-steps li[data-state="next"] .journey-flag { color: var(--color-signal-text); }
 
 .journey-text { grid-area: text; min-width: 0; }
-.journey-steps strong { display: block; font-family: var(--font-display); font-size: 1.25rem; text-transform: uppercase; letter-spacing: .05em; line-height: 1.1; }
-.journey-steps small { display: block; margin-top: .25rem; color: var(--color-mute); font-size: .85rem; line-height: 1.25; }
+.journey-steps strong { display: block; font-family: var(--font-display); font-size: 1.55rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.05; }
+.journey-steps small { display: block; margin-top: 0.3rem; color: var(--color-mute); font-size: 0.88rem; line-height: 1.3; }
+.journey-steps li[data-state="done"] small { color: var(--color-steel); }
 
 .journey-readout { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--color-line); background: var(--color-panel); }
 .journey-readout p { padding: 1.1rem 1.4rem 1.2rem; }
@@ -534,23 +571,19 @@ h3 {
 
 @media (max-width: 900px) {
   .journey-steps { grid-template-columns: 1fr; }
-  /* On a narrow screen the path runs down the left, number to number. */
-  .journey-steps li:not(:last-child)::after {
-    top: 3.3rem;
-    bottom: -0.1rem;
-    left: 2.15rem;
-    right: auto;
-    width: 1px;
-    height: auto;
-  }
-  .journey-steps li + li::before { display: none; }
+  .journey-steps li { border-left: 0; border-top: 1px solid var(--color-line); }
+  .journey-steps li:first-child { border-top: 0; }
+  .journey-steps li::before { inset: 0 auto 0 0; width: 4px; height: auto; }
+  .journey-steps li[data-state="locked"]::before { background: repeating-linear-gradient(180deg, var(--color-line2) 0 4px, transparent 4px 8px); }
   .journey-steps a {
-    grid-template-columns: 2.3rem minmax(0, 1fr) auto;
-    grid-template-areas: "node text go";
+    grid-template-columns: 3.2rem minmax(0, 1fr) auto;
+    grid-template-areas: "node text flag";
     column-gap: 0.9rem;
-    min-height: 4.5rem;
-    row-gap: 0;
+    align-items: center;
+    min-height: 5.25rem;
+    padding: 1rem 1rem 1rem 1.35rem;
   }
+  .journey-node { font-size: 2.4rem; }
   .journey-readout { grid-template-columns: 1fr; }
   .journey-readout p + p { border-left: 0; border-top: 1px solid var(--color-line); }
 }

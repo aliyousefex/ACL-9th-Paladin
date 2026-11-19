@@ -62,8 +62,8 @@ test("the decorative hairlines are deliberately fainter than the control border,
 
 test("neutral greys that are design tokens are written as tokens in the code, so the palette has one source", () => {
   const NEUTRAL = /#(?:262b33|39414c|c5cad1|98a0ab|f4f4f2)\b/i;
-  // Fixed on purpose: the share card is always dark, data holds team colours, and the chequered flag in an event mark is black and white in either theme.
-  const allowed = new Set(["lib/card.ts", "lib/data.ts", "components/CircuitMap.tsx", "components/VectorRaceCar.tsx", "components/EventMark.tsx", "features/race/ReplayPanel.tsx", "features/games/GrandPrixRace.tsx"]);
+  // Fixed on purpose: the share card is always dark, data holds team colours, the chequered flag in an event mark is black and white in either theme, and the onboard preview paints canvases and vertex colours, where a CSS variable cannot be read.
+  const allowed = new Set(["lib/card.ts", "lib/data.ts", "components/CircuitMap.tsx", "components/VectorRaceCar.tsx", "components/EventMark.tsx", "features/race/ReplayPanel.tsx", "features/games/GrandPrixRace.tsx", "features/home/racing/cars.ts", "features/home/racing/textures.ts"]);
   const offenders: string[] = [];
   let visited = 0;
   const walk = (dir: string) => {

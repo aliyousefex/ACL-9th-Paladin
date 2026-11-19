@@ -11,7 +11,7 @@ import { buildReplay, pointAt, type DriverState } from "./replay";
 import type { Row } from "./rows";
 
 const ROW_H = 48;
-const SPEEDS = ["45", "90", "180", "360"] as const;
+const SPEEDS = ["5", "10", "45", "90", "180", "360"] as const;
 
 interface Snapshot {
   t: number;
